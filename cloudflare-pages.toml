@@ -1,0 +1,119 @@
+# Cloudflare Pages 构建配置文件
+# 优化 Pawdia AI 前端项目的构建设置
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# 环境变量 - 在 Cloudflare Dashboard 中设置
+[env_vars]
+  # 开发环境变量
+  VITE_API_URL = "https://api.pawdia-ai.com"
+  VITE_STRIPE_PUBLISHABLE_KEY = "your_stripe_publishable_key"
+  
+# CORS 和安全头配置
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# 静态资源缓存策略
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"
+
+# HTML 文件缓存控制
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# API 路由重定向 - SPA 支持
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 图片和媒体文件优化
+[[headers]]
+  for = "*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "image/jpeg"
+
+[[headers]]
+  for = "*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "image/png"
+
+[[headers]]
+  for = "*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "image/svg+xml"
+
+# 字体文件缓存
+[[headers]]
+  for = "*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "font/woff2"
+
+# Favicon 和 manifest
+[[headers]]
+  for = "/favicon.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    Content-Type = "application/json"
+
+# 错误页面重定向
+[[redirects]]
+  from = "/404"
+  to = "/index.html"
+  status = 200
+
+# 构建优化配置
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+# 压缩设置
+[build.compression]
+  gzip = true
+  brotli = true
+
+# 环境特定的设置
+[env.production]
+  [env.production.vars]
+    NODE_ENV = "production"
+    VITE_APP_ENV = "production"
+
+[env.preview]
+  [env.preview.vars]
+    NODE_ENV = "development"
+    VITE_APP_ENV = "preview"
