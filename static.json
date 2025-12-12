@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "type": "static",
+  "build": {
+    "command": "npm run build",
+    "output": "dist"
+  },
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html",
+      "status": 200
+    }
+  ]
+}
