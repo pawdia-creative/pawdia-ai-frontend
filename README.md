@@ -1,109 +1,62 @@
-# Pawdia AI - AI Pet Portrait Generator
+# Pawdia AI - 前后端分离项目
 
-Transform your pet photos into stunning artistic portraits with AI. Choose from 6 unique art styles and customize various products for your beloved pets.
+## 项目结构
 
-## Features
+本项目采用前后端分离架构：
 
-- **AI-Powered Art Generation**: Transform pet photos into beautiful artistic portraits
-- **6 Unique Art Styles**: Oil painting, watercolor, pop art, Chinese ink, crayon, and pencil sketch
-- **Product Customization**: Create canvas prints, T-shirts, mugs, and more
-- **User-Friendly Interface**: Simple 4-step process for creating pet art
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+### 前端 (Frontend)
+- **位置**: `frontend-separation/` 目录
+- **技术栈**: React + TypeScript + Vite + Tailwind CSS
+- **部署**: Cloudflare Pages (静态网站)
+- **构建输出**: `dist/` 目录
 
-## Tech Stack
+### 后端 (Backend) 
+- **位置**: `api/` 目录
+- **技术栈**: Node.js + Express + Cloudflare D1
+- **部署**: Cloudflare Workers 或独立服务器
+- **API端点**: 需配置环境变量
 
-- **Frontend**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS + shadcn/ui components
-- **Routing**: React Router DOM
-- **Icons**: Lucide React
+## 部署指南
 
-## Getting Started
+### 前端部署 (Cloudflare Pages)
+1. 在 Cloudflare Dashboard 创建 Pages 项目
+2. 连接到 GitHub 仓库的 `main` 分支
+3. 构建命令: `cd frontend-separation && npm install && npm run build`
+4. 输出目录: `frontend-separation/dist`
+5. 根目录: `frontend-separation`
 
-### Prerequisites
+### 后端部署
+后端代码位于 `api/` 目录，可部署到：
+- Cloudflare Workers
+- 独立服务器
+- 其他 Node.js 托管服务
 
-- Node.js (version 18 or higher)
-- npm or yarn package manager
+## 重要说明
 
-### Installation
+⚠️ **Cloudflare 部署注意事项**:
+- 确保项目被识别为 Pages 项目而非 Workers 项目
+- 不要创建 `functions/` 目录
+- 前端代码必须完全分离到独立目录
+- 使用 `static.json` 明确指定静态网站配置
 
-1. Clone the repository:
+## 开发
+
+### 前端开发
 ```bash
-git clone <repository-url>
-cd pawdia-ai-portraits-main
-```
-
-2. Install dependencies:
-```bash
+cd frontend-separation
 npm install
-```
-
-3. Start the development server:
-```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:8080`
-
-### Build for Production
-
+### 后端开发
 ```bash
-npm run build
+cd api
+npm install
+npm run dev
 ```
 
-### Preview Production Build
+## 配置文件
 
-```bash
-npm run preview
-```
-
-## Project Structure
-
-```
-src/
-├── components/          # Reusable UI components
-│   ├── ui/             # shadcn/ui components
-│   ├── ArtGeneration.tsx
-│   ├── ImageUpload.tsx
-│   ├── ProductCustomization.tsx
-│   ├── StyleSelection.tsx
-│   └── ...
-├── pages/              # Page components
-│   ├── ArtCreation.tsx
-│   ├── Index.tsx
-│   └── NotFound.tsx
-├── config/             # Configuration files
-│   └── prompts.ts     # AI art style prompts
-├── assets/             # Static assets
-└── hooks/              # Custom React hooks
-```
-
-## Art Creation Process
-
-The application follows a simple 4-step process:
-
-1. **Upload Photo**: Upload a clear photo of your pet
-2. **Choose Style**: Select from 6 unique art styles
-3. **Generate Art**: AI processes your photo in the chosen style
-4. **Customize Product**: Choose from various product options
-
-## Available Art Styles
-
-- **Oil Painting**: Classic oil painting style with rich textures
-- **Watercolor**: Soft, flowing watercolor effects
-- **Pop Art**: Bold, vibrant pop art style
-- **Chinese Ink**: Traditional Chinese ink wash painting
-- **Crayon**: Playful crayon drawing style
-- **Pencil Sketch**: Detailed pencil sketch artwork
-
-## Contributing
-
-We welcome contributions! Please feel free to submit issues and pull requests.
-
-## License
-
-This project is licensed under the MIT License.
-
-## Support
-
-For support and questions, please open an issue in the repository.
+- `static.json`: Cloudflare Pages 静态网站配置
+- `_redirects`: SPA 路由重定向规则
+- `_headers`: HTTP 头配置
