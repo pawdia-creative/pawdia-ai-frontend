@@ -33,11 +33,38 @@
 
 ## 重要说明
 
-⚠️ **Cloudflare 部署注意事项**:
-- 确保项目被识别为 Pages 项目而非 Workers 项目
-- 不要创建 `functions/` 目录
-- 前端代码必须完全分离到独立目录
-- 使用 `static.json` 明确指定静态网站配置
+## Cloudflare Pages 部署配置
+
+### Pages 项目设置
+
+在 Cloudflare Dashboard 中创建 Pages 项目时，请确保：
+
+1. **项目类型**：选择 **Pages** 而不是 Workers
+2. **框架预设**：选择 **Vite** 或 **Static**
+3. **构建命令**：`npm run build`
+4. **输出目录**：`frontend-separation/dist`
+
+### 重要配置
+
+- ✅ 这是一个 **纯静态 Pages 项目**
+- ✅ 没有 Workers 代码或 functions 目录
+- ✅ 前端代码完全分离在 `frontend-separation/` 目录
+- ✅ 构建输出到 `frontend-separation/dist`
+
+### 部署步骤
+
+1. 在 Cloudflare Dashboard 中创建新的 Pages 项目
+2. 连接到你的 GitHub 仓库
+3. 设置构建配置：
+   - **构建命令**：`npm run build`
+   - **输出目录**：`frontend-separation/dist`
+4. 部署项目
+
+### 后端 API 配置
+
+前端通过环境变量配置 API 地址：
+- 开发环境：`http://localhost:3001`
+- 生产环境：你的后端服务地址
 
 ## 开发
 

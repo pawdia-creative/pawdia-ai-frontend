@@ -1,11 +1,9 @@
 {
   "version": 1,
-  "type": "static",
   "build": {
     "command": "cd frontend-separation && npm install && npm run build",
     "output": "frontend-separation/dist"
   },
-  "root": "frontend-separation",
   "routes": [
     {
       "handle": "filesystem"
