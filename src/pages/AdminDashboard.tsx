@@ -49,7 +49,7 @@ const AdminDashboard = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiBaseUrl = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
       const response = await fetch(`${apiBaseUrl}/admin/users?search=${searchTerm}`, {
         headers: {
           'Authorization': `Bearer ${token}`,

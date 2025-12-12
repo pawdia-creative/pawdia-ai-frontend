@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData } from '@/types/auth';
 
-// API base URL - Ensure URL format is correct
+// API base URL - Use environment variable or current domain
 const API_BASE_URL = (() => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim() !== '') {
     return envUrl;
   }
-  return 'http://localhost:3001/api';
+  // Use current domain for API calls in production
+  return `${window.location.origin}/api`;
 })();
 
 // Debug information

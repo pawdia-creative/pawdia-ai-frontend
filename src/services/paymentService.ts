@@ -22,7 +22,7 @@ interface PaymentResult {
 }
 
 class PaymentService {
-  private static baseUrl = 'http://localhost:3001/api/payments';
+  private static baseUrl = `${import.meta.env.VITE_API_URL || window.location.origin}/api/payments`;
 
   /**
    * Create PayPal order

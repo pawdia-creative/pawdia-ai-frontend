@@ -1,18 +1,27 @@
 import OpenAI from 'openai';
 
-// API call configuration
+// API call configuration - Use environment variables
 const API_CONFIG = {
-  baseURL: 'https://api.apiyi.com/v1',
-  apiKey: 'sk-JBiPzgksdrozxjqbD7C14a3cC7A344E4B81a71322fAd28D1',
-  model: 'gemini-2.5-flash-image'
+  baseURL: import.meta.env.VITE_AI_API_BASE_URL || 'https://api.apiyi.com/v1',
+  apiKey: import.meta.env.VITE_AI_API_KEY || '',
+  model: import.meta.env.VITE_AI_MODEL || 'gemini-2.5-flash-image'
 } as const;
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: API_CONFIG.apiKey,
-  baseURL: API_CONFIG.baseURL,
-  dangerouslyAllowBrowser: true // Allow use in browser environment
-});
+// Initialize OpenAI client with proper error handling
+let openai: OpenAI | null = null;
+
+// Initialize client only if API key is available
+try {
+  if (API_CONFIG.apiKey && API_CONFIG.apiKey.trim() !== '') {
+    openai = new OpenAI({
+      apiKey: API_CONFIG.apiKey,
+      baseURL: API_CONFIG.baseURL,
+      dangerouslyAllowBrowser: true // Allow use in browser environment
+    });
+  }
+} catch (error) {
+  console.warn('Failed to initialize AI client:', error);
+}
 
 // Image generation request interface
 export interface ImageGenerationRequest {
@@ -390,6 +399,11 @@ function buildFullPrompt(prompt: string, negativePrompt?: string, dpi?: number, 
 // Generate image function
 export async function generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
   try {
+    // Check if AI client is initialized
+    if (!openai) {
+      throw new Error('AI service not configured. Please set VITE_AI_API_KEY environment variable.');
+    }
+    
     const startTime = Date.now();
     
     // Build complete prompt
@@ -934,6 +948,11 @@ function getSupportedSize(width?: number, height?: number): '1024x1024' | '1792x
 // Test API connection
 export async function testApiConnection(): Promise<boolean> {
   try {
+    // Check if AI client is initialized
+    if (!openai) {
+      console.error('AI service not configured. Please set VITE_AI_API_KEY environment variable.');
+      return false;
+    }
     // Send a simple test request
     await openai.models.list();
     return true;
@@ -946,6 +965,12 @@ export async function testApiConnection(): Promise<boolean> {
 // Get available model list
 export async function getAvailableModels(): Promise<string[]> {
   try {
+    // Check if AI client is initialized
+    if (!openai) {
+      console.error('AI service not configured. Please set VITE_AI_API_KEY environment variable.');
+      return [];
+    }
+    
     const models = await openai.models.list();
     return models.data.map(model => model.id);
   } catch (error) {
