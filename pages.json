@@ -1,0 +1,17 @@
+{
+  "name": "pawdia-ai-pages",
+  "build": {
+    "command": "npm run build",
+    "output": "frontend-separation/dist"
+  },
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html",
+      "status": 200
+    }
+  ]
+}
