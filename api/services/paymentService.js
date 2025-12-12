@@ -1,4 +1,4 @@
-import Order from '../models/Order.js';
+import d1Database from '../config/d1-database.js';
 import CreditService from './creditService.js';
 import fetch from 'node-fetch';
 
@@ -109,23 +109,37 @@ class PaymentService {
    */
   static async createOrderRecord(orderData, paypalOrderId) {
     try {
-      const dbOrder = new Order({
-        paypalOrderId: paypalOrderId,
-        userId: orderData.userId,
-        items: orderData.items.map(item => ({
-          productId: `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: item.name,
-          description: item.description,
-          price: item.price,
-          quantity: item.quantity
-        })),
-        totalAmount: orderData.totalAmount,
-        currency: orderData.currency || 'USD',
-        status: 'PENDING'
-      });
-
-      await dbOrder.save();
-      return dbOrder;
+      const db = d1Database.getDB();
+      
+      // Create order in D1 database
+      const stmt = db.prepare(`
+        INSERT INTO orders (
+          paypal_order_id, user_id, items, total_amount, currency, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `);
+      
+      const itemsJson = JSON.stringify(orderData.items.map(item => ({
+        productId: `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity
+      })));
+      
+      const result = stmt.run(
+        paypalOrderId,
+        orderData.userId,
+        itemsJson,
+        orderData.totalAmount,
+        orderData.currency || 'USD',
+        'PENDING'
+      );
+      
+      // Return the created order
+      const orderStmt = db.prepare('SELECT * FROM orders WHERE id = ?');
+      const order = orderStmt.get(result.lastInsertRowid);
+      
+      return order;
     } catch (error) {
       throw new Error(`Order record creation error: ${error.message}`);
     }
@@ -136,14 +150,25 @@ class PaymentService {
    */
   static async completeOrder(paypalOrderId, paypalCaptureId, paymentDetails) {
     try {
-      const order = await Order.findOne({ paypalOrderId: paypalOrderId });
-      if (order) {
-        order.status = 'COMPLETED';
-        order.paypalCaptureId = paypalCaptureId;
-        order.paymentDetails = paymentDetails;
-        order.completedAt = new Date();
-        await order.save();
-      }
+      const db = d1Database.getDB();
+      
+      // Update order status in D1 database
+      const stmt = db.prepare(`
+        UPDATE orders SET
+          status = 'COMPLETED',
+          paypal_capture_id = ?,
+          payment_details = ?,
+          completed_at = CURRENT_TIMESTAMP
+        WHERE paypal_order_id = ?
+      `);
+      
+      const paymentDetailsJson = JSON.stringify(paymentDetails);
+      const result = stmt.run(paypalCaptureId, paymentDetailsJson, paypalOrderId);
+      
+      // Return the updated order
+      const orderStmt = db.prepare('SELECT * FROM orders WHERE paypal_order_id = ?');
+      const order = orderStmt.get(paypalOrderId);
+      
       return order;
     } catch (error) {
       throw new Error(`Order completion error: ${error.message}`);
@@ -213,7 +238,12 @@ class PaymentService {
    */
   static async getUserOrders(userId) {
     try {
-      const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+      const db = d1Database.getDB();
+      
+      // Get user orders from D1 database
+      const stmt = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC');
+      const orders = stmt.all(userId);
+      
       return orders;
     } catch (error) {
       throw new Error(`Get user orders error: ${error.message}`);

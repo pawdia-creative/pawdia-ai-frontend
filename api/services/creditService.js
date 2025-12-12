@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User from '../models/D1User.js';
 
 class CreditService {
   /**

@@ -1,5 +1,4 @@
-import mongoose from 'mongoose';
-import User from '../models/User.js';
+import User from '../models/D1User.js';
 
 // Simple in-memory database for development
 const memoryDB = {
@@ -55,15 +54,10 @@ const memoryDBOperations = {
 // Check if MongoDB is available
 const isMongoDBAvailable = async () => {
   try {
-    // Check Mongoose connection status
-    if (mongoose.connection.readyState === 1) {
-      // Connection established, try to execute a simple query
-      await User.findOne().limit(1);
-      return true;
-    }
+    // Since we've migrated to D1, always return false to use memory database
     return false;
   } catch (error) {
-    console.log('MongoDB detection failed, using memory database:', error.message);
+    console.log('Database detection failed, using memory database:', error.message);
     return false;
   }
 };
