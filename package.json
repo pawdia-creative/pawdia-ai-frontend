@@ -10,8 +10,9 @@
     "build": "cd frontend-separation && npm install && npm run build",
     "build:frontend": "cd frontend-separation && npm install && npm run build",
     "build:backend": "cd api && npm install",
-    "deploy": "npx wrangler pages deploy frontend-separation/dist --project-name=pawdia-ai-frontend",
+    "deploy": "node deploy-workers.js",
     "deploy:frontend": "cd frontend-separation && npm install && npm run build",
+    "deploy:workers": "node deploy-workers.js",
     "test": "echo 'No tests specified'"
   },
   "workspaces": [

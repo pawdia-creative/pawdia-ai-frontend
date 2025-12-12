@@ -7,10 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "pawdia-ai-db"
-database_id = "your-d1-database-id"
+database_id = "e64c0539-0e91-42fb-a73b-df2803f31e82"
 
 # Environment variables
 [vars]
-ENVIRONMENT = "development"
-CLIENT_URL = "http://localhost:3000"
-JWT_SECRET = "your-jwt-secret-key"
+ENVIRONMENT = "production"
+CLIENT_URL = "https://pawdia-ai.pages.dev"
+JWT_SECRET = "pawdia-ai-jwt-secret-2025"
