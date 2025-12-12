@@ -1,0 +1,13 @@
+{
+  // 这个文件明确告诉 Cloudflare 这是一个静态资产部署，不是 Workers
+  "name": "pawdia-ai-frontend",
+  "compatibility_date": "2025-12-12",
+  "assets": {
+    "directory": "./frontend-separation/dist",
+    "binding": "ASSETS"
+  },
+  // 禁用 Workers 功能，仅使用静态资产
+  "no_worker": true,
+  // 明确指定这是 Pages 项目
+  "pages_build_output_dir": "./frontend-separation/dist"
+}
