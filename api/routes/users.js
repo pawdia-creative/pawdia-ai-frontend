@@ -1,7 +1,7 @@
 import express from 'express';
 import { body } from 'express-validator';
 import auth from '../middleware/auth.js';
-import { dbHelpers } from '../utils/database.js';
+import User from '../models/D1User.js';
 import { handleValidationErrors } from '../middleware/validation.js';
 
 const router = express.Router();
@@ -9,14 +9,14 @@ const router = express.Router();
 // Get user profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await dbHelpers.findUserById(req.user.userId);
+    const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     res.json({
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         avatar: user.avatar,
@@ -43,7 +43,7 @@ router.put('/profile', auth, [
     const { name, email } = req.body;
     
     // Check if user exists
-    const existingUser = await dbHelpers.findUserById(req.user.userId);
+    const existingUser = await User.findById(req.user.userId);
     if (!existingUser) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -53,8 +53,8 @@ router.put('/profile', auth, [
     if (name) updateData.name = name;
     if (email) {
       // Check if email is already taken by another user
-      const userWithEmail = await dbHelpers.findUserByEmail(email);
-      if (userWithEmail && userWithEmail._id.toString() !== req.user.userId) {
+      const userWithEmail = await User.findByEmail(email);
+      if (userWithEmail && userWithEmail.id !== req.user.userId) {
         return res.status(400).json({ 
           message: 'Email is already taken by another user' 
         });
@@ -62,8 +62,8 @@ router.put('/profile', auth, [
       updateData.email = email;
     }
 
-    // Update user using database helper
-    const user = await dbHelpers.updateUser(req.user.userId, updateData);
+    // Update user using D1 model
+    const user = await User.update(req.user.userId, updateData);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -72,7 +72,7 @@ router.put('/profile', auth, [
     res.json({
       message: 'Profile updated successfully',
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         avatar: user.avatar,
@@ -95,7 +95,7 @@ router.put('/avatar', auth, async (req, res) => {
       return res.status(400).json({ message: 'Avatar URL is required' });
     }
 
-    const user = await dbHelpers.updateUser(req.user.userId, { avatar: avatarUrl });
+    const user = await User.update(req.user.userId, { avatar: avatarUrl });
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -126,7 +126,7 @@ router.put('/password', auth, [
   try {
 
     const { currentPassword, newPassword } = req.body;
-    const user = await dbHelpers.findUserById(req.user.userId);
+    const user = await User.findById(req.user.userId);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -138,8 +138,8 @@ router.put('/password', auth, [
       return res.status(401).json({ message: 'Current password is incorrect' });
     }
 
-    // Update password using database helper
-    await dbHelpers.updateUser(req.user.userId, { password: newPassword });
+    // Update password using D1 model
+    await User.update(req.user.userId, { password: newPassword });
 
     res.json({ message: 'Password updated successfully' });
 
@@ -152,7 +152,7 @@ router.put('/password', auth, [
 // Delete user account
 router.delete('/account', auth, async (req, res) => {
   try {
-    const user = await dbHelpers.deleteUser(req.user.userId);
+    const user = await User.delete(req.user.userId);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });

@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Product from '../models/Product.js';
+import connectDB from '../config/d1-database.js';
+import Product from '../models/D1Product.js';
 
 dotenv.config();
 
@@ -77,16 +77,25 @@ async function seedProducts() {
   try {
     console.log('🌱 Starting product data migration...');
     
-    // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    // Connect to D1 database
+    await connectDB.connect();
+    console.log('✅ Connected to D1 database');
+    
+    // Initialize products table
+    await Product.initTable();
+    console.log('✅ Products table initialized');
     
     // Clear existing products
-    await Product.deleteMany({});
+    await Product.deleteAll();
     console.log('🗑️  Cleared existing products');
     
     // Insert default products
-    const products = await Product.insertMany(defaultProducts);
+    const products = [];
+    for (const productData of defaultProducts) {
+      const product = await Product.create(productData);
+      products.push(product);
+    }
+    
     console.log(`✅ Successfully seeded ${products.length} products:`);
     
     products.forEach(product => {
@@ -98,9 +107,6 @@ async function seedProducts() {
   } catch (error) {
     console.error('❌ Error seeding products:', error);
     process.exit(1);
-  } finally {
-    await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB');
   }
 }
 

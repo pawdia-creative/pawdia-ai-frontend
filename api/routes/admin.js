@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import User from '../models/User.js';
+import User from '../models/D1User.js';
 import auth from '../middleware/auth.js';
 import { handleValidationErrors, checkUserExists } from '../middleware/validation.js';
 
@@ -20,21 +20,29 @@ router.get('/users', auth, requireAdmin, async (req, res) => {
     const { page = 1, limit = 20, search = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    // Build search conditions
-    const searchConditions = search ? {
-      $or: [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ]
-    } : {};
+    // Get all users and filter by search term
+    const allUsers = await User.findAll();
+    
+    // Filter users by search term
+    let filteredUsers = allUsers;
+    if (search) {
+      filteredUsers = allUsers.filter(user => 
+        user.name.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    
+    // Sort by creation date (descending) and paginate
+    const sortedUsers = filteredUsers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const paginatedUsers = sortedUsers.slice(skip, skip + parseInt(limit));
+    
+    // Remove sensitive fields
+    const users = paginatedUsers.map(user => {
+      const { password, verificationToken, resetPasswordToken, resetPasswordExpires, ...safeUser } = user;
+      return safeUser;
+    });
 
-    const users = await User.find(searchConditions)
-      .select('-password -verificationToken -resetPasswordToken -resetPasswordExpires')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const totalUsers = await User.countDocuments(searchConditions);
+    const totalUsers = filteredUsers.length;
 
     res.json({
       users,
@@ -57,14 +65,16 @@ router.get('/users/:userId', auth, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     
-    const user = await User.findById(userId)
-      .select('-password -verificationToken -resetPasswordToken -resetPasswordExpires');
+    const user = await User.findById(userId);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ user });
+    // Remove sensitive fields
+    const { password, verificationToken, resetPasswordToken, resetPasswordExpires, ...safeUser } = user;
+
+    res.json({ user: safeUser });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ message: 'Error fetching user' });

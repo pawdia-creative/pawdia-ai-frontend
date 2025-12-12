@@ -2,8 +2,15 @@ import mongoose from 'mongoose';
 
 const connectDB = async () => {
   try {
+    // Check if MONGODB_URI is set
+    if (!process.env.MONGODB_URI) {
+      console.log('⚠️  MONGODB_URI not set. Please configure your database connection.');
+      console.log('💡 Using in-memory database for development...');
+      return;
+    }
+    
     // Use environment variable or default URI
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/pawdia-ai';
+    const mongoUri = process.env.MONGODB_URI;
     
     // Update connection options (remove deprecated options)
     const options = {

@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import connectDB from '../config/d1-database.js';
 
 // Load environment variables
 dotenv.config();
@@ -9,7 +9,7 @@ async function testBasicAPIs() {
   
   try {
     // Connect to database
-    await mongoose.connect(process.env.MONGODB_URI);
+    await connectDB.connect();
     console.log('✅ Database connection successful');
     
     // Test health check endpoint
@@ -30,7 +30,7 @@ async function testBasicAPIs() {
       },
       body: JSON.stringify({
         email: 'admin@pawdia.ai',
-        password: 'admin123'
+        password: 'admin123456'
       }),
     });
     
@@ -45,7 +45,7 @@ async function testBasicAPIs() {
       
       // Test user profile endpoint
       console.log('\n📡 Testing user profile endpoint...');
-      const profileResponse = await fetch('http://localhost:3001/api/auth/profile', {
+      const profileResponse = await fetch('http://localhost:3001/api/users/profile', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -86,9 +86,6 @@ async function testBasicAPIs() {
     
   } catch (error) {
     console.error('❌ Error occurred during testing:', error.message);
-  } finally {
-    await mongoose.connection.close();
-    console.log('🔌 Database connection closed');
   }
 }
 

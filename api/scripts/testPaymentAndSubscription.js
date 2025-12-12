@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import connectDB from '../config/d1-database.js';
 
 // Load environment variables
 dotenv.config();
@@ -9,7 +9,7 @@ async function testPaymentAndSubscription() {
   
   try {
     // Connect to database
-    await mongoose.connect(process.env.MONGODB_URI);
+    await connectDB.connect();
     console.log('✅ Database connection successful');
     
     // First login to get token
@@ -21,7 +21,7 @@ async function testPaymentAndSubscription() {
       },
       body: JSON.stringify({
         email: 'admin@pawdia.ai',
-        password: 'admin123'
+        password: 'admin123456'
       }),
     });
     
@@ -193,9 +193,6 @@ async function testPaymentAndSubscription() {
     
   } catch (error) {
     console.error('❌ Error occurred during testing:', error.message);
-  } finally {
-    await mongoose.connection.close();
-    console.log('🔌 Database connection closed');
   }
 }
 

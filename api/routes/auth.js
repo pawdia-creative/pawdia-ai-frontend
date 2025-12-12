@@ -2,9 +2,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { body } from 'express-validator';
-import User from '../models/User.js';
+import User from '../models/D1User.js';
 import auth from '../middleware/auth.js';
-import { dbHelpers, isMongoDBAvailable } from '../utils/database.js';
 import { handleValidationErrors } from '../middleware/validation.js';
 import { sendVerificationEmail } from '../services/emailService.js';
 
@@ -13,7 +12,7 @@ const router = express.Router();
 // Generate JWT token
 const generateToken = (user) => {
   return jwt.sign({ 
-    userId: user._id,
+    userId: user.id,
     isAdmin: user.isAdmin || false,
     email: user.email
   }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -36,7 +35,7 @@ router.post('/register', [
     const { email, password, name } = req.body;
 
     // Check if user already exists
-    const existingUser = await dbHelpers.findUserByEmail(email);
+    const existingUser = await User.findByEmail(email);
 
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
@@ -46,7 +45,7 @@ router.post('/register', [
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
     // Create new user with verification token
-    const user = await dbHelpers.createUser({ 
+    const user = await User.create({ 
       email, 
       password, 
       name,
@@ -65,7 +64,7 @@ router.post('/register', [
     res.status(201).json({
       token,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         isAdmin: user.isAdmin,
@@ -88,8 +87,8 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // Find user using database helper
-    const user = await dbHelpers.findUserByEmail(email);
+    // Find user using D1 database
+    const user = await User.findByEmail(email);
 
     if (!user) {
       return res.status(400).json({ message: 'User does not exist' });
@@ -104,7 +103,7 @@ router.post('/login', [
     res.json({
       token,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         isAdmin: user.isAdmin
@@ -119,49 +118,25 @@ router.post('/login', [
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
-    // Check if MongoDB is available
-    const mongoAvailable = await isMongoDBAvailable();
+    // Find user using D1 database
+    const user = await User.findById(req.user.userId);
     
-    if (mongoAvailable) {
-      // Use MongoDB - convert string ID to ObjectId
-      const mongoose = await import('mongoose');
-      const userId = new mongoose.Types.ObjectId(req.user.userId);
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      res.json({
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar,
-          credits: user.credits,
-          isAdmin: user.isAdmin,
-          isVerified: user.isVerified,
-          createdAt: user.createdAt
-        }
-      });
-    } else {
-      // Use memory database
-      const user = memoryDBOperations.findUserById(req.user.userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      res.json({
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar,
-          isVerified: user.isVerified || false,
-          isAdmin: user.isAdmin || false,
-          createdAt: user.createdAt
-        }
-      });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+
+    res.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        credits: user.credits,
+        isAdmin: user.isAdmin,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt
+      }
+    });
 
   } catch (error) {
     console.error('Get user error:', error);
@@ -201,7 +176,7 @@ router.get('/verify-email', async (req, res) => {
     res.json({ 
       message: '邮箱验证成功！您现在可以正常使用 Pawdia AI 服务。',
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         isVerified: user.isVerified
@@ -217,20 +192,8 @@ router.get('/verify-email', async (req, res) => {
 // Resend verification email
 router.post('/resend-verification', auth, async (req, res) => {
   try {
-    // Check if MongoDB is available
-    const mongoAvailable = await isMongoDBAvailable();
-    
-    let user;
-    
-    if (mongoAvailable) {
-      // Use MongoDB - convert string ID to ObjectId
-      const mongoose = await import('mongoose');
-      const userId = new mongoose.Types.ObjectId(req.user.userId);
-      user = await User.findById(userId);
-    } else {
-      // Use memory database
-      user = memoryDBOperations.findUserById(req.user.userId);
-    }
+    // Find user using D1 database
+    const user = await User.findById(req.user.userId);
 
     if (!user) {
       return res.status(404).json({ message: '用户不存在' });

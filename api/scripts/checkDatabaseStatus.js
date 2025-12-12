@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import User from '../models/User.js';
+import connectDB from '../config/d1-database.js';
+import User from '../models/D1User.js';
 
 dotenv.config();
 
@@ -8,51 +8,42 @@ const checkDatabaseStatus = async () => {
   try {
     console.log('🔍 Checking database connection status...');
     
-    // Check MongoDB connection
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/pawdia-ai';
-    console.log(`📡 MongoDB URI: ${mongoUri}`);
+    // Check D1 database connection
+    console.log(`📡 Checking D1 database connection...`);
     
     try {
-      await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000,
-      });
+      await connectDB.connect();
       
-      console.log('✅ MongoDB connection successful');
+      console.log('✅ D1 database connection successful');
       
       // Test query
-      const userCount = await User.countDocuments();
+      const users = await User.find();
+      const userCount = users.length;
       console.log(`📊 Number of users in database: ${userCount}`);
       
       // Check admin account
-      const adminUser = await User.findOne({ email: 'admin@pawdia.ai' });
+      const adminUser = await User.findByEmail('admin@pawdia.ai');
       if (adminUser) {
-        console.log('✅ Admin account exists in MongoDB');
+        console.log('✅ Admin account exists in D1 database');
         console.log(`   Name: ${adminUser.name}`);
         console.log(`   Email: ${adminUser.email}`);
         console.log(`   Admin: ${adminUser.isAdmin ? 'Yes' : 'No'}`);
       } else {
-        console.log('❌ Admin account does not exist in MongoDB');
+        console.log('❌ Admin account does not exist in D1 database');
       }
       
-    } catch (mongoError) {
-      console.log('❌ MongoDB connection failed:', mongoError.message);
-      console.log('💡 System may be using in-memory database');
+    } catch (dbError) {
+      console.log('❌ D1 database connection failed:', dbError.message);
+      console.log('💡 Please check your database configuration');
     }
     
     // Check environment variables
     console.log('\n🔍 Checking environment variables:');
-    console.log(`   MONGODB_URI: ${process.env.MONGODB_URI || 'Not set'}`);
     console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'Not set'}`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
     
   } catch (error) {
     console.error('❌ Check failed:', error.message);
-  } finally {
-    // Close database connection
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.connection.close();
-      console.log('🔌 Database connection closed');
-    }
   }
 };
 

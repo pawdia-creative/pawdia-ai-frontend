@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
-import connectDB from './config/database.js';
+import connectDB from './config/d1-database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import uploadRoutes from './routes/upload.js';
@@ -37,10 +37,12 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB (non-blocking)
-connectDB().catch(err => {
+// Connect to Cloudflare D1 database (non-blocking)
+connectDB.connect().then(() => {
+  console.log('✅ Cloudflare D1 database initialized');
+}).catch(err => {
   console.log('⚠️  Database connection failed, but server will continue running');
-  console.log('📝 Note: For production, ensure MongoDB is properly configured');
+  console.log('📝 Note: Using in-memory database for development');
 });
 
 // Routes

@@ -1,23 +1,19 @@
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import User from '../models/User.js';
+import connectDB from '../config/database.js';
+import User from '../models/D1User.js';
 
 dotenv.config();
 
 const resetAdminPassword = async () => {
   try {
     // Connect to database
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/pawdia-ai';
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
+    await connectDB.connect();
     
     console.log('✅ Database connection successful');
     
     // Find admin account
-    const adminUser = await User.findOne({ email: 'admin@pawdia.ai' });
+    const adminUser = await User.findByEmail('admin@pawdia.ai');
     
     if (!adminUser) {
       console.log('❌ Admin account does not exist, creating new admin account');
@@ -26,7 +22,7 @@ const resetAdminPassword = async () => {
       const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash('admin123456', salt);
       
-      const newAdmin = new User({
+      const newAdmin = await User.create({
         name: 'System Administrator',
         email: 'admin@pawdia.ai',
         password: hashedPassword,
@@ -35,7 +31,6 @@ const resetAdminPassword = async () => {
         isVerified: true
       });
       
-      await newAdmin.save();
       console.log('✅ New admin account created successfully');
       console.log(`   Password: admin123456`);
       console.log(`   Email: admin@pawdia.ai`);
@@ -52,9 +47,10 @@ const resetAdminPassword = async () => {
       const salt = await bcrypt.genSalt(12);
       const newHashedPassword = await bcrypt.hash(newPassword, salt);
       
-      adminUser.password = newHashedPassword;
-      adminUser.isVerified = true;
-      await adminUser.save();
+      await User.update(adminUser.id, {
+        password: newHashedPassword,
+        isVerified: true
+      });
       
       console.log('✅ Admin password reset successfully');
       console.log(`   New password: ${newPassword}`);
@@ -66,16 +62,12 @@ const resetAdminPassword = async () => {
       console.log(`   Password verification: ${isCorrect ? '✅ Correct' : '❌ Wrong'}`);
       
       // Verify using User model's comparePassword method
-      const userModelCheck = await adminUser.comparePassword(newPassword);
+      const userModelCheck = await User.comparePassword(newPassword, newHashedPassword);
       console.log(`   Model verification: ${userModelCheck ? '✅ Correct' : '❌ Wrong'}`);
     }
     
   } catch (error) {
     console.error('❌ Password reset failed:', error.message);
-  } finally {
-    // Close database connection
-    await mongoose.connection.close();
-    console.log('🔌 Database connection closed');
   }
 };
 

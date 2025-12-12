@@ -1,7 +1,7 @@
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import User from '../models/User.js';
+import connectDB from '../config/d1-database.js';
+import User from '../models/D1User.js';
 
 dotenv.config();
 
@@ -10,16 +10,12 @@ const debugLogin = async () => {
     console.log('🔍 Debugging login issues...');
     
     // Connect to database
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/pawdia-ai';
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
+    await connectDB.connect();
     
     console.log('✅ Database connection successful');
     
     // Find admin account
-    const adminUser = await User.findOne({ email: 'admin@pawdia.ai' });
+    const adminUser = await User.findByEmail('admin@pawdia.ai');
     
     if (!adminUser) {
       console.log('❌ Admin account does not exist');
@@ -27,7 +23,7 @@ const debugLogin = async () => {
     }
     
     console.log('📋 Admin account information:');
-    console.log(`   ID: ${adminUser._id}`);
+    console.log(`   ID: ${adminUser.id}`);
     console.log(`   Name: ${adminUser.name}`);
     console.log(`   Email: ${adminUser.email}`);
     console.log(`   Password hash: ${adminUser.password}`);
@@ -48,20 +44,14 @@ const debugLogin = async () => {
       console.log(`   Bcrypt verification error: ${bcryptError.message}`);
     }
     
-    // Check MongoDB connection status in auth routes
-    console.log('\n🔍 Checking MongoDB connection status...');
-    const mongooseConnection = await import('mongoose');
-    console.log(`   Mongoose connection status: ${mongooseConnection.connection.readyState}`);
-    console.log(`   Connection host: ${mongooseConnection.connection.host}`);
-    console.log(`   Database name: ${mongooseConnection.connection.name}`);
-    
-    // Test User.findOne() query
-    console.log('\n🔍 Testing User.findOne() query...');
+    // Test User.find() query
+    console.log('\n🔍 Testing User.find() query...');
     try {
-      const testUser = await User.findOne().limit(1);
-      console.log(`   Query result: ${testUser ? '✅ Success' : '❌ Failed'}`);
-      if (testUser) {
-        console.log(`   Found user: ${testUser.email}`);
+      const users = await User.find();
+      console.log(`   Query result: ${users.length > 0 ? '✅ Success' : '❌ Failed'}`);
+      if (users.length > 0) {
+        console.log(`   Found ${users.length} users`);
+        console.log(`   First user: ${users[0].email}`);
       }
     } catch (queryError) {
       console.log(`   Query error: ${queryError.message}`);
@@ -70,7 +60,7 @@ const debugLogin = async () => {
     // Test specific user query
     console.log('\n🔍 Testing specific user query...');
     try {
-      const specificUser = await User.findOne({ email: 'admin@pawdia.ai' });
+      const specificUser = await User.findByEmail('admin@pawdia.ai');
       console.log(`   Specific query result: ${specificUser ? '✅ Success' : '❌ Failed'}`);
       if (specificUser) {
         console.log(`   Found admin: ${specificUser.email}`);
@@ -85,10 +75,6 @@ const debugLogin = async () => {
     
   } catch (error) {
     console.error('❌ Debugging failed:', error.message);
-  } finally {
-    // Close database connection
-    await mongoose.connection.close();
-    console.log('🔌 Database connection closed');
   }
 };
 

@@ -1,7 +1,14 @@
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
+// Check if MONGODB_URI is set
+if (!process.env.MONGODB_URI) {
+  console.log('⚠️  MONGODB_URI not set. Please configure your database connection.');
+  console.log('💡 Set the MONGODB_URI environment variable with your database connection string.');
+  process.exit(1);
+}
+
 // Get connection string from environment variables
-const uri = process.env.MONGODB_URI || "mongodb+srv://pawdia-ai-user:<db_password>@cluster0.ils2gjj.mongodb.net/?appName=Cluster0";
+const uri = process.env.MONGODB_URI;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -14,7 +21,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    console.log('🔗 Connecting to MongoDB Atlas...');
+    console.log('🔗 Testing database connection...');
     console.log('📊 Connection string:', uri.replace(/:[^:]*@/, ':****@')); // Hide password
     
     // Connect the client to the server (optional starting in v4.7)
@@ -42,9 +49,9 @@ async function run() {
       console.log('   3. Insufficient user permissions');
     } else if (error.message.includes('ENOTFOUND')) {
       console.log('💡 Network connection issue - possible reasons:');
-      console.log('   1. Incorrect cluster address');
+      console.log('   1. Incorrect database address');
       console.log('   2. Network access restricted');
-      console.log('   3. IP address not added to whitelist');
+      console.log('   3. Firewall or network configuration issues');
     }
     
   } finally {

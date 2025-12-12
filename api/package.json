@@ -9,8 +9,10 @@
     "build": "echo 'No build step required for Node.js API'"
   },
   "dependencies": {
+    "@cloudflare/d1": "^1.4.1",
     "@paypal/paypal-server-sdk": "^1.0.1",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.5.0",
     "cloudinary": "^1.40.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
