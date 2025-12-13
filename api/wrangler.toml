@@ -1,5 +1,5 @@
 name = "pawdia-ai-api"
-main = "worker-simple.js"
+main = "worker.js"
 compatibility_date = "2025-12-12"
 compatibility_flags = ["nodejs_compat"]
 
@@ -13,4 +13,3 @@ database_id = "e64c0539-0e91-42fb-a73b-df2803f31e82"
 [vars]
 ENVIRONMENT = "production"
 CLIENT_URL = "https://pawdia-ai.pages.dev"
-JWT_SECRET = "pawdia-ai-jwt-secret-2025"

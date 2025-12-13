@@ -282,6 +282,11 @@ class D1User {
       return [];
     }
   }
+
+  // Get all users (alias for find with no query)
+  static async findAll() {
+    return await D1User.find();
+  }
 }
 
 export default D1User;

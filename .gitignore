@@ -1,0 +1,83 @@
+# 依赖
+node_modules/
+package-lock.json
+
+# 构建输出
+dist/
+build/
+.wrangler/
+.wrangler/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# 数据库
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+api/pawdia-ai-db.sqlite
+api/.wrangler/
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
+.temp/
+.tmp/
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# 调试文件
+*.pdb
+*.idb
+*.ilk
+*.exp
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# 备份文件
+*.bak
+*.backup
+*~
+
+# 报告文件（可选，根据需要调整）
+# *.md

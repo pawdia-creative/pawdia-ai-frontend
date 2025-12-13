@@ -9,13 +9,23 @@ import { sendVerificationEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
+// Get JWT_SECRET from environment variables
+const getJWTSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not set');
+  }
+  return secret;
+};
+
 // Generate JWT token
 const generateToken = (user) => {
+  const JWT_SECRET = getJWTSecret();
   return jwt.sign({ 
     userId: user.id,
     isAdmin: user.isAdmin || false,
     email: user.email
-  }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  }, JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Register user

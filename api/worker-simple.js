@@ -65,11 +65,15 @@ const initializeDatabase = async (env) => {
   }
 };
 const generateToken = (user, env) => {
+  const JWT_SECRET = env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is not set');
+  }
   return jwt.sign({ 
     userId: user.id,
     isAdmin: user.isAdmin || false,
     email: user.email
-  }, env.JWT_SECRET || 'fallback-secret', { expiresIn: '7d' });
+  }, JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Validation helper
@@ -264,6 +268,8 @@ export default {
     try {
       // Make environment available globally
       globalThis.env = env;
+      // IMPORTANT: Connect to D1 database
+      await d1Database.connect(env); // <-- 添加这一行
       
       // Handle the request
       return await router.handle(request, env, ctx);
