@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData } from '@/types/auth';
 
-// API base URL - Use environment variable or current domain
+// API base URL - Use environment variable or Workers API
 const API_BASE_URL = (() => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim() !== '') {
     return envUrl;
   }
-  // Use current domain for API calls in production
-  return `${window.location.origin}/api`;
+  // Default to Workers API in production
+  return 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
 })();
 
 // Debug information
