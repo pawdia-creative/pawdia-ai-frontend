@@ -49,7 +49,7 @@ const AdminDashboard = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const apiBaseUrl = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
       const response = await fetch(`${apiBaseUrl}/admin/users?search=${searchTerm}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -104,7 +104,7 @@ const AdminDashboard = () => {
   const handleCreditOperationSubmit = async () => {
     try {
       const token = localStorage.getItem('token');
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
       let endpoint = '';
       
       switch (creditOperation.type) {

@@ -22,7 +22,7 @@ interface PaymentResult {
 }
 
 class PaymentService {
-  private static baseUrl = `${import.meta.env.VITE_API_URL || window.location.origin}/api/payments`;
+  private static baseUrl = `${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/payments`;
 
   /**
    * Create PayPal order

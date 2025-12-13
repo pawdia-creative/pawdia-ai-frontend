@@ -179,7 +179,7 @@ const Subscription: React.FC = () => {
       setIsProcessing(true);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${import.meta.env.VITE_API_URL || `${window.location.origin}/api`}/subscriptions/subscribe`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/subscribe`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ const Subscription: React.FC = () => {
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || `${window.location.origin}/api`}/subscriptions/subscribe`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/subscribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -309,7 +309,7 @@ const Subscription: React.FC = () => {
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || `${window.location.origin}/api`}/subscriptions/credits/add`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/credits/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

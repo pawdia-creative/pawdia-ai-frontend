@@ -59,7 +59,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   // Deduct credits
   const deductCredits = async () => {
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
       const response = await fetch(`${apiBaseUrl}/subscriptions/credits/use`, {
         method: 'POST',
         headers: {
