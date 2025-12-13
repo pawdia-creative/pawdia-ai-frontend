@@ -178,7 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({
           name: credentials.name,
           email: credentials.email,
-          password: credentials.password
+          password: credentials.password,
+          confirmPassword: credentials.confirmPassword
         }),
       });
 
