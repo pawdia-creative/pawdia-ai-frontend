@@ -6,6 +6,7 @@ export interface User {
   createdAt: string;
   credits: number;
   isAdmin?: boolean;
+  isVerified?: boolean;
   subscription?: {
     plan: 'free' | 'basic' | 'premium';
     expiresAt?: string;
@@ -30,6 +31,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  checkedAuth?: boolean;
 }
 
 export interface UpdateProfileData {
@@ -38,7 +40,7 @@ export interface UpdateProfileData {
 }
 
 export interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => void;
   clearError: () => void;

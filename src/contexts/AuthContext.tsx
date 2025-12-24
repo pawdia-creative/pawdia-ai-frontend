@@ -21,6 +21,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  checkedAuth: false,
 };
 
 // Action types
@@ -29,6 +30,7 @@ type AuthAction =
   | { type: 'AUTH_SUCCESS'; payload: User }
   | { type: 'AUTH_FAILURE'; payload: string }
   | { type: 'AUTH_LOGOUT' }
+  | { type: 'AUTH_CHECKED' }
   | { type: 'CLEAR_ERROR' };
 
 // Reducer
@@ -55,12 +57,16 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
     case 'AUTH_LOGOUT':
       return {
         ...state,
+        isLoading: false,
         isAuthenticated: false,
         user: null,
         error: null,
+        checkedAuth: true,
       };
     case 'CLEAR_ERROR':
       return { ...state, error: null };
+    case 'AUTH_CHECKED':
+      return { ...state, isLoading: false, checkedAuth: true };
     default:
       return state;
   }
@@ -70,7 +76,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Provider component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: any }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   // Check local storage for login status
@@ -80,33 +86,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedUser = localStorage.getItem('user');
       
       if (token && storedUser) {
+        // 设置加载状态为 true，防止在验证期间重定向
+        dispatch({ type: 'AUTH_START' });
+        
+        // 添加超时处理，防止请求一直挂起
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.warn('[AUTH] Auth check timeout after 8 seconds, aborting request');
+          controller.abort();
+        }, 8000); // 8秒超时
+        
         try {
+          console.log('[AUTH] Checking auth status with token...');
           // Verify token is valid
           const response = await fetch(`${API_BASE_URL}/auth/me`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
             },
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId); // 清除超时
 
           if (response.ok) {
             const result = await response.json();
-            // Use latest user information, not old stored information
-            const updatedUser = { ...JSON.parse(storedUser), ...result.user };
+            console.log('[AUTH] Token valid, user authenticated');
+            // Use latest user information from API, not old stored information
+            // This ensures isVerified status is always up-to-date
+            const updatedUser = result.user || JSON.parse(storedUser);
             localStorage.setItem('user', JSON.stringify(updatedUser));
             dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
-          } else {
-            // Token invalid, clear local storage
+          } else if (response.status === 401) {
+            // 明确的认证失败，尝试获取详细错误信息
+            let errorData = null;
+            try {
+              errorData = await response.json();
+              console.warn('[AUTH] Token invalid or expired, error details:', errorData);
+            } catch (e) {
+              console.warn('[AUTH] Token invalid or expired, could not parse error response');
+            }
+            
+            // 清除 token 和用户数据
+            console.warn('[AUTH] Clearing auth data. Status:', response.status, 'Error:', errorData?.message || errorData?.error || 'Unknown');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             dispatch({ type: 'AUTH_LOGOUT' });
+          } else {
+            // 其他错误（如 500），可能是服务器问题，保留 token 但标记为未认证
+            console.error('[AUTH] Server error during auth check:', response.status);
+            // 对于服务器错误，我们不清除 token，可能是临时问题
+            // 但标记为未认证，用户需要重新登录
+            dispatch({ type: 'AUTH_LOGOUT' });
           }
         } catch (error) {
-          console.error('Error checking auth status:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          clearTimeout(timeoutId); // 清除超时
+          console.error('[AUTH] Error checking auth status:', error);
+          
+          // 检查是否是超时错误
+          if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+            console.warn('[AUTH] Request timeout, keeping token but marking as unauthenticated');
+            dispatch({ type: 'AUTH_LOGOUT' });
+            return;
+          }
+          
+          // 网络错误时，不要清除 token，可能是临时网络问题
+          // 只有在明确知道 token 无效时才清除
+          if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+          // 网络错误时，保留 token，但标记为未认证
+          // 这样用户在网络恢复后可以重试
           dispatch({ type: 'AUTH_LOGOUT' });
+        } finally {
+          // Mark that we've finished the initial auth check (success or failure)
+          dispatch({ type: 'AUTH_CHECKED' });
         }
+      } else {
+        // 没有 token 或 user，直接设置为未认证状态
+        console.log('[AUTH] No token or user found in localStorage');
+        dispatch({ type: 'AUTH_LOGOUT' });
+        dispatch({ type: 'AUTH_CHECKED' });
       }
     };
 
@@ -132,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials): Promise<User> => {
     dispatch({ type: 'AUTH_START' });
     
     try {
@@ -150,11 +211,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.message || 'Login failed');
       }
 
-      // Save token and user information
+      // Save token and basic user information from login
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       
+      // Immediately refresh user data from /auth/me to ensure credits/subscription are up-to-date
+      try {
+        const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${data.token}`,
+          },
+        });
+
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          if (meData.user) {
+            localStorage.setItem('user', JSON.stringify(meData.user));
+            dispatch({ type: 'AUTH_SUCCESS', payload: meData.user });
+            return meData.user;
+          }
+        }
+      } catch (meError) {
+        console.warn('[AUTH] Failed to refresh user data after login, using login payload:', meError);
+      }
+
+      // Fallback to login payload if /auth/me fails
       dispatch({ type: 'AUTH_SUCCESS', payload: data.user });
+      return data.user;
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
       throw error;
@@ -189,11 +273,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.message || 'Registration failed');
       }
 
-      // Save token and user information
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      dispatch({ type: 'AUTH_SUCCESS', payload: data.user });
+      // Do NOT auto-login the user after registration.
+      // Registration should require email verification first.
+      // Keep the token returned by the API for possible verification flows, but do not store it as an active session.
+      console.log('[AUTH] Registration completed - not auto-logging in. User must verify email.');
+      // Clear the loading state so UI (login/register pages) do not remain stuck showing "Signing in..."
+      dispatch({ type: 'AUTH_LOGOUT' });
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Registration failed' });
       throw error;
@@ -267,7 +352,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateUser,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  // Ensure there's a way for UI to reset a stuck loading state
+  const ensureIdle = () => {
+    if (state.isLoading && !state.isAuthenticated) {
+      console.warn('[AUTH] ensureIdle invoked - clearing loading state');
+      dispatch({ type: 'AUTH_LOGOUT' });
+    }
+  };
+
+  // Expose ensureIdle through the context value
+  const extendedValue: AuthContextType & { ensureIdle?: () => void } = {
+    ...value,
+    ensureIdle,
+  };
+  return <AuthContext.Provider value={extendedValue as any}>{children}</AuthContext.Provider>;
 };
 
 // Hook

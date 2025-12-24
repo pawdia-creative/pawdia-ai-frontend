@@ -1,14 +1,15 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /checkout/
+Disallow: /admin/
+Disallow: /cart/
+Disallow: /verify-email
+
+# Sitemaps
+Sitemap: https://pawdia-ai.com/sitemap.xml
+Sitemap: https://pawdia-ai.com/image-sitemap.xml
+
+# Crawl-delay (optional, adjust as needed)
+Crawl-delay: 1

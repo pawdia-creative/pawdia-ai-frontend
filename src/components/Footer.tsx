@@ -37,15 +37,13 @@ import { Heart, X, Mail, Instagram } from "lucide-react";
              </div> 
              
              <div className="flex flex-col md:flex-row gap-3 md:gap-6 text-sm text-muted-foreground"> 
+              <Link to="/about" className="hover:text-primary transition-smooth text-center">About</Link>
+              <Link to="/examples" className="hover:text-primary transition-smooth text-center">Examples</Link>
+              <Link to="/pricing" className="hover:text-primary transition-smooth text-center">Pricing</Link>
+              <Link to="/blog" className="hover:text-primary transition-smooth text-center">Blog</Link>
+              <Link to="/contact" className="hover:text-primary transition-smooth text-center">Contact</Link>
                <Link to="/privacy" className="hover:text-primary transition-smooth text-center">Privacy Policy</Link> 
                <Link to="/terms" className="hover:text-primary transition-smooth text-center">Terms of Service</Link> 
-               <a 
-                 href="#" 
-                 className="hover:text-primary transition-smooth text-center" 
-                 onClick={handleContactClick} 
-               > 
-                 Contact Us 
-               </a> 
              </div> 
            </div> 
          </div> 

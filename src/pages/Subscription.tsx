@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { Coins, Crown, Zap, Star, Check, ArrowLeft } from 'lucide-react';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
+import { MetaTags } from '@/components/SEO/MetaTags';
+import { StructuredData, generateFAQPageSchema } from '@/components/SEO/StructuredData';
+import { SEO_CONFIG } from '@/config/seo';
 
 interface SubscriptionPlan {
   id: string;
@@ -26,8 +29,27 @@ interface CreditPackage {
 
 const Subscription: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const { user, isAuthenticated, updateUser } = useAuth();
+  
+  // Get SEO config based on current path
+  const seo = SEO_CONFIG[location.pathname] || SEO_CONFIG['/subscription'];
+  const faqSchema = generateFAQPageSchema([
+    {
+      question: 'What is included in Basic and Premium plans?',
+      answer: 'Basic includes 30 credits for $9.99/month. Premium includes 60 credits for $14.99/month. Both include all art styles and high-quality outputs.',
+    },
+    {
+      question: 'Can I just buy credits?',
+      answer: 'Yes. Credit packages: $4.99 (10 credits), $8.99 (20), $11.99 (30), $16.99 (50). Use credits for AI generations and downloads.',
+    },
+    {
+      question: 'Do unused credits roll over?',
+      answer: 'Yes. Unused credits remain in your account and can be used later for AI generations or downloads.',
+    },
+  ]);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [selectedCreditPackage, setSelectedCreditPackage] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [userCredits, setUserCredits] = useState(user?.credits || 0);
   const [paypalOrderId, setPaypalOrderId] = useState<string>('');
@@ -54,9 +76,9 @@ const Subscription: React.FC = () => {
       id: 'basic',
       name: 'Basic',
       price: 9.99,
-      credits: 20,
+      credits: 30,
       features: [
-        '20 AI art generations',
+        '30 AI art generations',
         'All art styles',
         'High quality',
         'Priority support',
@@ -68,10 +90,10 @@ const Subscription: React.FC = () => {
     {
       id: 'premium',
       name: 'Premium',
-      price: 19.99,
-      credits: 50,
+      price: 14.99,
+      credits: 60,
       features: [
-        '50 AI art generations',
+        '60 AI art generations',
         'All art styles + exclusive',
         'Ultra HD quality',
         '24/7 priority support',
@@ -84,9 +106,9 @@ const Subscription: React.FC = () => {
 
   const creditPackages: CreditPackage[] = [
     { id: 'credits-10', credits: 10, price: 4.99, bonus: 0 },
-    { id: 'credits-25', credits: 25, price: 9.99, bonus: 5 },
-    { id: 'credits-60', credits: 60, price: 19.99, bonus: 15 },
-    { id: 'credits-150', credits: 150, price: 39.99, bonus: 50 }
+    { id: 'credits-20', credits: 20, price: 8.99, bonus: 0 },
+    { id: 'credits-30', credits: 30, price: 11.99, bonus: 0 },
+    { id: 'credits-50', credits: 50, price: 16.99, bonus: 0 }
   ];
 
   useEffect(() => {
@@ -94,6 +116,13 @@ const Subscription: React.FC = () => {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
+
+  // Sync userCredits with user.credits from AuthContext
+  useEffect(() => {
+    if (user?.credits !== undefined) {
+      setUserCredits(user.credits);
+    }
+  }, [user?.credits]);
 
   // PayPal payment related functions
   const createPayPalOrder = async (): Promise<string> => {
@@ -105,6 +134,7 @@ const Subscription: React.FC = () => {
         throw new Error('User not authenticated. Please log in to continue.');
       }
       
+      // userId is now obtained from auth token, not sent in request body
       const orderData = {
         items: [{
           name: paymentType === 'subscription' ? `Subscription: ${selectedPlan}` : `Credits: ${paymentCredits}`,
@@ -116,7 +146,6 @@ const Subscription: React.FC = () => {
         }],
         totalAmount: paymentAmount,
         currency: 'USD',
-        userId: user.id,
         type: paymentType,
         credits: paymentCredits,
         plan: selectedPlan
@@ -136,22 +165,86 @@ const Subscription: React.FC = () => {
     try {
       setIsProcessing(true);
       
-      await PaymentService.capturePayment(data.orderID);
+      // Step 1: Capture PayPal payment
+      const captureResult = await PaymentService.capturePayment(data.orderID);
       
-      // Process result based on payment type
+      if (!captureResult.captureId) {
+        throw new Error('Payment capture failed - no capture ID received');
+      }
+      
+      // Step 2: Process payment and add credits via payment API
+      const token = localStorage.getItem('token');
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      
       if (paymentType === 'subscription') {
+        // Process subscription payment
+        const processResponse = await fetch(`${baseUrl}/payments/process-subscription`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            plan: selectedPlan,
+            credits: paymentCredits,
+            orderId: data.orderID,
+            captureId: captureResult.captureId
+          })
+        });
+        
+        if (!processResponse.ok) {
+          throw new Error('Failed to process subscription payment');
+        }
+        
+        // Step 3: Update subscription status (without adding credits again)
         await processSubscription(selectedPlan);
       } else {
-        await processCreditPurchase(paymentCredits);
+        // Process credit purchase
+        const processResponse = await fetch(`${baseUrl}/payments/process-credits`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            credits: paymentCredits,
+            orderId: data.orderID,
+            captureId: captureResult.captureId
+          })
+        });
+        
+        if (!processResponse.ok) {
+          throw new Error('Failed to process credit purchase');
+        }
+        
+        const processResult = await processResponse.json();
+        
+        // Update local user information
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          const updatedUser = { ...userData, credits: processResult.credits };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setUserCredits(processResult.credits);
+          
+          // Update AuthContext
+          if (updateUser) {
+            updateUser({ credits: processResult.credits });
+          }
+        }
+        
+        PaymentService.handlePaymentSuccess(`${paymentCredits} credits added to your account!`);
       }
       
       // Reset payment status
       setSelectedPlan('');
+      setSelectedCreditPackage('');
       setPaymentAmount(0);
       setPaymentCredits(0);
       
     } catch (error) {
-      // Error handling already done in PaymentService
+      console.error('PayPal approval error:', error);
+      PaymentService.handlePaymentError(error.message || 'Failed to complete payment. Please contact support.');
     } finally {
       setIsProcessing(false);
     }
@@ -165,10 +258,51 @@ const Subscription: React.FC = () => {
   };
 
   const onPayPalError = (error: any) => {
-    console.error('PayPal error:', error);
-    setPaypalError('PayPal payment service is currently unavailable. Please try again later.');
+    console.error('[PAYMENT] PayPal error:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'PayPal payment service is currently unavailable. Please try again later.';
+    
+    if (error && typeof error === 'object') {
+      if (error.message) {
+        if (error.message.includes('client-id') || error.message.includes('MISSING_CLIENT_ID')) {
+          errorMessage = 'PayPal is not properly configured. Please contact support.';
+        } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
+          errorMessage = 'PayPal Client ID is invalid or misconfigured. Please check: 1) Client ID value, 2) environment (Sandbox vs Live), 3) that your domain is authorized in the PayPal app.';
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'PayPal Client ID is not authorized. Please check your PayPal app settings.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error connecting to PayPal. Please check your internet connection and try again.';
+        } else {
+          errorMessage = `PayPal error: ${error.message}`;
+        }
+      }
+    }
+    
+    setPaypalError(errorMessage);
     PaymentService.handlePaymentError(error);
   };
+
+  // Monitor PayPal SDK loading errors
+  useEffect(() => {
+    if (selectedPlan || selectedCreditPackage) {
+      const checkPayPalSDK = () => {
+        // Check if PayPal SDK script failed to load
+        const scripts = document.querySelectorAll('script[src*="paypal.com/sdk"]');
+        scripts.forEach((script) => {
+            script.addEventListener('error', () => {
+            console.error('[PAYMENT] PayPal SDK script failed to load');
+            setPaypalError('PayPal SDK failed to load. Please check your PayPal Client ID and domain authorization.');
+          });
+        });
+      };
+      
+      // Check after a short delay to allow script to start loading
+      const timeout = setTimeout(checkPayPalSDK, 1000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [selectedPlan, selectedCreditPackage]);
 
   const handleSubscribe = async (planId: string) => {
     const plan = subscriptionPlans.find(p => p.id === planId);
@@ -190,10 +324,48 @@ const Subscription: React.FC = () => {
 
         if (!response.ok) {
           const errorData = await response.json();
+          console.error('[SUBSCRIPTION FRONTEND] Subscription failed:', errorData);
+          
+          // If user already has subscription but credits are missing, refresh user data
+          if (errorData.message && errorData.message.includes('already activated')) {
+            console.log('[SUBSCRIPTION FRONTEND] User already has subscription, refreshing user data...');
+            // Refresh user data from /auth/me
+            try {
+              const meResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/auth/me`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              if (meResponse.ok) {
+                const meData = await meResponse.json();
+                console.log('[SUBSCRIPTION FRONTEND] Refreshed user data:', meData);
+                if (meData.user) {
+                  localStorage.setItem('user', JSON.stringify(meData.user));
+                  setUserCredits(meData.user.credits || 0);
+                  if (updateUser) {
+                    updateUser(meData.user);
+                  }
+                  // Show success message if credits were restored
+                  if (errorData.debug && errorData.debug.currentCredits >= 3) {
+                    PaymentService.handlePaymentSuccess(`You already have ${errorData.debug.currentCredits} credits!`);
+                    setSelectedPlan('');
+                    return; // Exit early, don't throw error
+                  }
+                }
+              } else {
+                console.error('[SUBSCRIPTION FRONTEND] Failed to refresh user data, status:', meResponse.status);
+                // If /auth/me fails, still show the error
+              }
+            } catch (refreshError) {
+              console.error('[SUBSCRIPTION FRONTEND] Error refreshing user data:', refreshError);
+            }
+          }
+          
           throw new Error(errorData.message || 'Subscription failed');
         }
 
         const result = await response.json();
+        console.log('[SUBSCRIPTION FRONTEND] Free subscription result:', result);
         
         // Update local user information
         const storedUser = localStorage.getItem('user');
@@ -201,14 +373,19 @@ const Subscription: React.FC = () => {
           const userData = JSON.parse(storedUser);
           const updatedUser = { 
             ...userData, 
-            credits: result.credits,
+            credits: result.credits || 0,
             subscription: result.subscription 
           };
           localStorage.setItem('user', JSON.stringify(updatedUser));
-          setUserCredits(result.credits);
+          setUserCredits(result.credits || 0);
+          
+          // Update AuthContext
+          if (updateUser) {
+            updateUser({ credits: result.credits || 0, subscription: result.subscription });
+          }
         }
 
-        PaymentService.handlePaymentSuccess('Free subscription activated successfully!');
+        PaymentService.handlePaymentSuccess('Free subscription activated successfully! You received 3 free credits!');
         setSelectedPlan('');
       } catch (error) {
         console.error('Subscription error:', error);
@@ -235,21 +412,32 @@ const Subscription: React.FC = () => {
   };
 
   const handlePlanSelect = (planId: string) => {
+    console.log('[SUBSCRIPTION] handlePlanSelect called with planId:', planId);
     const plan = subscriptionPlans.find(p => p.id === planId);
-    if (!plan) return;
+    if (!plan) {
+      console.error('[SUBSCRIPTION] Plan not found:', planId);
+      return;
+    }
+    
+    console.log('[SUBSCRIPTION] Plan found:', plan.name, 'price:', plan.price);
     
     if (plan.price === 0) {
+      console.log('[SUBSCRIPTION] Free plan, calling handleSubscribe');
       handleSubscribe(planId);
     } else {
+      console.log('[SUBSCRIPTION] Paid plan, setting up payment modal:', {
+        planId,
+        price: plan.price,
+        credits: plan.credits
+      });
       setSelectedPlan(planId);
       setPaymentType('subscription');
       setPaymentAmount(plan.price);
       setPaymentCredits(plan.credits);
       setPaypalError('');
+      console.log('[SUBSCRIPTION] Payment modal state set, should show now');
     }
   };
-
-  const [selectedCreditPackage, setSelectedCreditPackage] = useState<string>('');
 
   const handleCreditPackageSelect = (packageId: string) => {
     const creditPackage = creditPackages.find(p => p.id === packageId);
@@ -343,6 +531,14 @@ const Subscription: React.FC = () => {
   };
 
   return (
+    <>
+      <MetaTags
+        title={seo.title}
+        description={seo.description}
+        keywords={seo.keywords}
+        ogImage={seo.ogImage}
+      />
+      <StructuredData data={faqSchema} type="FAQSubscription" />
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
@@ -399,8 +595,14 @@ const Subscription: React.FC = () => {
                   </ul>
                   <Button 
                     className="w-full" 
-                    onClick={() => handlePlanSelect(plan.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('[SUBSCRIPTION] Select Plan button clicked for:', plan.id);
+                      handlePlanSelect(plan.id);
+                    }}
                     disabled={isProcessing}
+                    type="button"
                   >
                     {plan.price === 0 ? 'Get Started' : 'Select Plan'}
                   </Button>
@@ -442,6 +644,123 @@ const Subscription: React.FC = () => {
             ))}
           </div>
 
+          {/* PayPal Payment Modal */}
+          {(() => {
+            const shouldShow = (selectedPlan || selectedCreditPackage) && paymentAmount > 0;
+            if (shouldShow) {
+              console.log('[SUBSCRIPTION] Payment modal should be visible:', {
+                selectedPlan,
+                selectedCreditPackage,
+                paymentAmount,
+                paymentType,
+                hasPayPalClientId: !!import.meta.env.VITE_PAYPAL_CLIENT_ID
+              });
+            }
+            return shouldShow;
+          })() && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
+              <Card className="w-full max-w-md mx-4">
+                <CardHeader>
+                  <CardTitle>Complete Payment</CardTitle>
+                  <CardDescription>
+                    {paymentType === 'subscription' 
+                      ? `${selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} Subscription - $${paymentAmount}/month`
+                      : `${paymentCredits} Credits - $${paymentAmount}`
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!import.meta.env.VITE_PAYPAL_CLIENT_ID || import.meta.env.VITE_PAYPAL_CLIENT_ID === 'MISSING_CLIENT_ID' ? (
+                    <div className="text-center space-y-4">
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-800 text-sm font-semibold mb-2">PayPal not configured</p>
+                        <p className="text-red-700 text-xs">
+                          PayPal payments require a configured Client ID in environment variables. Please contact the site administrator or check the configuration docs.
+                        </p>
+                        <p className="text-red-600 text-xs mt-2">
+                          Set the following env var in Cloudflare Pages: VITE_PAYPAL_CLIENT_ID
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setSelectedPlan('');
+                          setSelectedCreditPackage('');
+                          setPaymentAmount(0);
+                          setPaymentCredits(0);
+                        }}
+                        className="w-full"
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  ) : paypalError ? (
+                    <div className="text-center space-y-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p className="text-yellow-800 text-sm">{paypalError}</p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setPaypalError('');
+                          setSelectedPlan('');
+                          setSelectedCreditPackage('');
+                          setPaymentAmount(0);
+                        }}
+                        className="w-full"
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  ) : (
+                    <PayPalScriptProvider 
+                      options={{ 
+                        clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
+                        currency: 'USD',
+                        intent: 'capture',
+                        components: 'buttons'
+                      }}
+                    >
+                      <PayPalButtons
+                        style={{ 
+                          layout: 'vertical',
+                          color: 'blue',
+                          shape: 'rect',
+                          label: 'paypal'
+                        }}
+                        createOrder={createPayPalOrder}
+                        onApprove={onPayPalApprove}
+                        onCancel={onPayPalCancel}
+                        onError={onPayPalError}
+                        disabled={isProcessing}
+                      />
+                    </PayPalScriptProvider>
+                  )}
+                  
+                  {isProcessing && (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Processing payment...</p>
+                    </div>
+                  )}
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setSelectedPlan('');
+                      setSelectedCreditPackage('');
+                      setPaymentAmount(0);
+                      setPaymentCredits(0);
+                    }}
+                    className="w-full"
+                    disabled={isProcessing}
+                  >
+                    Cancel
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Current subscription information */}
           {isAuthenticated && user && (
             <div className="bg-muted/20 p-6 rounded-lg mb-8">
@@ -468,6 +787,7 @@ const Subscription: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

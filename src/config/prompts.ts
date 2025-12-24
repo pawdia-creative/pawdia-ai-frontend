@@ -24,11 +24,22 @@ export const stylePrompts: StylePrompt[] = [
     id: "oil-painting",
     name: "Oil Painting",
     description: "Classic texture with rich, vibrant colors",
-    promptTemplate: "Convert this pet photo into a classical oil painting with strong hand-painted texture. Strict requirement: Preserve the pet's breed, posture, expression, fur color, and all identifying features exactly as in the original photo. Do NOT alter the pet's appearance — only change the painting style. Use extremely thick, expressive oil-paint strokes (impasto), with clearly visible brush marks, ridges, and layered paint buildup. The texture must feel tactile and three-dimensional, as if painted with a palette knife and heavy brushwork. Colors must be rich, saturated, warm, and full-bodied, with traditional Old Master tones. Lighting should follow classical chiaroscuro / Rembrandt lighting, with soft, refined transitions between light and shadow. The background must be an atmospheric, softly blurred classical oil background, painted with loose, textured strokes — no flat color, no minimalism. The overall image must feel deeply hand-painted, emotional, and artisanal, inspired by Rembrandt, Vermeer, and Titian. Emphasize thick paint, hand-made texture, visible strokes, and physical paint depth.",
-    negativePrompt: "blurry, low quality, digital, cartoon, anime, watercolor, sketch, flat colors, modern style, abstract, distorted features",
+    // Strictly preserve original composition, pose, background and orientation
+    promptTemplate:
+      "Convert this pet photo into a classical oil painting with strong hand‑painted texture, but KEEP the original image content EXACTLY the same. " +
+      "Hard constraints: 1) Do NOT rotate or flip the scene, keep the same camera angle and orientation as the original photo. " +
+      "2) KEEP the pet’s breed, body proportions, pose, posture, head angle, facial expression, fur color, markings, and accessories (such as scarf, collar, clothes) 100% identical to the original photo. " +
+      "3) KEEP the composition and framing: the pet’s position in the frame, relative size, and crop must match the original photo. " +
+      "4) KEEP the main background structure (ground, street, buildings, trees, people, depth and perspective, light direction) the same as the original photo, only convert them into oil‑painting strokes instead of changing or replacing them. " +
+      "Only change the rendering style into a thick, hand‑painted oil painting: visible impasto brush strokes, rich layered paint, tactile three‑dimensional texture, palette‑knife and heavy brushwork. " +
+      "Colors should be rich, warm and saturated with classic Old Master tones, with soft chiaroscuro / Rembrandt‑style lighting, but WITHOUT changing the scene layout. " +
+      "The final image must look like the original photograph was directly painted over in oil, not a new composition or new pose. " +
+      "Emphasize: NO change of composition, NO change of pet pose, NO change of background structure, NO rotation or flipping of the whole image.",
+    negativePrompt:
+      "blurry, low quality, low resolution, rotated image, flipped image, extreme perspective change, different pose, different dog, different animal, different background, scene changed, zoomed out, zoomed in, cropped differently, cartoon, anime, digital illustration, watercolor, sketch, abstract, surreal, distorted features, deformed body, extra limbs, missing limbs, changed clothing, different scarf, different environment",
     parameters: {
-      steps: 30,
-      cfgScale: 7.5,
+      steps: 28,
+      cfgScale: 6.5,
       sampler: "DPM++ 2M Karras",
       width: 1024,
       height: 1024
@@ -38,8 +49,15 @@ export const stylePrompts: StylePrompt[] = [
     id: "watercolor",
     name: "Watercolor",
     description: "Soft brushstrokes and dreamy gradients",
-    promptTemplate: "Transform this pet photo into an extremely translucent and aesthetic watercolor painting style. 100% retain the pet's breed, posture, expression, and all appearance details; only perform artistic style conversion. Strictly require watercolor characteristics: use soft blending with wet-on-wet technique, colors should be transparent and layered with watercolor gradient levels, edges show hazy watermark diffusion with natural penetration, retain the unique flowing moist texture and watercolor texture of watercolor; the color tone is fresh and elegant, with saturation precisely controlled between 60-80%; create a hazy artistic conception with gradient watercolor blending for the background, heavy brushstrokes are strictly prohibited. The style integrates the lively and translucent light and shadow of Impressionist watercolor and the fresh soft-focus effect of Japanese healing-style watercolor illustration, presenting an overall literary and ethereal, lush watercolor artistic atmosphere.",
-    negativePrompt: "oil painting, digital, sharp edges, bold colors, high contrast, sketch, heavy brushstrokes, opaque colors, artificial look, flat colors, solid backgrounds, harsh lines, photographic realism",
+    promptTemplate:
+      "Transform this pet photo into an extremely translucent and aesthetic watercolor painting style while STRICTLY preserving the original content. " +
+      "Hard constraints: do NOT rotate or flip the image, keep the same camera angle and framing. " +
+      "KEEP the pet's breed, posture, body proportions, head angle, expression, fur color, markings and accessories exactly the same as the original photo. " +
+      "KEEP the main background structure, perspective and light direction, only convert them into soft watercolor washes instead of changing the scene. " +
+      "Apply pure stylistic conversion: soft wet‑on‑wet blending, translucent layered washes, hazy diffusion at the edges, natural watercolor granulation and flow. " +
+      "Colors should be fresh and elegant with controlled saturation, the background can be slightly simplified and softened but must follow the same composition and depth as the original image.",
+    negativePrompt:
+      "blurry, low quality, rotated, flipped, changed composition, different pose, different background, scene replaced, cartoon, anime, oil painting, hard edges, heavy brushstrokes, opaque colors, abstract, distorted features, deformed body, extra limbs, missing limbs",
     parameters: {
       steps: 25,
       cfgScale: 7.0,
@@ -50,10 +68,16 @@ export const stylePrompts: StylePrompt[] = [
   },
   {
     id: "gta-style",
-    name: "GTA Style",
+    name: "Urban Comic",
     description: "Rockstar's cover-art aesthetic with bold outlines",
-    promptTemplate: "Convert this pet photo into a GTA-style illustration inspired by Rockstar’s cover-art aesthetic, but WITHOUT any GTA text or typography. Strict requirement: Preserve the pet’s original proportions, eye size, breed features, markings, posture, and expression exactly as in the photo. Do NOT alter the anatomy or enlarge the eyes. Use bold black outlines (3–5 px), high-contrast cel shading, graphic color blocks, and sharp, stylized lighting. Colors must be vibrant and saturated, with crisp highlights and dramatic shadow shapes typical of GTA cover art. The background must feature stylized palm trees, a warm sunset vibe, and simplified blocky shapes or gradient panels — but no logos, no text, no game titles. Keep the background graphic and poster-like, with clean shapes and vivid tropical colors. Overall style should feel like a high-contrast GTA cover illustration blended with a California/Miami palm-tree aesthetic, without any official branding or text",
-    negativePrompt: "realistic, natural colors, subtle, classical, oil painting, watercolor, sketch, blurry, low quality, text, logos, game titles, typography, realistic backgrounds",
+    promptTemplate:
+      "Convert this pet photo into a GTA‑style illustration inspired by Rockstar’s cover‑art aesthetic, but WITHOUT any GTA text or typography and WITHOUT changing the original scene layout. " +
+      "Strict requirement: preserve the pet’s original proportions, eye size, breed features, markings, posture, body orientation and expression exactly as in the photo. Do NOT alter the anatomy, do NOT exaggerate features, do NOT change the pose. " +
+      "Keep the same composition, camera angle and cropping as the original image; do not rotate or flip the picture. " +
+      "Convert the existing background into a graphic, poster‑like treatment with bold shapes and stylized lighting, but keep the same perspective and object layout as the original scene. " +
+      "Use bold black outlines, high‑contrast cel shading and vibrant saturated colors, so it feels like the original photo was redrawn in GTA cover‑art style, not a new composition.",
+    negativePrompt:
+      "blurry, low quality, rotated image, flipped image, different pose, different dog, different animal, completely new background, scene changed, chibi, big head, exaggerated eyes, surreal, abstract, watercolor, oil painting, sketch, logos, game titles, text, typography",
     parameters: {
       steps: 25,
       cfgScale: 8.0,
@@ -66,8 +90,14 @@ export const stylePrompts: StylePrompt[] = [
     id: "chinese-ink",
     name: "Chinese Ink Painting",
     description: "Traditional East Asian brushwork and elegance",
-    promptTemplate: "Convert this pet photo into a traditional Chinese ink-wash painting (Shuimo / Guohua) style. Strict requirement: Use authentic ink-wash brush techniques with rich variations of ink density, dryness, and moisture (at least five distinct tonal layers). The painting must preserve the pet's recognizable characteristics, but focus on spirit and expression rather than strict realism. Brushstrokes must be lively, flowing, and expressive, following the aesthetics of Chinese xieyi (freehand) painting. Retain traditional Chinese artistic features: large areas of intentional blank space (over 30% of the composition), atmospheric simplicity, poetic mood and subtle spatial suggestion instead of Western perspective, emphasis on spirit and charm (shen yun) over detailed form. The background must remain simple and mostly blank, following classical ink-wash composition. Add traditional inscription (Chinese calligraphy) and red seal stamps as authentic elements of Guohua. Overall style should evoke the aesthetics of classical masters such as Qi Baishi, Xu Beihong, and Bada Shanren.",
-    negativePrompt: "colorful, western style, realistic, digital, bold colors, pop art, detailed background, complex composition, Western perspective, photographic style",
+    promptTemplate:
+      "Convert this pet photo into a traditional Chinese ink‑wash painting (Shuimo / Guohua) style while keeping the original pose and composition. " +
+      "Strict requirement: preserve the pet’s recognizable silhouette, proportions, posture and head direction from the original photo, so viewers can clearly recognize it is the same pet in the same position. " +
+      "Do not rotate or flip the image; keep the main composition and subject placement in the frame. " +
+      "Use authentic ink‑wash techniques with rich variations of ink density, dryness and moisture, expressive brushwork and intentional blank space, but base the structure and perspective on the original scene. " +
+      "The background can be simplified and partially left blank in classical Guohua style, but it should still loosely follow the depth and general layout of the original environment.",
+    negativePrompt:
+      "blurry, low quality, rotated, flipped, changed pose, different pet, different animal, completely new scene, Western oil painting, colorful pop art, heavy digital effects, complex photorealistic background, distorted anatomy, deformed body",
     parameters: {
       steps: 28,
       cfgScale: 6.5,
@@ -80,8 +110,14 @@ export const stylePrompts: StylePrompt[] = [
     id: "crayon",
     name: "Crayon",
     description: "Playful and colorful hand-drawn charm",
-    promptTemplate: "Convert the pet from the original photo into a childlike crayon drawing. Remove the original background completely. Keep the pet's breed, posture, proportions, markings, and expression exactly the same — absolutely no alteration to the pet's appearance. Use rough, thick crayon strokes with strong waxy texture, heavy grain, visible pigment buildup, uneven childlike outlines, and highly saturated vivid colors (85%+). Replace the background with a simple crayon-filled background made in the same color palette and same hue family as the pet's dominant fur colors. No details, only rough crayon strokes and wax texture. The whole image must feel innocent, playful, naïve, and warm — like a children's drawing.",
-    negativePrompt: "realistic, professional, oil painting, watercolor, serious, formal, detailed, precise lines, subtle colors, adult style, photographic",
+    promptTemplate:
+      "Convert the pet from the original photo into a childlike crayon drawing while strictly preserving the pet itself. " +
+      "Keep the pet's breed, posture, proportions, head angle, markings, and expression exactly the same — absolutely no alteration to the pet's appearance or pose. " +
+      "Do not rotate or flip the image; keep the pet’s placement in the frame consistent with the original photo. " +
+      "Use rough, thick crayon strokes with strong waxy texture, heavy grain, visible pigment buildup, uneven childlike outlines, and highly saturated vivid colors. " +
+      "The background can be simplified into a crayon‑style fill but should broadly follow the same horizon and major shapes so the overall composition still feels like the original scene.",
+    negativePrompt:
+      "blurry, low quality, rotated, flipped, different pose, different pet, different animal, realistic photo, professional digital painting, watercolor, oil painting, serious formal style, precise technical lines, subtle colors, photographic background, abstract shapes that completely change the scene",
     parameters: {
       steps: 22,
       cfgScale: 6.0,
@@ -94,8 +130,14 @@ export const stylePrompts: StylePrompt[] = [
     id: "pencil-sketch",
     name: "Pencil Sketch",
     description: "Detailed graphite art with realistic shading",
-    promptTemplate: "Convert this pet photo into a professional pencil sketch style. Important: Fully preserve the pet's breed, posture, expression, and all features from the original image. Do not alter the pet's appearance in any way—only transform the style into a sketch. Strict requirements: Use refined cross-hatching techniques to depict light and shadow relationships. Maintain rich grayscale levels (at least 8 levels from pure white to deep black). Highlight the texture and details of the fur. Adopt a classic black-and-white sketch art style. Keep the background simple with negative space. No color is allowed. The overall work must present the artistic feel of a hand-drawn sketch. Style references: Leonardo da Vinci's sketches, academic sketching.",
-    negativePrompt: "colorful, painting, digital, cartoon, bold colors, pop art, watercolor, oil painting, colored pencils, markers, any color elements",
+    promptTemplate:
+      "Convert this pet photo into a professional pencil sketch while keeping the original composition, pose and background structure. " +
+      "Fully preserve the pet's breed, posture, proportions, head orientation, expression and all features from the original image; do NOT change the pose or anatomy. " +
+      "Do not rotate or flip the scene; keep the same framing and perspective. " +
+      "Use refined cross‑hatching and shading to describe light and shadow with rich grayscale levels, highlighting fur texture and volume. " +
+      "The background may be simplified into sketch lines and tonal blocks, but it should still follow the main shapes and depth of the original environment so the scene clearly matches the source photo.",
+    negativePrompt:
+      "colorful, painting, cartoon, pop art, watercolor, oil painting, colored pencils, markers, any color elements, rotated image, flipped image, changed composition, different pose, different pet, different background, abstract, surreal, distorted anatomy, deformed body",
     parameters: {
       steps: 26,
       cfgScale: 7.0,

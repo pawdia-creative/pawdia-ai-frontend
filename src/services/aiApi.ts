@@ -35,6 +35,8 @@ export interface ImageGenerationRequest {
   sampler?: string;
   dpi?: number;
   quality?: string;
+  seed?: number; // Fixed seed for reproducible results
+  styleId?: string; // Style identifier for consistent parameters
 }
 
 // Image generation response interface
@@ -42,6 +44,70 @@ export interface ImageGenerationResponse {
   imageUrl: string;
   generationTime: number;
   model: string;
+  enhancedImageUrl?: string; // Optional: enhanced image URL (if enhancement is in progress)
+  enhancementPromise?: Promise<string>; // Optional: promise for enhanced image
+}
+
+// Compress image while maintaining quality (for faster base64 conversion)
+// Only compress when absolutely necessary to maintain maximum quality
+async function compressImage(file: File, maxWidth: number = 3072, quality: number = 0.99): Promise<File> {
+  return new Promise((resolve, reject) => {
+    // Only compress if file is extremely large (10MB+) to maintain maximum quality
+    if (file.size < 10 * 1024 * 1024) { // Less than 10MB - don't compress at all
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Calculate new dimensions maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        
+        // Only resize if image is larger than maxWidth
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        // If image is already small enough, return original
+        if (width === img.width && height === img.height && file.size < 10 * 1024 * 1024) {
+          resolve(file);
+          return;
+        }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        
+        // Use high-quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to blob with high quality
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          } else {
+            reject(new Error('Failed to compress image'));
+          }
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 // Convert file to base64 format
@@ -59,8 +125,35 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// Enhance image quality using canvas for upscaling and sharpening
-// Enhance image quality using advanced super-resolution and anti-aliasing techniques
+// 检测和校正图像方向 - 与前端组件保持一致的简单逻辑
+// 对于宠物肖像，我们期望纵向（垂直）方向
+// 注意：此函数目前不再被使用
+// 图像旋转现在完全由前端组件负责，基于与原图的比较
+// 保留此函数以备将来可能需要
+function correctImageOrientation(img: HTMLImageElement): { rotation: number; width: number; height: number } {
+  let width = img.naturalWidth || img.width;
+  let height = img.naturalHeight || img.height;
+  let rotation = 0;
+  
+  // 确保有有效的尺寸
+  if (!width || !height || width === 0 || height === 0) {
+    console.warn('Invalid image dimensions in correctImageOrientation:', { width, height });
+    return { rotation: 0, width, height };
+  }
+  
+  // 对于宠物肖像，我们期望纵向（垂直）方向
+  // 如果图像是横向（宽度 > 高度），自动旋转90度
+  // 注意：此逻辑现在由前端组件处理，基于与原图的比较
+  if (width > height) {
+    rotation = 90;
+    [width, height] = [height, width];
+    console.log(`Auto-corrected orientation: landscape (${img.naturalWidth}x${img.naturalHeight}) to portrait - rotating 90°`);
+  }
+  
+  return { rotation, width, height };
+}
+
+// Enhance image quality using canvas for upscaling (balanced quality and speed)
 function enhanceImageQuality(imageUrl: string, targetDPI: number = 300): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -68,83 +161,96 @@ function enhanceImageQuality(imageUrl: string, targetDPI: number = 300): Promise
     
     img.onload = () => {
       try {
+        // 不再在后端增强函数中旋转图片
+        // 旋转由前端组件负责，基于与原图的比较
+        // 这样可以避免双重旋转，并保持逻辑一致性
+        const finalWidth = img.naturalWidth || img.width;
+        const finalHeight = img.naturalHeight || img.height;
+        
+        console.log(`Enhancing image: ${finalWidth}x${finalHeight} at ${targetDPI} DPI`);
+        
         // Calculate scale factor based on target DPI
         // Assuming original image is 72 DPI (web standard)
         const originalDPI = 72;
         const scaleFactor = targetDPI / originalDPI;
         
-        // For high DPI (600+), use progressive upscaling to avoid artifacts
-        const progressiveUpscale = targetDPI >= 600;
+        console.log(`Scale factor: ${scaleFactor.toFixed(2)}`);
         
-        let currentCanvas = document.createElement('canvas');
-        let currentCtx = currentCanvas.getContext('2d');
-        
-        if (!currentCtx) {
-          reject(new Error('Could not get canvas context'));
+        // If scale factor is very small (< 1.2), no need to enhance
+        if (scaleFactor < 1.2) {
+          console.log('Scale factor too small, skipping enhancement');
+          resolve(imageUrl);
           return;
         }
         
-        // Progressive upscaling for high DPI to avoid pixelation
-        if (progressiveUpscale) {
-          // Step 1: Initial upscale to 2x
-          const step1Scale = 2;
-          currentCanvas.width = img.width * step1Scale;
-          currentCanvas.height = img.height * step1Scale;
-          
-          // High-quality image rendering for initial upscale
-          currentCtx.imageSmoothingEnabled = true;
-          currentCtx.imageSmoothingQuality = 'high';
-          currentCtx.drawImage(img, 0, 0, currentCanvas.width, currentCanvas.height);
-          
-          // Step 2: Apply advanced sharpening with edge preservation
-          const imageData = currentCtx.getImageData(0, 0, currentCanvas.width, currentCanvas.height);
-          const sharpenedData = applyAdvancedSharpening(imageData);
-          currentCtx.putImageData(sharpenedData, 0, 0);
-          
-          // Step 3: Final upscale to target size with Lanczos interpolation
-          const finalCanvas = document.createElement('canvas');
-          finalCanvas.width = img.width * scaleFactor;
-          finalCanvas.height = img.height * scaleFactor;
-          const finalCtx = finalCanvas.getContext('2d');
-          
-          if (!finalCtx) {
-            reject(new Error('Could not get final canvas context'));
-            return;
-          }
-          
-          // Use high-quality scaling for final upscale
-          finalCtx.imageSmoothingEnabled = true;
-          finalCtx.imageSmoothingQuality = 'high';
-          finalCtx.drawImage(currentCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
-          
-          // Step 4: Apply final enhancement for print quality
-          const finalImageData = finalCtx.getImageData(0, 0, finalCanvas.width, finalCanvas.height);
-          const enhancedData = applyPrintEnhancement(finalImageData, targetDPI);
-          finalCtx.putImageData(enhancedData, 0, 0);
-          
-          // Convert to high-quality JPEG
-          const enhancedImageUrl = finalCanvas.toDataURL('image/jpeg', 0.98);
-          resolve(enhancedImageUrl);
-          
-        } else {
-          // For lower DPI, use standard enhancement
-          currentCanvas.width = img.width * scaleFactor;
-          currentCanvas.height = img.height * scaleFactor;
-          
-          // Apply high-quality image rendering
-          currentCtx.imageSmoothingEnabled = true;
-          currentCtx.imageSmoothingQuality = 'high';
-          currentCtx.drawImage(img, 0, 0, currentCanvas.width, currentCanvas.height);
-          
-          // Apply standard sharpening
-          const imageData = currentCtx.getImageData(0, 0, currentCanvas.width, currentCanvas.height);
-          const sharpenedData = applySharpeningFilter(imageData);
-          currentCtx.putImageData(sharpenedData, 0, 0);
-          
-          // Convert to high-quality JPEG
-          const enhancedImageUrl = currentCanvas.toDataURL('image/jpeg', 0.95);
-          resolve(enhancedImageUrl);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          console.warn('Failed to get canvas context, returning original image');
+          resolve(imageUrl); // Return original if can't get context
+          return;
         }
+        
+        // Calculate target dimensions (use original dimensions)
+        canvas.width = Math.round(finalWidth * scaleFactor);
+        canvas.height = Math.round(finalHeight * scaleFactor);
+        
+        console.log(`Target dimensions: ${canvas.width}x${canvas.height}`);
+        
+        // Use high-quality image rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Progressive upscaling for better quality (2-step for large scale factors)
+        if (scaleFactor > 2.5) {
+          // Step 1: Upscale to intermediate size (2x)
+          const intermediateCanvas = document.createElement('canvas');
+          intermediateCanvas.width = Math.round(img.width * 2);
+          intermediateCanvas.height = Math.round(img.height * 2);
+          const intermediateCtx = intermediateCanvas.getContext('2d');
+          
+          if (intermediateCtx) {
+            intermediateCtx.imageSmoothingEnabled = true;
+            intermediateCtx.imageSmoothingQuality = 'high';
+            intermediateCtx.drawImage(img, 0, 0, intermediateCanvas.width, intermediateCanvas.height);
+            
+            // Step 2: Final upscale to target size
+            ctx.drawImage(intermediateCanvas, 0, 0, canvas.width, canvas.height);
+          } else {
+            // Fallback to single-step
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          }
+        } else {
+          // Single-step upscale for smaller scale factors
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }
+        
+        // Apply sharpening based on DPI requirements
+        if (targetDPI >= 300) {
+          try {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let sharpenedData: ImageData;
+            
+            // Use advanced sharpening for high DPI (600+)
+            if (targetDPI >= 600 && scaleFactor > 2) {
+              sharpenedData = applyAdvancedSharpening(imageData);
+            } else {
+              // Use light sharpening for standard DPI
+              sharpenedData = applyLightSharpening(imageData);
+            }
+            
+            ctx.putImageData(sharpenedData, 0, 0);
+          } catch (sharpError) {
+            console.warn('Sharpening failed, using upscaled image:', sharpError);
+            // Continue with upscaled image without sharpening
+          }
+        }
+        
+        // Convert to maximum quality JPEG (0.99 quality for best quality)
+        const enhancedImageUrl = canvas.toDataURL('image/jpeg', 0.99);
+        console.log('Image enhancement completed successfully');
+        resolve(enhancedImageUrl);
         
       } catch (error) {
         console.error('Image enhancement error:', error);
@@ -160,6 +266,46 @@ function enhanceImageQuality(imageUrl: string, targetDPI: number = 300): Promise
     
     img.src = imageUrl;
   });
+}
+
+// Light sharpening filter (faster than advanced sharpening)
+function applyLightSharpening(imageData: ImageData): ImageData {
+  const { width, height, data } = imageData;
+  const outputData = new Uint8ClampedArray(data.length);
+  
+  // Simple sharpening kernel (lighter than advanced version)
+  const kernel = [
+    [0, -0.25, 0],
+    [-0.25, 2, -0.25],
+    [0, -0.25, 0]
+  ];
+  
+  // Copy border pixels unchanged
+  for (let i = 0; i < data.length; i++) {
+    outputData[i] = data[i];
+  }
+  
+  // Apply kernel to interior pixels (only process every other pixel for speed)
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      for (let c = 0; c < 3; c++) { // RGB channels only
+        let sum = 0;
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const pixelIndex = ((y + ky) * width + (x + kx)) * 4 + c;
+            const kernelValue = kernel[ky + 1][kx + 1];
+            sum += data[pixelIndex] * kernelValue;
+          }
+        }
+        const outputIndex = (y * width + x) * 4 + c;
+        outputData[outputIndex] = Math.max(0, Math.min(255, sum));
+      }
+      // Keep alpha channel unchanged
+      outputData[(y * width + x) * 4 + 3] = data[(y * width + x) * 4 + 3];
+    }
+  }
+  
+  return new ImageData(outputData, width, height);
 }
 
 // Advanced sharpening with edge preservation
@@ -351,12 +497,14 @@ function applySharpeningFilter(imageData: ImageData): ImageData {
   return new ImageData(outputData, width, height);
 }
 
-// Build complete prompt
+// Build complete prompt with quality consistency requirements
 function buildFullPrompt(prompt: string, negativePrompt?: string, dpi?: number, quality?: string): string {
   let fullPrompt = prompt;
   
-  // Enhanced quality description for print requirements
-  fullPrompt += ', masterpiece, best quality, professional, detailed, ultra high resolution, 8K quality';
+  // CRITICAL: Add strong quality consistency requirements at the beginning
+  // These help ensure stable, high-quality output every time
+  fullPrompt += ', masterpiece, best quality, professional artwork, highly detailed, ultra high resolution, 8K quality';
+  fullPrompt += ', consistent style, stable quality, refined details, polished finish';
   
   // Enhanced DPI and quality requirements for printing
   if (dpi) {
@@ -371,9 +519,9 @@ function buildFullPrompt(prompt: string, negativePrompt?: string, dpi?: number, 
   
   if (quality) {
     if (quality === 'ultra') {
-      fullPrompt += ', ultra quality, maximum detail, professional grade, archival quality, museum quality, perfect sharpness';
+      fullPrompt += ', ultra quality, maximum detail, professional grade, archival quality, museum quality, perfect sharpness, flawless execution';
     } else if (quality === 'high') {
-      fullPrompt += ', high quality, excellent detail, premium print ready, sharp and clear';
+      fullPrompt += ', high quality, excellent detail, premium print ready, sharp and clear, refined artwork';
     } else {
       fullPrompt += `, ${quality} quality`;
     }
@@ -385,13 +533,18 @@ function buildFullPrompt(prompt: string, negativePrompt?: string, dpi?: number, 
     fullPrompt += ', vector-like quality, sharp edges, clean lines, perfect details, commercial grade';
   }
   
-  // Add print-specific requirements
+  // Add universal quality requirements
   fullPrompt += ', sharp edges, clean lines, no blur, no artifacts, crisp details, vibrant colors';
+  fullPrompt += ', professional composition, balanced lighting, harmonious colors';
   
-  // Add negative prompts
+  // Build negative prompt with quality consistency requirements
+  let fullNegativePrompt = 'low quality, blurry, pixelated, artifacts, noise, distorted, amateur, inconsistent style, poor execution, bad anatomy, deformed';
   if (negativePrompt) {
-    fullPrompt += ` ### ${negativePrompt}`;
+    fullNegativePrompt = `${negativePrompt}, ${fullNegativePrompt}`;
   }
+  
+  // Add negative prompts using proper separator
+  fullPrompt += ` ### ${fullNegativePrompt}`;
   
   return fullPrompt;
 }
@@ -406,8 +559,14 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     
     const startTime = Date.now();
     
-    // Build complete prompt
-    const fullPrompt = buildFullPrompt(request.prompt, request.negativePrompt, request.dpi, request.quality);
+    // Build complete prompt (include dimensions in prompt for Gemini API)
+    let fullPrompt = buildFullPrompt(request.prompt, request.negativePrompt, request.dpi, request.quality);
+    
+    // Add dimensions to prompt if specified (Gemini API may need this in prompt)
+    if (request.width && request.height) {
+      fullPrompt += `, output image dimensions: ${request.width}x${request.height} pixels, maintain aspect ratio ${request.width}:${request.height}`;
+      console.log(`Requested image dimensions: ${request.width}x${request.height}`);
+    }
     
     // Use Gemini format to call API
     console.log('Using Gemini format to call API...');
@@ -415,9 +574,29 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     // Build request body - use Gemini format
     let requestBody: any;
     
+    // Generation configuration for quality consistency
+    // Higher temperature = more creative but less consistent
+    // Lower temperature = more consistent but potentially less creative
+    const generationConfig = {
+      temperature: 0.4,  // Lower temperature for more consistent results (0.0-1.0)
+      topP: 0.8,         // Nucleus sampling for quality control
+      topK: 40,          // Limit token selection for consistency
+      // Use seed if provided for reproducible results
+      ...(request.seed !== undefined && { seed: request.seed })
+    };
+    
     if (request.image) {
-      // Convert image to base64 format
-      const imageBase64 = await fileToBase64(request.image);
+      // Only compress if absolutely necessary (maintains maximum quality)
+      console.log('Checking if image compression is needed...');
+      const compressedImage = await compressImage(request.image, 3072, 0.99); // Maximum quality, larger max width
+      if (compressedImage.size < request.image.size) {
+        console.log(`Image compressed (minimal): ${(request.image.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedImage.size / 1024 / 1024).toFixed(2)}MB`);
+      } else {
+        console.log('Original image quality maintained - no compression applied');
+      }
+      
+      // Convert compressed image to base64 format
+      const imageBase64 = await fileToBase64(compressedImage);
       
       requestBody = {
         contents: [
@@ -428,13 +607,14 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
               },
               {
                 inline_data: {
-                  mime_type: request.image.type || 'image/jpeg',
+                  mime_type: compressedImage.type || 'image/jpeg',
                   data: imageBase64
                 }
               }
             ]
           }
-        ]
+        ],
+        generationConfig: generationConfig
       };
     } else {
       // If no image, only send text prompt
@@ -447,7 +627,8 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
               }
             ]
           }
-        ]
+        ],
+        generationConfig: generationConfig
       };
     }
     
@@ -468,83 +649,115 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       body: requestOptions.body
     });
     
-    let response;
-    try {
-      response = await fetch(apiUrl, requestOptions);
-    } catch (fetchError) {
-      console.error('Fetch error:', fetchError);
-      throw new Error(`Network request failed: ${fetchError.message}`);
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    // Check response status
-    if (!response.ok) {
-      console.error('HTTP error status:', response.status, response.statusText);
-      
-      // Check if it's a CORS error
-      if (response.status === 0) {
-        throw new Error('CORS error: API server not configured to allow cross-origin requests. Please check API configuration or contact API provider.');
-      }
-      
-      throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-    }
+    // Retry mechanism for network errors
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second (backoff with attempt multiplier)
+    let lastError: Error | null = null;
     
-    let data;
-    const responseText = await response.text();
-    
-    console.log('API raw response:', responseText);
-    
-    // First check if response is XML format error
-    if (responseText.includes('<Error>') && responseText.includes('NoSuchKey')) {
-      console.log('Detected XML format error response');
-      
-      // Try to extract useful information from error message
-      const keyMatch = responseText.match(/<Key>([^<]+)<\/Key>/);
-      if (keyMatch) {
-        console.log('Image file Key:', keyMatch[1]);
-      }
-      
-      // Try to parse XML error
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(responseText, 'text/xml');
-        const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent;
-        const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent;
+        console.log(`API request attempt ${attempt}/${maxRetries}...`);
         
-        console.log('XML error information:', { errorCode, errorMessage });
+        // Note: avoid aggressive timeout to prevent premature aborts
+        const response = await fetch(apiUrl, requestOptions);
         
-        // If it's NoSuchKey error, image was generated but URL is invalid
-        if (errorCode === 'NoSuchKey') {
-          throw new Error('API platform returned invalid image URL. Please check API documentation or contact technical support.');
+        // If we get a response, process it
+        if (response.ok) {
+          // Success - process response
+          return await processApiResponse(response, startTime, request);
         }
-      } catch (xmlError) {
-        console.error('Failed to parse XML error:', xmlError);
-      }
-      
-      // Try to parse response text as JSON
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonError) {
-        // If cannot parse as JSON, create an error object
-        data = { error: { message: 'API returned XML format error: ' + responseText.substring(0, 200) } };
-      }
-    } else {
-      // Normal JSON response
-      try {
-        data = JSON.parse(responseText);
-        console.log('API response data:', JSON.stringify(data, null, 2));
-      } catch (error) {
-        console.error('Failed to parse API response:', error);
-        console.log('Raw response text:', responseText.substring(0, 500));
-        throw new Error('API returned unparsable response format');
+        
+        // For 5xx errors, retry
+        if (response.status >= 500 && attempt < maxRetries) {
+          console.warn(`Server error ${response.status}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+          continue;
+        }
+        
+        // For non-retryable errors, throw immediately
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        
+      } catch (fetchError: any) {
+        lastError = fetchError;
+        console.error(`Fetch error on attempt ${attempt}:`, fetchError);
+        
+        // Check if it's a network error or timeout
+        const isNetworkError = fetchError.name === 'TypeError' || 
+                              fetchError.name === 'AbortError' ||
+                              fetchError.message.includes('Failed to fetch') ||
+                              fetchError.message.includes('ERR_HTTP2_PING_FAILED') ||
+                              fetchError.message.includes('network');
+        
+        if (isNetworkError && attempt < maxRetries) {
+          console.warn(`Network error detected, retrying in ${retryDelay * attempt}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+          continue;
+        }
+        
+        // If it's the last attempt or not a network error, throw
+        if (attempt === maxRetries || !isNetworkError) {
+          throw new Error(`Network request failed after ${attempt} attempts: ${fetchError.message}`);
+        }
       }
     }
     
-    const generationTime = Date.now() - startTime;
+    // This should never be reached, but TypeScript needs it
+    throw lastError || new Error('Unknown error occurred');
+    
+    // Helper function to process API response
+    async function processApiResponse(response: Response, startTime: number, request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+      const generationTime = Date.now() - startTime;
+      let data;
+      const responseText = await response.text();
+      
+      console.log('API raw response:', responseText);
+      
+      // First check if response is XML format error
+      if (responseText.includes('<Error>') && responseText.includes('NoSuchKey')) {
+        console.log('Detected XML format error response');
+        
+        // Try to extract useful information from error message
+        const keyMatch = responseText.match(/<Key>([^<]+)<\/Key>/);
+        if (keyMatch) {
+          console.log('Image file Key:', keyMatch[1]);
+        }
+        
+        // Try to parse XML error
+        try {
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(responseText, 'text/xml');
+          const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent;
+          const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent;
+          
+          console.log('XML error information:', { errorCode, errorMessage });
+          
+          // If it's NoSuchKey error, image was generated but URL is invalid
+          if (errorCode === 'NoSuchKey') {
+            throw new Error('API platform returned invalid image URL. Please check API documentation or contact technical support.');
+          }
+        } catch (xmlError) {
+          console.error('Failed to parse XML error:', xmlError);
+        }
+        
+        // Try to parse response text as JSON
+        try {
+          data = JSON.parse(responseText);
+        } catch (jsonError) {
+          // If cannot parse as JSON, create an error object
+          data = { error: { message: 'API returned XML format error: ' + responseText.substring(0, 200) } };
+        }
+      } else {
+        // Normal JSON response
+        try {
+          data = JSON.parse(responseText);
+          console.log('API response data:', JSON.stringify(data, null, 2));
+        } catch (error) {
+          console.error('Failed to parse API response:', error);
+          console.log('Raw response text:', responseText.substring(0, 500));
+          throw new Error('API returned unparsable response format');
+        }
+      }
     
     // Output complete API response data for debugging
     console.log('Complete API response data:', JSON.stringify(data, null, 2));
@@ -574,23 +787,25 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
       console.log('Found Gemini format response');
       const candidate = data.candidates[0];
+      let textOnlyResponse: string | null = null;
       if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
         for (const part of candidate.content.parts) {
-          // Check if there is inlineData (base64 image data)
+          // Check inline image
           if (part.inlineData && part.inlineData.mimeType && part.inlineData.data) {
             console.log('Found base64 image data in Gemini format');
             imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             break;
           }
-          // Check if there is text response (may be error message)
+          // Record text if present (do not throw yet)
           if (part.text) {
             console.log('Gemini returned text response:', part.text);
-            // If returned text instead of image, model may not support image generation
-            if (part.text.includes('art') || part.text.includes('portrait') || part.text.includes('style')) {
-              throw new Error('AI model returned text response instead of image. Please check if model supports image generation function.');
-            }
+            textOnlyResponse = part.text;
           }
         }
+      }
+      // If no image found but text exists, throw descriptive error
+      if (!imageUrl && textOnlyResponse) {
+        throw new Error('AI model returned text response instead of image. Please check if model supports image generation function.');
       }
     }
     
@@ -677,23 +892,35 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       }
     }
 
-    // Enhance image quality for printing
+    // Enhance image quality for printing (async - return original immediately)
+    let enhancementPromise: Promise<string> | undefined;
     if (imageUrl && request.dpi && request.dpi >= 300) {
-      console.log('Applying image quality enhancement for printing...');
-      try {
-        const enhancedImageUrl = await enhanceImageQuality(imageUrl, request.dpi);
-        imageUrl = enhancedImageUrl;
-        console.log('Image quality enhancement completed');
-      } catch (enhanceError) {
-        console.warn('Image enhancement failed, using original image:', enhanceError);
-      }
+      console.log('Starting image quality enhancement for printing (async)...');
+      // Start enhancement in background, don't wait for it
+      enhancementPromise = enhanceImageQuality(imageUrl, request.dpi)
+        .then((enhancedUrl) => {
+          console.log('Image quality enhancement completed');
+          return enhancedUrl;
+        })
+        .catch((enhanceError) => {
+          console.warn('Image enhancement failed, using original image:', enhanceError);
+          return imageUrl; // Return original if enhancement fails
+        });
+      
+      // Optionally wait for enhancement if user wants highest quality (commented out for speed)
+      // For now, return original immediately and enhance in background
+      // const enhancedImageUrl = await enhancementPromise;
+      // imageUrl = enhancedImageUrl;
     }
 
-    return {
-      imageUrl,
-      generationTime,
-      model: API_CONFIG.model
-    };
+      return {
+        imageUrl, // Return original image immediately
+        generationTime,
+        model: API_CONFIG.model,
+        enhancementPromise // Optional: can be used to get enhanced version later
+      };
+    }
+    
   } catch (error) {
     console.error('AI API Error:', error);
     throw new Error(`Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -760,7 +987,7 @@ async function generateImageWithFetchAPI(request: ImageGenerationRequest): Promi
           model: API_CONFIG.model,
           prompt: fullPrompt,
           n: 1,
-          size: '1024x1024',
+          size: getSupportedSize(request.width, request.height),
           response_format: 'url'
         }),
       });
@@ -805,7 +1032,7 @@ async function tryGeminiFormat(request: ImageGenerationRequest, fullPrompt: stri
         model: API_CONFIG.model,
         prompt: fullPrompt,
         n: 1,
-        size: '1024x1024',
+        size: getSupportedSize(request.width, request.height),
         response_format: 'url'
       }),
     });
@@ -885,7 +1112,7 @@ async function trySimpleFormat(request: ImageGenerationRequest, fullPrompt: stri
         model: API_CONFIG.model,
         prompt: fullPrompt,
         n: 1,
-        size: '1024x1024',
+        size: getSupportedSize(request.width, request.height),
         response_format: 'url'
       }),
     });
@@ -926,23 +1153,18 @@ async function trySimpleFormat(request: ImageGenerationRequest, fullPrompt: stri
   }
 }
 
-// Get supported image sizes
-function getSupportedSize(width?: number, height?: number): '1024x1024' | '1792x1024' | '1024x1792' {
-  // Default to 1024x1024
-  if (!width || !height) {
-    return '1024x1024';
+// Get supported image size string for API (use actual dimensions if provided)
+function getSupportedSize(width?: number, height?: number): string {
+  // If dimensions are provided, use them directly (format: "WIDTHxHEIGHT")
+  if (width && height) {
+    // Round to nearest supported size or use exact dimensions
+    // For APIs that support custom sizes, use exact dimensions
+    // For APIs that only support specific sizes, map to closest supported size
+    return `${width}x${height}`;
   }
   
-  // Choose most appropriate size based on aspect ratio
-  const aspectRatio = width / height;
-  
-  if (aspectRatio > 1.5) {
-    return '1792x1024'; // Wide image
-  } else if (aspectRatio < 0.67) {
-    return '1024x1792'; // Tall image
-  } else {
-    return '1024x1024'; // Square image
-  }
+  // Default to 1024x1024 if no dimensions provided
+  return '1024x1024';
 }
 
 // Test API connection
