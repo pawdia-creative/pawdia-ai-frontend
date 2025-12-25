@@ -23,8 +23,9 @@ const Register: React.FC = () => {
         password: data.password, 
         confirmPassword: data.confirmPassword || '' 
       });
-      toast.success('注册成功！请检查您的邮箱以完成验证。');
-      navigate('/login');
+      toast.success('Registration successful! Please check your email to verify your account.');
+      // Redirect to email verification info page instead of auto-login
+      navigate('/verify-email');
     } catch (error) {
       // Error is handled by the context and useEffect
     }

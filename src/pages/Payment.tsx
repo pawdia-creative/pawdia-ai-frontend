@@ -29,6 +29,7 @@ const Payment = () => {
     try {
       setIsProcessing(true);
       
+      // userId is now obtained from auth token, not sent in request body
       const orderData = {
         items: cartState.items.map(item => ({
           name: item.name,
@@ -37,8 +38,7 @@ const Payment = () => {
           quantity: item.quantity
         })),
         totalAmount: cartState.total,
-        currency: 'USD',
-        userId: user?.id
+        currency: 'USD'
       };
 
       const orderId = await PaymentService.createOrder(orderData);
@@ -85,8 +85,28 @@ const Payment = () => {
 
   // Payment error handling
   const onError = (error: any) => {
+    console.error('[PAYMENT] PayPal SDK error:', error);
+    
+    let errorMessage = 'An error occurred during payment. Please try again.';
+    
+    if (error && typeof error === 'object') {
+      if (error.message) {
+        if (error.message.includes('400') || error.message.includes('Bad Request')) {
+          errorMessage = 'PayPal Client ID is invalid or misconfigured. Please check: 1) Client ID value, 2) environment (Sandbox vs Live), 3) that your domain is authorized in the PayPal app.';
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'PayPal Client ID is not authorized. Please check your PayPal app settings.';
+        } else if (error.message.includes('client-id') || error.message.includes('MISSING_CLIENT_ID')) {
+          errorMessage = 'PayPal is not properly configured. Please contact support.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error connecting to PayPal. Please check your internet connection and try again.';
+        } else {
+          errorMessage = `PayPal error: ${error.message}`;
+        }
+      }
+    }
+    
+    setPaypalError(errorMessage);
     PaymentService.handlePaymentError(error);
-    setPaypalError('PayPal payment service is currently unavailable. Please try again later.');
   };
 
   return (
@@ -138,7 +158,26 @@ const Payment = () => {
               <CardDescription>Pay securely with PayPal</CardDescription>
             </CardHeader>
             <CardContent>
-              {paypalError ? (
+              {!import.meta.env.VITE_PAYPAL_CLIENT_ID || import.meta.env.VITE_PAYPAL_CLIENT_ID === 'MISSING_CLIENT_ID' ? (
+                <div className="text-center space-y-4">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800 text-sm font-semibold mb-2">PayPal not configured</p>
+                    <p className="text-red-700 text-xs">
+                      PayPal payments require the Client ID environment variable. Please contact the site admin or check the configuration docs.
+                    </p>
+                    <p className="text-red-600 text-xs mt-2">
+                      Set in Cloudflare Pages: VITE_PAYPAL_CLIENT_ID
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/create')}
+                    className="w-full"
+                  >
+                    Back
+                  </Button>
+                </div>
+              ) : paypalError ? (
                 <div className="text-center space-y-4">
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <p className="text-yellow-800 text-sm">{paypalError}</p>
@@ -157,9 +196,10 @@ const Payment = () => {
               ) : (
                 <PayPalScriptProvider 
                   options={{ 
-                    clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID || 'test',
+                    clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
                     currency: 'USD',
-                    intent: 'capture'
+                    intent: 'capture',
+                    components: 'buttons'
                   }}
                 >
                   <PayPalButtons

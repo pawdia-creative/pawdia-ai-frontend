@@ -22,30 +22,48 @@ interface PaymentResult {
 }
 
 class PaymentService {
-  private static baseUrl = `${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/payments`;
+  // Base API URL for payment-related endpoints
+  // 强烈建议在环境变量中显式配置 VITE_API_URL，用于区分本地、测试和生产环境。
+  // 如果未配置，则默认回退到本地开发地址，避免无意间直连生产环境。
+  private static readonly apiBaseUrl =
+    import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+
+  private static baseUrl = `${PaymentService.apiBaseUrl}/payments`;
 
   /**
-   * Create PayPal order
+   * Create PayPal order (requires authentication)
    */
   static async createOrder(orderData: OrderData): Promise<string> {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in to create an order.');
+      }
+
+      // Remove userId from orderData as it's now obtained from the auth token
+      const { userId, ...orderDataWithoutUserId } = orderData;
+
       const response = await fetch(`${this.baseUrl}/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(orderData),
+        body: JSON.stringify(orderDataWithoutUserId),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create PayPal order');
+        const errorData = await response.json().catch(() => ({}));
+        // Prefer backend-provided detailed error if available
+        const detailedMessage = errorData.error || errorData.message;
+        throw new Error(detailedMessage || 'Failed to create PayPal order');
       }
 
       const data = await response.json();
       return data.orderId;
     } catch (error) {
       console.error('Error creating PayPal order:', error);
-      toast.error('Failed to create payment order');
+      toast.error(error instanceof Error ? error.message : 'Failed to create payment order');
       throw error;
     }
   }
@@ -55,15 +73,23 @@ class PaymentService {
    */
   static async capturePayment(orderId: string): Promise<PaymentResult> {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in to capture the payment.');
+      }
+
       const response = await fetch(`${this.baseUrl}/capture-order/${orderId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to capture payment');
+        const errorData = await response.json().catch(() => ({}));
+        const detailedMessage = errorData.error || errorData.message;
+        throw new Error(detailedMessage || 'Failed to capture payment');
       }
 
       const result = await response.json();
@@ -101,11 +127,16 @@ class PaymentService {
   /**
    * Get user order history
    */
-  static async getUserOrders(userId: string): Promise<any[]> {
+  static async getUserOrders(): Promise<any[]> {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in to view your orders.');
+      }
+
       const response = await fetch(`${this.baseUrl}/user-orders`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 

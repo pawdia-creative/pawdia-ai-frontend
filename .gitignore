@@ -41,3 +41,8 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+node_modules/
+api/.wrangler/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

@@ -13,6 +13,7 @@ This frontend application uses environment variables for configuration. To preve
 
    ### Required Variables
    - `VITE_API_URL`: Your backend API URL (e.g., `https://your-domain.com/api`)
+   - `VITE_PAYPAL_CLIENT_ID`: PayPal Client ID for payment processing (required for subscriptions and credit purchases)
    
    ### Optional Variables
    - `VITE_AI_API_KEY`: AI service API key (if using AI features)
@@ -25,7 +26,13 @@ This frontend application uses environment variables for configuration. To preve
    In your Cloudflare Pages dashboard, add these environment variables:
    - Go to your Pages project → Settings → Environment variables
    - Add `VITE_API_URL` with your production API URL
+   - Add `VITE_PAYPAL_CLIENT_ID` with your PayPal Client ID (required for payments)
    - Add `VITE_AI_API_KEY` if using AI features (optional)
+   
+   **Backend API (Cloudflare Workers) Secrets:**
+   - `PAYPAL_CLIENT_ID`: PayPal Client ID (use `npx wrangler secret put PAYPAL_CLIENT_ID`)
+   - `PAYPAL_CLIENT_SECRET`: PayPal Client Secret (use `npx wrangler secret put PAYPAL_CLIENT_SECRET`)
+   - `PAYPAL_MODE`: PayPal environment mode - `sandbox` for testing, `live` for production
 
 ## Important Notes
 
