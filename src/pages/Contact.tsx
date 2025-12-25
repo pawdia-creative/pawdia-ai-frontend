@@ -43,11 +43,61 @@ const Contact = () => {
             </h1>
             
             <p className="text-xl text-muted-foreground mb-12">
-              Have a question, feedback, or need support? We're here to help! 
+              Have a question, feedback, or need support? We're here to help!
               Reach out to us through any of the channels below.
             </p>
 
-            <div className="grid md:grid-cols-3 gap-8 mb-12">
+            {/* Send us a message form */}
+            <div className="max-w-2xl mx-auto bg-white rounded-lg p-6 shadow mb-12">
+              <h3 className="text-2xl font-semibold mb-4">Send us a message</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+              }} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input placeholder="Name" id="contact-name" />
+                  <Input placeholder="Email" id="contact-email" />
+                </div>
+                <Input placeholder="Phone number (optional)" id="contact-phone" />
+                <Textarea placeholder="Your message" id="contact-message" rows={6} />
+                <div className="flex justify-end">
+                  <Button onClick={async () => {
+                    const name = (document.getElementById('contact-name') as HTMLInputElement)?.value || '';
+                    const email = (document.getElementById('contact-email') as HTMLInputElement)?.value || '';
+                    const phone = (document.getElementById('contact-phone') as HTMLInputElement)?.value || '';
+                    const message = (document.getElementById('contact-message') as HTMLTextAreaElement)?.value || '';
+                    if (!name || !email || !message) {
+                      toast.error('Please fill name, email and message.');
+                      return;
+                    }
+                    try {
+                      const apiUrl = '/api/contact';
+                      const resp = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, phone, message })
+                      });
+                      const data = await resp.json();
+                      if (resp.ok) {
+                        toast.success('Message sent. We will contact you shortly.');
+                        (document.getElementById('contact-name') as HTMLInputElement).value = '';
+                        (document.getElementById('contact-email') as HTMLInputElement).value = '';
+                        (document.getElementById('contact-phone') as HTMLInputElement).value = '';
+                        (document.getElementById('contact-message') as HTMLTextAreaElement).value = '';
+                      } else {
+                        toast.error(data.message || 'Failed to send message');
+                      }
+                    } catch (err) {
+                      console.error('Contact send error', err);
+                      toast.error('Network error. Please try again later.');
+                    }
+                  }}>
+                    Send
+                  </Button>
+                </div>
+              </form>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 mb-12">
               <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-6 border border-pink-200">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-3 rounded-full">
@@ -84,55 +134,6 @@ const Contact = () => {
                 >
                   pawdia.creative@gmail.com
                 </a>
-              </div>
-              {/* Send us a message form placed between Instagram and Email on md+ screens */}
-              <div className="max-w-2xl mx-auto bg-white rounded-lg p-6 shadow">
-                <h3 className="text-2xl font-semibold mb-4">Send us a message</h3>
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                }} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input placeholder="Name" id="contact-name" />
-                    <Input placeholder="Email" id="contact-email" />
-                  </div>
-                  <Input placeholder="Phone number (optional)" id="contact-phone" />
-                  <Textarea placeholder="Your message" id="contact-message" rows={6} />
-                  <div className="flex justify-end">
-                    <Button onClick={async () => {
-                      const name = (document.getElementById('contact-name') as HTMLInputElement)?.value || '';
-                      const email = (document.getElementById('contact-email') as HTMLInputElement)?.value || '';
-                      const phone = (document.getElementById('contact-phone') as HTMLInputElement)?.value || '';
-                      const message = (document.getElementById('contact-message') as HTMLTextAreaElement)?.value || '';
-                      if (!name || !email || !message) {
-                        toast.error('Please fill name, email and message.');
-                        return;
-                      }
-                      try {
-                        const apiUrl = '/api/contact';
-                        const resp = await fetch(apiUrl, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ name, email, phone, message })
-                        });
-                        const data = await resp.json();
-                        if (resp.ok) {
-                          toast.success('Message sent. We will contact you shortly.');
-                          (document.getElementById('contact-name') as HTMLInputElement).value = '';
-                          (document.getElementById('contact-email') as HTMLInputElement).value = '';
-                          (document.getElementById('contact-phone') as HTMLInputElement).value = '';
-                          (document.getElementById('contact-message') as HTMLTextAreaElement).value = '';
-                        } else {
-                          toast.error(data.message || 'Failed to send message');
-                        }
-                      } catch (err) {
-                        console.error('Contact send error', err);
-                        toast.error('Network error. Please try again later.');
-                      }
-                    }}>
-                      Send
-                    </Button>
-                  </div>
-                </form>
               </div>
             </div>
             <div className="bg-muted rounded-lg p-6 mb-12">
