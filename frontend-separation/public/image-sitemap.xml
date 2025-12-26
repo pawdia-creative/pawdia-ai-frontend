@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  
+  <!-- Homepage Images -->
+  <url>
+    <loc>https://pawdia-ai.com/</loc>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/logo.png</image:loc>
+      <image:title>Pawdia AI - AI Pet Portrait Generator</image:title>
+      <image:caption>AI-powered pet portrait generator logo</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- Style Page Images -->
+  <url>
+    <loc>https://pawdia-ai.com/watercolor-pet-portrait-ai</loc>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-watercolor.jpg</image:loc>
+      <image:title>Watercolor Pet Portrait AI Example</image:title>
+      <image:caption>Beautiful watercolor pet portrait created with AI</image:caption>
+    </image:image>
+  </url>
+  
+  <url>
+    <loc>https://pawdia-ai.com/sketch-pet-portrait-ai</loc>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-pencil.jpg</image:loc>
+      <image:title>Sketch Pet Portrait AI Example</image:title>
+      <image:caption>Detailed pencil sketch pet portrait created with AI</image:caption>
+    </image:image>
+  </url>
+  
+  <url>
+    <loc>https://pawdia-ai.com/oil-painting-pet-portrait-ai</loc>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-oil-dg.jpg</image:loc>
+      <image:title>Oil Painting Pet Portrait AI Example</image:title>
+      <image:caption>Classic oil painting pet portrait created with AI</image:caption>
+    </image:image>
+  </url>
+  
+  <url>
+    <loc>https://pawdia-ai.com/cartoon-pet-portrait-ai</loc>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-gta.jpg</image:loc>
+      <image:title>Cartoon Pet Portrait AI Example</image:title>
+      <image:caption>Fun cartoon pet portrait created with AI</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- Examples Page Images -->
+  <url>
+    <loc>https://pawdia-ai.com/examples</loc>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-watercolor.jpg</image:loc>
+      <image:title>Watercolor Pet Portrait Example</image:title>
+      <image:caption>Watercolor style pet portrait example</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-pencil.jpg</image:loc>
+      <image:title>Sketch Pet Portrait Example</image:title>
+      <image:caption>Pencil sketch pet portrait example</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-oil-dg.jpg</image:loc>
+      <image:title>Oil Painting Pet Portrait Example</image:title>
+      <image:caption>Oil painting pet portrait example</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://pawdia-ai.com/assets/style-gta.jpg</image:loc>
+      <image:title>Cartoon Pet Portrait Example</image:title>
+      <image:caption>Cartoon style pet portrait example</image:caption>
+    </image:image>
+  </url>
+  
+</urlset>
+
