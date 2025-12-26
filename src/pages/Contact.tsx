@@ -142,7 +142,7 @@ const Contact = () => {
                 <h3 className="text-lg font-semibold">Response Time</h3>
               </div>
               <p className="text-muted-foreground">
-                We typically respond to all inquiries within 24 hours. For urgent matters, 
+              We typically respond as soon as possible. For urgent matters, 
                 please mention "URGENT" in your subject line.
               </p>
             </div>
