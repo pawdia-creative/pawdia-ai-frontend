@@ -7,13 +7,22 @@ const API_BASE_URL = (() => {
   if (envUrl && envUrl.trim() !== '') {
     return envUrl;
   }
+
+  // Check if we're in development mode and use local API
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8787/api';
+  }
+
   // Default to Workers API in production
   return 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
 })();
 
+// Temporary mock mode for testing when API is unavailable
+const USE_MOCK_AUTH = false;
+
 // Debug information
-console.log('API_BASE_URL:', API_BASE_URL);
-console.log('VITE_API_URL env:', import.meta.env.VITE_API_URL);
+if (import.meta.env.DEV) console.log('API_BASE_URL:', API_BASE_URL);
+if (import.meta.env.DEV) console.log('VITE_API_URL env:', import.meta.env.VITE_API_URL);
 
 // Initial state
 const initialState: AuthState = {
@@ -76,7 +85,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Provider component
-export const AuthProvider = ({ children }: { children: any }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   // Check local storage for login status
@@ -92,60 +101,79 @@ export const AuthProvider = ({ children }: { children: any }) => {
         // 添加超时处理，防止请求一直挂起
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.warn('[AUTH] Auth check timeout after 8 seconds, aborting request');
+          if (import.meta.env.DEV) console.warn('[AUTH] Auth check timeout after 8 seconds, aborting request');
           controller.abort();
         }, 8000); // 8秒超时
         
         try {
-          console.log('[AUTH] Checking auth status with token...');
-          // Verify token is valid
-          const response = await fetch(`${API_BASE_URL}/auth/me`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            signal: controller.signal,
-          });
+          if (import.meta.env.DEV) console.log('[AUTH] Checking auth status with token...');
+          // Mock auth check for testing when API is unavailable
+        if (USE_MOCK_AUTH) {
+          if (import.meta.env.DEV) console.log('[AUTH] Mock auth check - using stored user data');
+          const parsedUser = JSON.parse(storedUser);
+          dispatch({ type: 'AUTH_SUCCESS', payload: parsedUser });
+          dispatch({ type: 'AUTH_CHECKED' });
+          return;
+        }
+
+        // Verify token is valid
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
 
           clearTimeout(timeoutId); // 清除超时
 
           if (response.ok) {
             const result = await response.json();
-            console.log('[AUTH] Token valid, user authenticated');
-            // Use latest user information from API, not old stored information
-            // This ensures isVerified status is always up-to-date
-            const updatedUser = result.user || JSON.parse(storedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+            if (import.meta.env.DEV) console.log('[AUTH] Token valid, received user data', result.user);
+            // Normalize isVerified flag (API may return is_verified)
+            const apiUser = result.user || JSON.parse(storedUser);
+            const normalizedUser = {
+              ...apiUser,
+              isVerified: (apiUser.isVerified !== undefined) ? apiUser.isVerified : (apiUser.is_verified === 1)
+            };
+            // Store latest user info but only consider authenticated if verified
+            localStorage.setItem('user', JSON.stringify(normalizedUser));
+            if (normalizedUser.isVerified) {
+              dispatch({ type: 'AUTH_SUCCESS', payload: normalizedUser });
+            } else {
+              // Keep token for resend flows but do not mark as authenticated
+              if (import.meta.env.DEV) console.warn('[AUTH] User not verified, marking as not authenticated');
+              dispatch({ type: 'AUTH_LOGOUT' });
+            }
           } else if (response.status === 401) {
             // 明确的认证失败，尝试获取详细错误信息
             let errorData = null;
             try {
               errorData = await response.json();
-              console.warn('[AUTH] Token invalid or expired, error details:', errorData);
+              if (import.meta.env.DEV) console.warn('[AUTH] Token invalid or expired, error details:', errorData);
             } catch (e) {
-              console.warn('[AUTH] Token invalid or expired, could not parse error response');
+              if (import.meta.env.DEV) console.warn('[AUTH] Token invalid or expired, could not parse error response');
             }
             
             // 清除 token 和用户数据
-            console.warn('[AUTH] Clearing auth data. Status:', response.status, 'Error:', errorData?.message || errorData?.error || 'Unknown');
+            if (import.meta.env.DEV) console.warn('[AUTH] Clearing auth data. Status:', response.status, 'Error:', errorData?.message || errorData?.error || 'Unknown');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             dispatch({ type: 'AUTH_LOGOUT' });
           } else {
             // 其他错误（如 500），可能是服务器问题，保留 token 但标记为未认证
-            console.error('[AUTH] Server error during auth check:', response.status);
+            if (import.meta.env.DEV) console.error('[AUTH] Server error during auth check:', response.status);
             // 对于服务器错误，我们不清除 token，可能是临时问题
             // 但标记为未认证，用户需要重新登录
             dispatch({ type: 'AUTH_LOGOUT' });
           }
         } catch (error) {
           clearTimeout(timeoutId); // 清除超时
-          console.error('[AUTH] Error checking auth status:', error);
+          if (import.meta.env.DEV) console.error('[AUTH] Error checking auth status:', error);
           
           // 检查是否是超时错误
           if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-            console.warn('[AUTH] Request timeout, keeping token but marking as unauthenticated');
+            if (import.meta.env.DEV) console.warn('[AUTH] Request timeout, keeping token but marking as unauthenticated');
             dispatch({ type: 'AUTH_LOGOUT' });
             return;
           }
@@ -165,7 +193,7 @@ export const AuthProvider = ({ children }: { children: any }) => {
         }
       } else {
         // 没有 token 或 user，直接设置为未认证状态
-        console.log('[AUTH] No token or user found in localStorage');
+        if (import.meta.env.DEV) console.log('[AUTH] No token or user found in localStorage');
         dispatch({ type: 'AUTH_LOGOUT' });
         dispatch({ type: 'AUTH_CHECKED' });
       }
@@ -180,7 +208,7 @@ export const AuthProvider = ({ children }: { children: any }) => {
           const updatedUser = JSON.parse(event.newValue);
           dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
         } catch (error) {
-          console.error('Error parsing updated user data:', error);
+          if (import.meta.env.DEV) console.error('Error parsing updated user data:', error);
         }
       }
     };
@@ -195,7 +223,32 @@ export const AuthProvider = ({ children }: { children: any }) => {
 
   const login = async (credentials: LoginCredentials): Promise<User> => {
     dispatch({ type: 'AUTH_START' });
-    
+
+    // Mock login for testing when API is unavailable
+    if (USE_MOCK_AUTH) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+
+      // Mock successful login
+      const mockUser: User = {
+        id: 'mock-user-123',
+        email: credentials.email,
+        name: credentials.email.split('@')[0],
+        createdAt: new Date().toISOString(),
+        credits: 10,
+        isAdmin: false,
+        isVerified: true
+      };
+
+      const mockToken = 'mock-jwt-token-' + Date.now();
+
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      dispatch({ type: 'AUTH_SUCCESS', payload: mockUser });
+
+      if (import.meta.env.DEV) console.log('[AUTH] Mock login successful for:', credentials.email);
+      return mockUser;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -211,34 +264,45 @@ export const AuthProvider = ({ children }: { children: any }) => {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Save token and basic user information from login
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      // Immediately refresh user data from /auth/me to ensure credits/subscription are up-to-date
+      // Received token from login, but DO NOT persist it yet.
+      const tempToken = data.token;
+      let finalUser = { ...data.user };
+
+      // Use token (in-memory) to fetch /auth/me and confirm verification status
       try {
         const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${data.token}`,
+            'Authorization': `Bearer ${tempToken}`,
           },
         });
 
         if (meResponse.ok) {
           const meData = await meResponse.json();
-          if (meData.user) {
-            localStorage.setItem('user', JSON.stringify(meData.user));
-            dispatch({ type: 'AUTH_SUCCESS', payload: meData.user });
-            return meData.user;
-          }
+          finalUser = meData.user || finalUser;
+        } else {
+          if (import.meta.env.DEV) console.warn('[AUTH] /auth/me returned non-OK during login verification:', meResponse.status);
         }
-      } catch (meError) {
-        console.warn('[AUTH] Failed to refresh user data after login, using login payload:', meError);
+      } catch (meErr) {
+        if (import.meta.env.DEV) console.warn('[AUTH] Error calling /auth/me after login:', meErr);
       }
 
-      // Fallback to login payload if /auth/me fails
-      dispatch({ type: 'AUTH_SUCCESS', payload: data.user });
-      return data.user;
+      // Normalize verification flag
+      const isVerified = (finalUser.isVerified === true) || (finalUser.is_verified === 1);
+
+      if (isVerified) {
+        // Persist token + user and mark authenticated
+        localStorage.setItem('token', tempToken);
+        localStorage.setItem('user', JSON.stringify(finalUser));
+        dispatch({ type: 'AUTH_SUCCESS', payload: finalUser });
+        return finalUser;
+      } else {
+        // Do NOT persist token/user. Trigger logout state so UI knows not authenticated.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        dispatch({ type: 'AUTH_LOGOUT' });
+        return finalUser;
+      }
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
       throw error;
@@ -247,7 +311,26 @@ export const AuthProvider = ({ children }: { children: any }) => {
 
   const register = async (credentials: RegisterCredentials) => {
     dispatch({ type: 'AUTH_START' });
-    
+
+    // Mock registration for testing when API is unavailable
+    if (USE_MOCK_AUTH) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+
+      // Frontend password match validation
+      if (credentials.password !== credentials.confirmPassword) {
+        dispatch({ type: 'AUTH_FAILURE', payload: 'Passwords do not match' });
+        throw new Error('Passwords do not match');
+      }
+
+      // Mock successful registration
+      if (import.meta.env.DEV) console.log('[AUTH] Mock registration successful for:', credentials.email);
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      dispatch({ type: 'AUTH_LOGOUT' });
+      return;
+    }
+
     try {
       // Frontend password match validation
       if (credentials.password !== credentials.confirmPassword) {
@@ -276,8 +359,11 @@ export const AuthProvider = ({ children }: { children: any }) => {
       // Do NOT auto-login the user after registration.
       // Registration should require email verification first.
       // Keep the token returned by the API for possible verification flows, but do not store it as an active session.
-      console.log('[AUTH] Registration completed - not auto-logging in. User must verify email.');
+      if (import.meta.env.DEV) console.log('[AUTH] Registration completed - not auto-logging in. User must verify email.');
       // Clear the loading state so UI (login/register pages) do not remain stuck showing "Signing in..."
+      // Ensure any existing session data is removed so a newly registered email cannot reuse old localStorage state.
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       dispatch({ type: 'AUTH_LOGOUT' });
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Registration failed' });
@@ -323,7 +409,7 @@ export const AuthProvider = ({ children }: { children: any }) => {
       }
 
     } catch (error) {
-      console.error('Error updating profile:', error);
+      if (import.meta.env.DEV) console.error('Error updating profile:', error);
       throw error;
     }
   };
@@ -355,17 +441,17 @@ export const AuthProvider = ({ children }: { children: any }) => {
   // Ensure there's a way for UI to reset a stuck loading state
   const ensureIdle = () => {
     if (state.isLoading && !state.isAuthenticated) {
-      console.warn('[AUTH] ensureIdle invoked - clearing loading state');
+      if (import.meta.env.DEV) console.warn('[AUTH] ensureIdle invoked - clearing loading state');
       dispatch({ type: 'AUTH_LOGOUT' });
     }
   };
 
   // Expose ensureIdle through the context value
-  const extendedValue: AuthContextType & { ensureIdle?: () => void } = {
+  const extendedValue: AuthContextType & { ensureIdle: () => void } = {
     ...value,
     ensureIdle,
   };
-  return <AuthContext.Provider value={extendedValue as any}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={extendedValue}>{children}</AuthContext.Provider>;
 };
 
 // Hook
