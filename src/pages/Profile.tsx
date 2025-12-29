@@ -33,7 +33,7 @@ const Profile: React.FC = () => {
       await updateProfile({ name: name.trim() });
       setIsEditing(false);
     } catch (error) {
-      console.error('Error updating profile:', error);
+      if (import.meta.env.DEV) console.error('Error updating profile:', error);
       alert('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);

@@ -3,6 +3,8 @@
 // IDE stops complaining when types are not present. Prefer installing proper
 // @types packages for full type safety.
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_SOME_OTHER?: string;

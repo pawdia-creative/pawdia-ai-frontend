@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
@@ -10,16 +10,66 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { NavLink } from './NavLink';
-import { Menu, X, User, LogOut, Settings, Shield } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     setIsMenuOpen(false);
+  };
+
+  // Sign In click: if user has a token, verify via /auth/me; if verified go home,
+  // if not verified trigger resend and navigate to verify page. If no token, go to login.
+  const handleSignInClick = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const apiBase = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const meResp = await fetch(`${apiBase}/auth/me`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (meResp.ok) {
+          const meData = await meResp.json();
+          const meUser = meData.user || JSON.parse(localStorage.getItem('user') || 'null');
+          const isVerified = meUser && (meUser.isVerified === true || meUser.is_verified === 1);
+          if (isVerified) {
+            navigate('/');
+            return;
+          } else {
+            try {
+              await fetch(`${apiBase}/auth/resend-verification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: meUser?.email })
+              });
+            } catch (err) {
+              if (import.meta.env.DEV) console.warn('Resend verification failed:', err);
+            }
+            navigate('/verify-email');
+            return;
+          }
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+          return;
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('Error checking auth/me on Sign In click:', err);
+        navigate('/login');
+        return;
+      }
+    } else {
+      navigate('/login');
+    }
   };
 
   const navItems = [
@@ -32,8 +82,8 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between items-center h-24">
           {/* Logo */}
           <div className="flex items-center ml-2 sm:ml-3 lg:ml-4">
-            <Link 
-              to="/" 
+            <button
+              onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-2xl font-bold text-white hover:text-blue-200 transition-colors drop-shadow-lg"
             >
               <img 
@@ -44,7 +94,7 @@ const Navbar: React.FC = () => {
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent font-extrabold">
                 Pawdia AI
               </span>
-            </Link>
+            </button>
           </div>
 
           {/* Desktop Navigation - Remove navigation items, keep only Logo and user actions */}
@@ -60,68 +110,68 @@ const Navbar: React.FC = () => {
                     className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Shield className="h-4 w-4 inline mr-2" />
+                    <span className="inline-block mr-2">🛡️</span>
                     Admin Console
                   </NavLink>
                 )}
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center space-x-2">
-                      <User className="h-4 w-4" />
+                      <Button variant="ghost" className="flex items-center space-x-2">
+                      <span className="inline-block">👤</span>
                       <span>{user?.name}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="bg-white/10 backdrop-blur-md border border-white/20 text-white" align="end">
                     <DropdownMenuItem asChild>
-                      <Link to="/profile" className="flex items-center space-x-2">
-                        <User className="h-4 w-4" />
+                      <NavLink to="/profile" className="flex items-center space-x-2">
+                        <span className="inline-block">👤</span>
                         <span>Profile</span>
-                      </Link>
+                      </NavLink>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/profile" className="flex items-center space-x-2">
-                        <Settings className="h-4 w-4" />
+                      <NavLink to="/profile" className="flex items-center space-x-2">
+                        <span className="inline-block">⚙️</span>
                         <span>Settings</span>
-                      </Link>
+                      </NavLink>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       onClick={handleLogout}
                       className="flex items-center space-x-2 text-red-600"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <span className="inline-block">🔓</span>
                       <span>Sign Out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
             ) : (
-              <div className="flex items-center space-x-3"> 
-   <Link 
-     to="/login" 
-     className="px-6 py-2 text-base font-semibold text-white hover:text-white transition-all bg-gradient-to-r from-secondary/80 to-accent/80 rounded-lg hover:from-secondary hover:to-accent shadow-lg hover:shadow-xl backdrop-blur-md" 
-   > 
-     Sign In 
-   </Link> 
-   <Link 
-     to="/register" 
-     className="px-6 py-2 text-base font-semibold text-white hover:text-white transition-all bg-gradient-to-r from-primary/80 to-accent/80 rounded-lg hover:from-primary hover:to-accent shadow-lg hover:shadow-xl backdrop-blur-md" 
-   > 
-     Sign Up 
-   </Link> 
- </div>
+                <div className="flex items-center space-x-3"> 
+                <button
+                  onClick={handleSignInClick}
+                  className="px-6 py-2 text-base font-semibold text-white hover:text-white transition-all bg-gradient-to-r from-secondary/80 to-accent/80 rounded-lg hover:from-secondary hover:to-accent shadow-lg hover:shadow-xl backdrop-blur-md"
+                >
+                  Sign In
+                </button>
+                <NavLink
+                  to="/register"
+                  className="px-6 py-2 text-base font-semibold text-white hover:text-white transition-all bg-gradient-to-r from-primary/80 to-accent/80 rounded-lg hover:from-primary hover:to-accent shadow-lg hover:shadow-xl backdrop-blur-md"
+                >
+                  Sign Up
+                </NavLink>
+              </div>
             )}
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <Button
+              <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMenuOpen ? <span className="h-6 w-6">✖️</span> : <span className="h-6 w-6">≡</span>}
             </Button>
           </div>
         </div>
@@ -145,7 +195,7 @@ const Navbar: React.FC = () => {
                       className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <Shield className="h-4 w-4 inline mr-2" />
+                      <span className="inline-block mr-2">🛡️</span>
                       Admin Console
                     </NavLink>
                   )}
@@ -166,13 +216,12 @@ const Navbar: React.FC = () => {
                 </div>
               ) : (
                 <div className="border-t border-gray-200 pt-4 mt-4 space-y-2">
-                  <NavLink 
-                    to="/login" 
-                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50" 
-                    onClick={() => setIsMenuOpen(false)} 
-                  > 
-                    Sign In 
-                  </NavLink> 
+                  <button
+                    onClick={() => { setIsMenuOpen(false); handleSignInClick(); }}
+                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                  >
+                    Sign In
+                  </button>
                   <NavLink 
                     to="/register" 
                     className="block px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-blue-50" 

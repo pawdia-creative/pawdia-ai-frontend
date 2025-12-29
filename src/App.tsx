@@ -19,6 +19,7 @@ import NotFound from "@/pages/NotFound";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
 import EmailVerification from "@/pages/EmailVerification";
+import EmailVerificationRequired from "@/pages/EmailVerificationRequired";
 import VerifySuccess from "@/pages/VerifySuccess";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
@@ -63,7 +64,7 @@ const PageViewTracker = () => {
         });
       } catch (error) {
         // Silently fail - analytics tracking should not break the app
-        console.error('Page view tracking error:', error);
+        if (import.meta.env.DEV) console.error('Page view tracking error:', error);
       }
     };
     
@@ -111,7 +112,10 @@ const AppContent = () => (
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/verify-email" element={<EmailVerification />} />
+                {/* Legacy/alternate verification path for email links */}
+                <Route path="/verify" element={<EmailVerification />} />
                 <Route path="/verify-success" element={<VerifySuccess />} />
+                <Route path="/verify-required" element={<EmailVerificationRequired />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/examples" element={<Examples />} />

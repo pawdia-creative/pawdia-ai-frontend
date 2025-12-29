@@ -21,6 +21,31 @@ interface PaymentResult {
   status: string;
 }
 
+interface OrderDetails {
+  id: string;
+  paypalOrderId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  items: Array<{
+    name: string;
+    description: string;
+    price: number;
+    quantity: number;
+  }>;
+  createdAt: string;
+  userId?: string;
+}
+
+interface UserOrder {
+  id: string;
+  paypalOrderId: string;
+  status: string;
+  amount: number;
+  currency: string;
+  createdAt: string;
+}
+
 class PaymentService {
   // Base API URL for payment-related endpoints
   // 强烈建议在环境变量中显式配置 VITE_API_URL，用于区分本地、测试和生产环境。
@@ -108,7 +133,7 @@ class PaymentService {
   /**
    * Get order details
    */
-  static async getOrderDetails(orderId: string): Promise<any> {
+  static async getOrderDetails(orderId: string): Promise<OrderDetails> {
     try {
       const response = await fetch(`${this.baseUrl}/order/${orderId}`);
 
@@ -127,7 +152,7 @@ class PaymentService {
   /**
    * Get user order history
    */
-  static async getUserOrders(): Promise<any[]> {
+  static async getUserOrders(): Promise<UserOrder[]> {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -193,7 +218,7 @@ class PaymentService {
   /**
    * Handle payment errors
    */
-  static handlePaymentError(error: any) {
+  static handlePaymentError(error: unknown) {
     console.error('PayPal error:', error);
     toast.error('An error occurred during payment');
   }

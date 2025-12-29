@@ -18,13 +18,13 @@ const BaseRoute = ({
   accessDeniedMessage = 'Access Denied',
   requireEmailVerification = true,
 }: BaseRouteProps) => {
-  const { isAuthenticated, isLoading, user, checkedAuth } = useAuth() as any;
+  const { isAuthenticated, isLoading, user, checkedAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   // 添加调试日志
   useEffect(() => {
-    console.log('[BaseRoute] Auth state:', {
+    if (import.meta.env.DEV) console.log('[BaseRoute] Auth state:', {
       isAuthenticated,
       isLoading,
       hasUser: !!user,
@@ -33,22 +33,22 @@ const BaseRoute = ({
     });
   }, [isAuthenticated, isLoading, user, location.pathname]);
 
+  // Only redirect to login *after* we've completed the initial auth check.
+  useEffect(() => {
+    if (!isLoading && checkedAuth && !isAuthenticated) {
+      if (import.meta.env.DEV) console.log('[BaseRoute] Not authenticated, navigating to login from:', location.pathname);
+      navigate(redirectPath, { state: { from: location }, replace: true });
+    }
+  }, [isAuthenticated, isLoading, checkedAuth, navigate, redirectPath, location]);
+
   if (isLoading) {
-    console.log('[BaseRoute] Loading, showing spinner');
+    if (import.meta.env.DEV) console.log('[BaseRoute] Loading, showing spinner');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
-
-  // Only redirect to login *after* we've completed the initial auth check.
-  useEffect(() => {
-    if (!isLoading && checkedAuth && !isAuthenticated) {
-      console.log('[BaseRoute] Not authenticated, navigating to login from:', location.pathname);
-      navigate(redirectPath, { state: { from: location }, replace: true });
-    }
-  }, [isAuthenticated, isLoading, checkedAuth, navigate, redirectPath, location]);
 
   if (!isAuthenticated && (!checkedAuth || isLoading)) {
     // Still checking auth status, show spinner
@@ -60,10 +60,9 @@ const BaseRoute = ({
   }
 
   // Check if email verification is required
-  // Only block access when `isVerified` is explicitly false.
-  // Treat `undefined` as unknown/unchanged (do not force a verification UI),
-  // because some user payloads may omit the field briefly during refresh.
-  if (requireEmailVerification && user && user.isVerified === false) {
+  // Only allow access when `isVerified` is explicitly true (or is_verified === 1).
+  // If `isVerified` is false or undefined, enforce verification UI to prevent bypass.
+  if (requireEmailVerification && user && !(user.isVerified === true || user.is_verified === 1)) {
     return <EmailVerificationRequired />;
   }
 

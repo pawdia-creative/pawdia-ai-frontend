@@ -60,15 +60,15 @@ export const ArtCreation = () => {
     
     // 确保有有效的尺寸
     if (!width || !height || width === 0 || height === 0) {
-      console.warn('Invalid image dimensions:', { width, height });
+      if (import.meta.env.DEV) console.warn('Invalid image dimensions:', { width, height });
       return 0;
     }
     
     // 如果没有原图信息，使用默认逻辑（横向转纵向）
     if (!originalImageOrientation) {
-      console.warn('Original image orientation not available, using default logic');
+      if (import.meta.env.DEV) console.warn('Original image orientation not available, using default logic');
       if (width > height) {
-        console.log(`Auto-correcting orientation: landscape (${width}x${height}) to portrait - rotating 90°`);
+        if (import.meta.env.DEV) console.log(`Auto-correcting orientation: landscape (${width}x${height}) to portrait - rotating 90°`);
         return 90;
       }
       return 0;
@@ -78,7 +78,7 @@ export const ArtCreation = () => {
     const generatedIsPortrait = height > width;
     const originalIsPortrait = originalImageOrientation.isPortrait;
     
-    console.log('Orientation comparison:', {
+    if (import.meta.env.DEV) console.log('Orientation comparison:', {
       original: originalIsPortrait ? 'portrait' : 'landscape',
       generated: generatedIsPortrait ? 'portrait' : 'landscape',
       originalDimensions: `${originalImageOrientation.width}x${originalImageOrientation.height}`,
@@ -87,12 +87,12 @@ export const ArtCreation = () => {
     
     // 如果生成图的方向与原图不一致，需要旋转
     if (generatedIsPortrait !== originalIsPortrait) {
-      console.log(`Orientation mismatch detected! Rotating generated image 90° to match original (${originalIsPortrait ? 'portrait' : 'landscape'})`);
+      if (import.meta.env.DEV) console.log(`Orientation mismatch detected! Rotating generated image 90° to match original (${originalIsPortrait ? 'portrait' : 'landscape'})`);
       return 90;
     }
     
     // 方向一致，不需要旋转
-    console.log('Orientation matches original, no rotation needed');
+    if (import.meta.env.DEV) console.log('Orientation matches original, no rotation needed');
     return 0;
   }, [originalImageOrientation]); // 添加 originalImageOrientation 到依赖数组
 
@@ -128,7 +128,7 @@ export const ArtCreation = () => {
           width: img.width,
           height: img.height
         });
-        console.log('Original image orientation detected:', {
+        if (import.meta.env.DEV) console.log('Original image orientation detected:', {
           width: img.width,
           height: img.height,
           isPortrait,
@@ -156,12 +156,12 @@ export const ArtCreation = () => {
       if (!isDetected && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
         isDetected = true;
         const detected = detectAutoRotate(img);
-        console.log('Cached image detected, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+        if (import.meta.env.DEV) console.log('Cached image detected, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
         setAutoRotateDeg(detected);
       }
     };
     img.onerror = () => {
-      console.error('Failed to load cached image for rotation detection');
+      if (import.meta.env.DEV) console.error('Failed to load cached image for rotation detection');
     };
     img.src = generatedArt;
     
@@ -169,7 +169,7 @@ export const ArtCreation = () => {
     if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
       isDetected = true;
       const detected = detectAutoRotate(img);
-      console.log('Image already cached, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+      if (import.meta.env.DEV) console.log('Image already cached, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
       setAutoRotateDeg(detected);
     }
   }, [generatedArt, originalImageOrientation, detectAutoRotate]); // 添加 detectAutoRotate 到依赖数组
@@ -308,10 +308,10 @@ export const ArtCreation = () => {
                             className="w-full h-full object-contain"
                             onLoad={(e) => {
                               const img = e.currentTarget;
-                              console.log('Main generated image loaded:', img.naturalWidth, 'x', img.naturalHeight);
+                              if (import.meta.env.DEV) console.log('Main generated image loaded:', img.naturalWidth, 'x', img.naturalHeight);
                             }}
                             onError={() => {
-                              console.error('Failed to load generated image');
+                              if (import.meta.env.DEV) console.error('Failed to load generated image');
                             }}
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-smooth flex items-center justify-center gap-3">
@@ -375,10 +375,10 @@ export const ArtCreation = () => {
                             draggable={false}
                             onLoad={(e) => {
                               const img = e.currentTarget;
-                              console.log('Comparison generated image loaded:', img.naturalWidth, 'x', img.naturalHeight);
+                              if (import.meta.env.DEV) console.log('Comparison generated image loaded:', img.naturalWidth, 'x', img.naturalHeight);
                             }}
                             onError={() => {
-                              console.error('Failed to load comparison image');
+                              if (import.meta.env.DEV) console.error('Failed to load comparison image');
                             }}
                           />
                         </div>
@@ -439,7 +439,7 @@ export const ArtCreation = () => {
                       onClick={() => {
                         // 重置手动旋转，但保留自动检测的旋转
                         setRotationDeg(0);
-                        console.log('Manual rotation reset, auto rotation:', autoRotateDeg);
+                        if (import.meta.env.DEV) console.log('Manual rotation reset, auto rotation:', autoRotateDeg);
                       }}
                     >
                       Reset Manual Rotation

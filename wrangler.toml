@@ -1,0 +1,13 @@
+name = "pawdia-ai-api"
+main = "api/worker.js"
+compatibility_date = "2025-12-26"
+
+# Database binding for D1
+[[d1_databases]]
+binding = "DB"
+database_name = "pawdia-ai-db"
+database_id = "e64c0539-0e91-42fb-a73b-df2803f31e82"
+
+[vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://www.pawdia-ai.com,https://pawdia-ai.com,https://pawdia-ai-frontend.pages.dev,https://25001b6c.pawdia-ai-frontend.pages.dev,http://localhost:5173"

@@ -1,0 +1,70 @@
+-- Pawdia AI Database Schema
+
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    password_hash TEXT,
+    avatar TEXT,
+    credits INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT FALSE,
+    is_admin BOOLEAN DEFAULT FALSE,
+    email_verification_token TEXT,
+    email_verification_expires DATETIME,
+    reset_password_token TEXT,
+    reset_password_expires DATETIME,
+    subscription_plan TEXT DEFAULT 'free',
+    subscription_status TEXT DEFAULT 'inactive',
+    subscription_expires DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Images table
+CREATE TABLE IF NOT EXISTS images (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    original_filename TEXT,
+    prompt TEXT,
+    style TEXT,
+    generated_url TEXT,
+    status TEXT DEFAULT 'pending',
+    credits_used INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Payments table
+CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    paypal_order_id TEXT,
+    amount DECIMAL(10,2),
+    currency TEXT DEFAULT 'USD',
+    status TEXT DEFAULT 'pending',
+    credits_purchased INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Analytics table
+CREATE TABLE IF NOT EXISTS analytics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    user_id TEXT,
+    data TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id);
+CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics(event_type);
+CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON analytics(created_at);

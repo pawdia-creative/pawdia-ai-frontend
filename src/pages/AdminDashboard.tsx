@@ -13,6 +13,47 @@ import { Search, Users, CreditCard, Edit, Eye, Save, ShieldCheck, KeyRound, Tras
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
 
+// Analytics data interfaces
+interface ApiEndpointStat {
+  endpoint: string;
+  count: number;
+  avg_response_time: number;
+}
+
+interface ApiStatusStat {
+  status_code: string;
+  count: number;
+}
+
+interface TopUserStat {
+  id: string;
+  name: string;
+  email: string;
+  credits: number;
+  total_generations: number;
+}
+
+interface DailyStat {
+  date: string;
+  total_users: number;
+  active_users: number;
+  total_generations: number;
+  total_credits_used: number;
+}
+
+interface AnalyticsData {
+  totalUsers: number;
+  activeUsers: number;
+  totalGenerations: number;
+  totalCreditsUsed: number;
+  apiByEndpoint: ApiEndpointStat[];
+  apiByStatus: ApiStatusStat[];
+  topUsers: TopUserStat[];
+  dailyStats: DailyStat[];
+  monthlyStats: DailyStat[];
+  yearlyStats: DailyStat[];
+}
+
 interface User {
   id: string;
   name: string;
@@ -61,7 +102,7 @@ const AdminDashboard = () => {
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('users');
@@ -86,7 +127,7 @@ const AdminDashboard = () => {
         toast.error('Failed to fetch user list');
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
+      if (import.meta.env.DEV) console.error('Error fetching users:', error);
       toast.error('Error fetching user list');
     } finally {
       setLoading(false);
@@ -127,7 +168,7 @@ const AdminDashboard = () => {
         toast.error('Failed to fetch analytics data');
       }
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      if (import.meta.env.DEV) console.error('Error fetching analytics:', error);
       toast.error('Error fetching analytics data');
     } finally {
       setAnalyticsLoading(false);
@@ -208,7 +249,7 @@ const AdminDashboard = () => {
         toast.error(data.message || 'Credit operation failed');
       }
     } catch (error) {
-      console.error('Error performing credit operation:', error);
+      if (import.meta.env.DEV) console.error('Error performing credit operation:', error);
       toast.error('Error performing credit operation');
     }
   };
@@ -247,7 +288,7 @@ const AdminDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-      const payload: any = {};
+      const payload: Record<string, unknown> = {};
       if (subscriptionForm.plan) payload.plan = subscriptionForm.plan;
       if (subscriptionForm.status) payload.status = subscriptionForm.status;
       
@@ -262,7 +303,7 @@ const AdminDashboard = () => {
       if (subscriptionForm.setCredits !== '') payload.setCredits = Number(subscriptionForm.setCredits);
       payload.addPlanCredits = subscriptionForm.addPlanCredits;
 
-      console.log('[ADMIN] Submitting subscription update:', payload);
+      if (import.meta.env.DEV) console.log('[ADMIN] Submitting subscription update:', payload);
 
       const response = await fetch(`${apiBaseUrl}/admin/users/${selectedUser.id}/subscription`, {
         method: 'PUT',
@@ -282,7 +323,7 @@ const AdminDashboard = () => {
         toast.error(data.message || 'Subscription update failed');
       }
     } catch (error) {
-      console.error('Error updating subscription:', error);
+      if (import.meta.env.DEV) console.error('Error updating subscription:', error);
       toast.error('Error updating subscription');
     }
   };
@@ -318,7 +359,7 @@ const AdminDashboard = () => {
         toast.error(data.message || 'Password reset failed');
       }
     } catch (error) {
-      console.error('Error resetting password:', error);
+      if (import.meta.env.DEV) console.error('Error resetting password:', error);
       toast.error('Error resetting password');
     }
   };
@@ -373,7 +414,7 @@ const AdminDashboard = () => {
         toast.error(data.message || 'Failed to delete user');
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
+      if (import.meta.env.DEV) console.error('Error deleting user:', error);
       toast.error('Error deleting user');
     }
   };
@@ -709,10 +750,10 @@ const AdminDashboard = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('[ADMIN] Permanent button clicked');
+                      if (import.meta.env.DEV) console.log('[ADMIN] Permanent button clicked');
                       setSubscriptionForm((prev) => {
                         const newState = { ...prev, expiresAt: 'PERMANENT' };
-                        console.log('[ADMIN] Setting expiresAt to PERMANENT:', newState);
+                        if (import.meta.env.DEV) console.log('[ADMIN] Setting expiresAt to PERMANENT:', newState);
                         return newState;
                       });
                     }}
@@ -726,10 +767,10 @@ const AdminDashboard = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('[ADMIN] Clear button clicked');
+                      if (import.meta.env.DEV) console.log('[ADMIN] Clear button clicked');
                       setSubscriptionForm((prev) => {
                         const newState = { ...prev, expiresAt: '' };
-                        console.log('[ADMIN] Clearing expiresAt:', newState);
+                        if (import.meta.env.DEV) console.log('[ADMIN] Clearing expiresAt:', newState);
                         return newState;
                       });
                     }}
@@ -926,7 +967,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {analytics.apiByEndpoint.map((item: any, index: number) => (
+                      {analytics.apiByEndpoint.map((item: ApiEndpointStat, index: number) => (
                         <TableRow key={index}>
                           <TableCell className="font-mono text-sm">{item.endpoint}</TableCell>
                           <TableCell>{item.count}</TableCell>
@@ -952,7 +993,7 @@ const AdminDashboard = () => {
                   <div className="text-center py-8">Loading...</div>
                 ) : analytics?.apiByStatus?.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {analytics.apiByStatus.map((item: any, index: number) => (
+                    {analytics.apiByStatus.map((item: ApiStatusStat, index: number) => (
                       <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                         <span className="font-semibold">{item.status_code}</span>
                         <span className="text-muted-foreground">{item.count} times</span>
@@ -985,7 +1026,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {analytics.topUsers.map((user: any, index: number) => (
+                      {analytics.topUsers.map((user: TopUserStat, index: number) => (
                         <TableRow key={index}>
                           <TableCell className="font-mono text-sm">{user.user_id}</TableCell>
                           <TableCell>{user.total_events}</TableCell>
@@ -1021,7 +1062,7 @@ const AdminDashboard = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {analytics.dailyStats.map((item: any, index: number) => (
+                        {analytics.dailyStats.map((item: DailyStat, index: number) => (
                           <TableRow key={index}>
                             <TableCell>{item.period}</TableCell>
                             <TableCell>{item.page_views}</TableCell>
@@ -1054,7 +1095,7 @@ const AdminDashboard = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {analytics.monthlyStats.map((item: any, index: number) => (
+                        {analytics.monthlyStats.map((item: DailyStat, index: number) => (
                           <TableRow key={index}>
                             <TableCell>{item.period}</TableCell>
                             <TableCell>{item.page_views}</TableCell>
@@ -1087,7 +1128,7 @@ const AdminDashboard = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {analytics.yearlyStats.map((item: any, index: number) => (
+                        {analytics.yearlyStats.map((item: DailyStat, index: number) => (
                           <TableRow key={index}>
                             <TableCell>{item.period}</TableCell>
                             <TableCell>{item.page_views}</TableCell>

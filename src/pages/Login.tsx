@@ -5,23 +5,38 @@ import { toast } from 'sonner';
 import AuthForm from '@/components/AuthForm';
 
 const Login = () => {
-  const { login, isLoading, error, clearError, isAuthenticated, ensureIdle } = useAuth() as any;
+  const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/';
 
-  // 如果已经登录，重定向到首页或来源页面
+  // 如果已经登录且邮箱已验证，重定向到首页或来源页面
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('[Login] User already authenticated, redirecting to:', from);
-      navigate(from, { replace: true });
+      try {
+        // Prefer context user, fall back to localStorage user
+        const localUserStr = localStorage.getItem('user');
+        const localUser = localUserStr ? JSON.parse(localUserStr) : null;
+        const isVerified =
+          (user && (user.isVerified === true || user.is_verified === 1)) ||
+          (localUser && (localUser.isVerified === true || localUser.is_verified === 1));
+
+        if (isVerified) {
+          if (import.meta.env.DEV) console.log('[Login] User authenticated and verified, redirecting to:', from);
+          navigate(from, { replace: true });
+        } else {
+          if (import.meta.env.DEV) console.log('[Login] User authenticated but not verified — staying on login to enforce verify flow');
+        }
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[Login] Error while checking verification state before redirect:', e);
+      }
     }
     // If loading is stuck for some reason (navigated from verification page), reset it.
     if (ensureIdle) {
       ensureIdle();
     }
-  }, [isAuthenticated, navigate, from]);
+  }, [isAuthenticated, navigate, from, ensureIdle, user]);
 
   useEffect(() => {
     if (error) {
@@ -32,35 +47,55 @@ const Login = () => {
 
   const handleSubmit = async (data: { email: string; password: string }) => {
     try {
-      const user = await login({ email: data.email, password: data.password });
+      const result = await login({ email: data.email, password: data.password });
+      const user = result?.user || result;
+      const isFirstLogin = result?.isFirstLogin === true;
       toast.success('Login successful!');
 
-      // 如果邮箱未验证：不要直接进入应用，触发后端重发验证邮件并跳转到邮箱验证提示页面
-      if (user && !user.isVerified) {
-        try {
-          const apiUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-          const token = localStorage.getItem('token');
-          if (token) {
-            // 请求后端重发验证邮件（silent）
-            await fetch(`${apiUrl}/auth/resend-verification`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({}),
-            });
+      // After login, explicitly confirm verification status from the server.
+      // Use the newly-stored token to fetch /auth/me and decide redirect behavior.
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+        const token = localStorage.getItem('token');
+        let isVerified = false;
+        if (token) {
+          const meResp = await fetch(`${apiUrl}/auth/me`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (meResp.ok) {
+            const meData = await meResp.json();
+            const meUser = meData.user || {};
+            isVerified = meUser.isVerified === true || meUser.is_verified === 1;
+            // update local user copy
+            localStorage.setItem('user', JSON.stringify(meUser));
+          } else {
+            // treat non-OK as not verified or session problem
+            isVerified = false;
           }
-        } catch (resendErr) {
-          console.warn('[Login] resend verification failed:', resendErr);
         }
 
-        // 跳转到邮箱验证提示页（不会把用户标记为已登录）
-        navigate('/verify-email', { replace: true });
-        return;
-      }
+        if (!isVerified) {
+          // If this is the first login after registration, show the "verification email sent" page
+          if (isFirstLogin) {
+            navigate('/verify-email', { replace: true });
+            return;
+          }
 
-      navigate(from, { replace: true });
+          // Otherwise, go to the resend/verification required UI
+          navigate('/verify-required', { replace: true });
+          return;
+        }
+
+        // Verified -> proceed to requested page
+        navigate(from, { replace: true });
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[Login] post-login verification check failed:', err);
+        // Fallback to previous behavior
+        navigate(from, { replace: true });
+      }
     } catch (error) {
       // Error is handled by the context and useEffect
     }

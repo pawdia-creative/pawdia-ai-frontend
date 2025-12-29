@@ -154,8 +154,6 @@ const Subscription: React.FC = () => {
       const orderId = await PaymentService.createOrder(orderData);
       setPaypalOrderId(orderId);
       return orderId;
-    } catch (error) {
-      throw error;
     } finally {
       setIsProcessing(false);
     }
@@ -243,7 +241,7 @@ const Subscription: React.FC = () => {
       setPaymentCredits(0);
       
     } catch (error) {
-      console.error('PayPal approval error:', error);
+      if (import.meta.env.DEV) console.error('PayPal approval error:', error);
       PaymentService.handlePaymentError(error.message || 'Failed to complete payment. Please contact support.');
     } finally {
       setIsProcessing(false);
@@ -257,8 +255,8 @@ const Subscription: React.FC = () => {
     setPaymentCredits(0);
   };
 
-  const onPayPalError = (error: any) => {
-    console.error('[PAYMENT] PayPal error:', error);
+  const onPayPalError = (error: unknown) => {
+    if (import.meta.env.DEV) console.error('[PAYMENT] PayPal error:', error);
     
     // Provide more specific error messages
     let errorMessage = 'PayPal payment service is currently unavailable. Please try again later.';
@@ -291,7 +289,7 @@ const Subscription: React.FC = () => {
         const scripts = document.querySelectorAll('script[src*="paypal.com/sdk"]');
         scripts.forEach((script) => {
             script.addEventListener('error', () => {
-            console.error('[PAYMENT] PayPal SDK script failed to load');
+            if (import.meta.env.DEV) console.error('[PAYMENT] PayPal SDK script failed to load');
             setPaypalError('PayPal SDK failed to load. Please check your PayPal Client ID and domain authorization.');
           });
         });
@@ -324,11 +322,11 @@ const Subscription: React.FC = () => {
 
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('[SUBSCRIPTION FRONTEND] Subscription failed:', errorData);
+          if (import.meta.env.DEV) console.error('[SUBSCRIPTION FRONTEND] Subscription failed:', errorData);
           
           // If user already has subscription but credits are missing, refresh user data
           if (errorData.message && errorData.message.includes('already activated')) {
-            console.log('[SUBSCRIPTION FRONTEND] User already has subscription, refreshing user data...');
+            if (import.meta.env.DEV) console.log('[SUBSCRIPTION FRONTEND] User already has subscription, refreshing user data...');
             // Refresh user data from /auth/me
             try {
               const meResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/auth/me`, {
@@ -338,7 +336,7 @@ const Subscription: React.FC = () => {
               });
               if (meResponse.ok) {
                 const meData = await meResponse.json();
-                console.log('[SUBSCRIPTION FRONTEND] Refreshed user data:', meData);
+                if (import.meta.env.DEV) console.log('[SUBSCRIPTION FRONTEND] Refreshed user data:', meData);
                 if (meData.user) {
                   localStorage.setItem('user', JSON.stringify(meData.user));
                   setUserCredits(meData.user.credits || 0);
@@ -353,11 +351,11 @@ const Subscription: React.FC = () => {
                   }
                 }
               } else {
-                console.error('[SUBSCRIPTION FRONTEND] Failed to refresh user data, status:', meResponse.status);
+                if (import.meta.env.DEV) console.error('[SUBSCRIPTION FRONTEND] Failed to refresh user data, status:', meResponse.status);
                 // If /auth/me fails, still show the error
               }
             } catch (refreshError) {
-              console.error('[SUBSCRIPTION FRONTEND] Error refreshing user data:', refreshError);
+              if (import.meta.env.DEV) console.error('[SUBSCRIPTION FRONTEND] Error refreshing user data:', refreshError);
             }
           }
           
@@ -365,7 +363,7 @@ const Subscription: React.FC = () => {
         }
 
         const result = await response.json();
-        console.log('[SUBSCRIPTION FRONTEND] Free subscription result:', result);
+        if (import.meta.env.DEV) console.log('[SUBSCRIPTION FRONTEND] Free subscription result:', result);
         
         // Update local user information
         const storedUser = localStorage.getItem('user');
@@ -388,7 +386,7 @@ const Subscription: React.FC = () => {
         PaymentService.handlePaymentSuccess('Free subscription activated successfully! You received 3 free credits!');
         setSelectedPlan('');
       } catch (error) {
-        console.error('Subscription error:', error);
+        if (import.meta.env.DEV) console.error('Subscription error:', error);
         PaymentService.handlePaymentError(error.message || 'Failed to activate free subscription. Please try again.');
       } finally {
         setIsProcessing(false);
@@ -412,20 +410,20 @@ const Subscription: React.FC = () => {
   };
 
   const handlePlanSelect = (planId: string) => {
-    console.log('[SUBSCRIPTION] handlePlanSelect called with planId:', planId);
+    if (import.meta.env.DEV) console.log('[SUBSCRIPTION] handlePlanSelect called with planId:', planId);
     const plan = subscriptionPlans.find(p => p.id === planId);
     if (!plan) {
-      console.error('[SUBSCRIPTION] Plan not found:', planId);
+      if (import.meta.env.DEV) console.error('[SUBSCRIPTION] Plan not found:', planId);
       return;
     }
     
-    console.log('[SUBSCRIPTION] Plan found:', plan.name, 'price:', plan.price);
+    if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Plan found:', plan.name, 'price:', plan.price);
     
     if (plan.price === 0) {
-      console.log('[SUBSCRIPTION] Free plan, calling handleSubscribe');
+      if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Free plan, calling handleSubscribe');
       handleSubscribe(planId);
     } else {
-      console.log('[SUBSCRIPTION] Paid plan, setting up payment modal:', {
+      if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Paid plan, setting up payment modal:', {
         planId,
         price: plan.price,
         credits: plan.credits
@@ -435,7 +433,7 @@ const Subscription: React.FC = () => {
       setPaymentAmount(plan.price);
       setPaymentCredits(plan.credits);
       setPaypalError('');
-      console.log('[SUBSCRIPTION] Payment modal state set, should show now');
+      if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Payment modal state set, should show now');
     }
   };
 
@@ -485,7 +483,7 @@ const Subscription: React.FC = () => {
 
       PaymentService.handlePaymentSuccess('Subscription purchased successfully!');
     } catch (error) {
-      console.error('Subscription error:', error);
+      if (import.meta.env.DEV) console.error('Subscription error:', error);
       PaymentService.handlePaymentError('Failed to purchase subscription. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -523,7 +521,7 @@ const Subscription: React.FC = () => {
 
       PaymentService.handlePaymentSuccess(`${credits} credits added to your account!`);
     } catch (error) {
-      console.error('Credit purchase error:', error);
+      if (import.meta.env.DEV) console.error('Credit purchase error:', error);
       PaymentService.handlePaymentError('Failed to purchase credits. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -598,7 +596,7 @@ const Subscription: React.FC = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('[SUBSCRIPTION] Select Plan button clicked for:', plan.id);
+                      if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Select Plan button clicked for:', plan.id);
                       handlePlanSelect(plan.id);
                     }}
                     disabled={isProcessing}
@@ -648,7 +646,7 @@ const Subscription: React.FC = () => {
           {(() => {
             const shouldShow = (selectedPlan || selectedCreditPackage) && paymentAmount > 0;
             if (shouldShow) {
-              console.log('[SUBSCRIPTION] Payment modal should be visible:', {
+              if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Payment modal should be visible:', {
                 selectedPlan,
                 selectedCreditPackage,
                 paymentAmount,

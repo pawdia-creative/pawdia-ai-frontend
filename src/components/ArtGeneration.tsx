@@ -1,13 +1,36 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Wand2, Download, RefreshCw, AlertCircle, Settings, Coins, AlertTriangle, Info, Lock, Crown, MoveHorizontal } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, AlertCircle, Settings, Coins, AlertTriangle, MoveHorizontal } from "lucide-react";
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { User } from "@/types/auth";
+import { QualitySettings } from "./QualitySettings";
+
+// 导出类型定义供子组件使用
+export type PlanKey = 'free' | 'basic' | 'premium';
+
+export interface QualitySettingsProps {
+  plan: PlanKey;
+  dpi: number;
+  resolution: string;
+  quality: string;
+  currentConfig: {
+    dpiOptions: number[];
+    resolutionOptions: { value: string; label: string }[];
+    qualityOptions: string[];
+  };
+  allDpiOptions: number[];
+  allResolutionOptions: { value: string; label: string; plan: PlanKey }[];
+  allQualityOptions: { value: string; label: string; plan: PlanKey }[];
+  onDpiChange: (dpi: number) => void;
+  onResolutionChange: (resolution: string) => void;
+  onQualityChange: (quality: string) => void;
+  onUpgradeClick: () => void;
+}
 
 interface ArtGenerationProps {
   image: File;
@@ -21,7 +44,6 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedArt, setGeneratedArt] = useState<string>('');
-  const [watermarkApplied, setWatermarkApplied] = useState<boolean>(false); // 水印状态指示（用于调试）
   const [progress, setProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -33,25 +55,24 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   const [sliderPosition, setSliderPosition] = useState(50); // Default in the middle position
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  type PlanKey = 'free' | 'basic' | 'premium';
-  const plan = (user?.subscription?.plan as PlanKey) || 'free';
+  const plan = user?.subscription?.plan || 'free';
 
   // All available options (for display)
   const allDpiOptions = [72, 200, 300, 600];
   const allResolutionOptions = [
-    { value: '512', label: '512px (short side)', plan: 'free' as PlanKey },
-    { value: '1080', label: '1080px (short side)', plan: 'basic' as PlanKey },
-    { value: '1440', label: '1440px (short side)', plan: 'basic' as PlanKey },
-    { value: '2160', label: '2160px (short side)', plan: 'premium' as PlanKey },
+    { value: '512', label: '512px (short side)', plan: 'free' },
+    { value: '1080', label: '1080px (short side)', plan: 'basic' },
+    { value: '1440', label: '1440px (short side)', plan: 'basic' },
+    { value: '2160', label: '2160px (short side)', plan: 'premium' },
   ];
   const allQualityOptions = [
-    { value: 'good', label: 'Good (Fast)', plan: 'free' as PlanKey },
-    { value: 'high', label: 'High (Balanced)', plan: 'basic' as PlanKey },
-    { value: 'ultra', label: 'Ultra (Best) - Recommended for Print', plan: 'premium' as PlanKey },
+    { value: 'good', label: 'Good (Fast)', plan: 'free' },
+    { value: 'high', label: 'High (Balanced)', plan: 'basic' },
+    { value: 'ultra', label: 'Ultra (Best) - Recommended for Print', plan: 'premium' },
   ];
 
   // Plan-based constraints
-  const planConfig: Record<PlanKey, {
+  const planConfig: Record<NonNullable<User['subscription']>['plan'], {
     dpiOptions: number[];
     resolutionOptions: { value: string; label: string }[];
     qualityOptions: string[];
@@ -98,7 +119,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     }
   } as const;
 
-  const currentConfig = planConfig[plan as 'free' | 'basic' | 'premium'] || planConfig.free;
+  const currentConfig = planConfig[plan] || planConfig.free;
   
   // Initialize DPI, resolution, and quality based on subscription plan
   const [dpi, setDpi] = useState<number>(currentConfig.defaultDpi);
@@ -112,7 +133,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     // Create image preview URL
     const url = URL.createObjectURL(image);
     setImagePreview(url);
-    console.log('Image preview URL created:', url);
+    if (import.meta.env.DEV) console.log('Image preview URL created:', url);
     
     // Get image dimensions and determine orientation
     const img = new Image();
@@ -123,9 +144,9 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         height: img.height,
         isPortrait 
       });
-      console.log('Original image dimensions loaded:', { 
-        width: img.width, 
-        height: img.height, 
+      if (import.meta.env.DEV) console.log('Original image dimensions loaded:', {
+        width: img.width,
+        height: img.height,
         isPortrait,
         orientation: isPortrait ? 'portrait' : 'landscape'
       });
@@ -166,17 +187,80 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     return { width: outputWidth, height: outputHeight };
   };
 
+  // 通用的Canvas初始化函数
+  const initializeCanvas = (canvas: HTMLCanvasElement, width: number, height: number): CanvasRenderingContext2D => {
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
+    // 设置白色背景
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    return ctx;
+  };
+
+  // 通用的图片缩放函数（适应画布尺寸，保持宽高比）
+  const scaleImageToFit = (
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    targetWidth: number,
+    targetHeight: number
+  ): void => {
+    const scale = Math.min(targetWidth / img.width, targetHeight / img.height);
+    const drawWidth = img.width * scale;
+    const drawHeight = img.height * scale;
+    const offsetX = (targetWidth - drawWidth) / 2;
+    const offsetY = (targetHeight - drawHeight) / 2;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+  };
+
+  // 通用的图片旋转函数（逆时针90度）
+  const rotateImage90Degrees = async (img: HTMLImageElement, logMessage: string = 'Rotating image'): Promise<HTMLImageElement> => {
+    if (import.meta.env.DEV) console.log(`${logMessage} -90 degrees (counterclockwise)`);
+    const rotateCanvas = document.createElement('canvas');
+    // 旋转后宽高互换
+    rotateCanvas.width = img.height;
+    rotateCanvas.height = img.width;
+    const rotateCtx = rotateCanvas.getContext('2d');
+    if (!rotateCtx) {
+      throw new Error('Failed to get canvas context for rotation');
+    }
+
+    rotateCtx.translate(rotateCanvas.width / 2, rotateCanvas.height / 2);
+    // 使用逆时针旋转90度（-90度）来正确对齐图片方向
+    rotateCtx.rotate(-90 * Math.PI / 180);
+    rotateCtx.drawImage(img, -img.width / 2, -img.height / 2);
+
+    // 创建新的 Image 对象
+    const rotatedImg = new Image();
+    rotatedImg.crossOrigin = 'anonymous';
+
+    await new Promise<void>((resolveRotate, rejectRotate) => {
+      rotatedImg.onload = () => resolveRotate();
+      rotatedImg.onerror = () => rejectRotate(new Error('Failed to load rotated image'));
+      rotatedImg.src = rotateCanvas.toDataURL('image/jpeg', 0.99);
+    });
+
+    if (import.meta.env.DEV) console.log('Image rotated successfully:', { width: rotatedImg.width, height: rotatedImg.height });
+    return rotatedImg;
+  };
+
   // 检查是否应该应用水印的辅助函数
   const shouldApplyWatermark = (): boolean => {
-    return (user?.subscription?.plan as PlanKey) === 'free';
+    return user?.subscription?.plan === 'free';
   };
 
   // 添加水印的辅助函数
   const addWatermarkToCanvas = (ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) => {
     // 重新获取当前订阅等级确保准确性
-    const currentPlan = (user?.subscription?.plan as PlanKey) || 'free';
+    const currentPlan = user?.subscription?.plan || 'free';
     if (currentPlan === 'free') {
-      console.log('Adding watermark for free plan');
+      if (import.meta.env.DEV) console.log('Adding watermark for free plan');
       // 添加文本水印 - 简单可靠
       const fontSize = Math.max(20, canvasWidth * 0.06); // 宽度的6%，最小20px
       ctx.font = `bold ${fontSize}px Arial`;
@@ -212,11 +296,11 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       };
       
       img.onerror = () => {
-        console.warn('Failed to load image with crossOrigin, trying without crossOrigin...');
+        if (import.meta.env.DEV) console.warn('Failed to load image with crossOrigin, trying without crossOrigin...');
         // 如果 crossOrigin 失败，尝试不使用 crossOrigin（可能无法在 canvas 上使用，但至少可以显示）
         const fallbackImg = new Image();
         fallbackImg.onload = () => {
-          console.warn('Image loaded without crossOrigin (may have CORS restrictions)');
+          if (import.meta.env.DEV) console.warn('Image loaded without crossOrigin (may have CORS restrictions)');
           resolve(fallbackImg);
         };
         fallbackImg.onerror = () => {
@@ -232,89 +316,45 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   // 尝试为图片添加水印（即使图片已经是最终尺寸）
   // 同时进行方向校正
   const addWatermarkToImage = async (imgUrl: string, targetWidth: number, targetHeight: number): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        // 使用带 fallback 的图片加载函数
-        const img = await loadImageWithFallback(imgUrl);
-        
-        // 检测是否需要旋转
-        const needsRotation = shouldRotateImage(img.width, img.height);
-        
-        // 如果需要旋转，先创建一个旋转后的图片
-        let sourceImg = img;
-        let srcWidth = img.width;
-        let srcHeight = img.height;
-        
-        if (needsRotation) {
-          console.log('Rotating image -90 degrees (counterclockwise) in addWatermarkToImage');
-          const rotateCanvas = document.createElement('canvas');
-          rotateCanvas.width = img.height;
-          rotateCanvas.height = img.width;
-          const rotateCtx = rotateCanvas.getContext('2d');
-          if (rotateCtx) {
-            rotateCtx.translate(rotateCanvas.width / 2, rotateCanvas.height / 2);
-            // 使用逆时针旋转90度（-90度）来正确对齐图片方向
-            rotateCtx.rotate(-90 * Math.PI / 180);
-            rotateCtx.drawImage(img, -img.width / 2, -img.height / 2);
-            
-            const rotatedImg = new Image();
-            rotatedImg.crossOrigin = 'anonymous';
-            
-            await new Promise<void>((resolveRotate, rejectRotate) => {
-              rotatedImg.onload = () => resolveRotate();
-              rotatedImg.onerror = () => rejectRotate(new Error('Failed to load rotated image'));
-              rotatedImg.src = rotateCanvas.toDataURL('image/jpeg', 0.99);
-            });
-            
-            sourceImg = rotatedImg;
-            srcWidth = rotatedImg.width;
-            srcHeight = rotatedImg.height;
-          }
-        }
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-        
-        // 填充白色背景
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
+    try {
+      // 使用带 fallback 的图片加载函数
+      const img = await loadImageWithFallback(imgUrl);
 
-        // 计算缩放以适应目标尺寸
-        const scale = Math.min(targetWidth / srcWidth, targetHeight / srcHeight);
-        const drawWidth = srcWidth * scale;
-        const drawHeight = srcHeight * scale;
-        const offsetX = (targetWidth - drawWidth) / 2;
-        const offsetY = (targetHeight - drawHeight) / 2;
-        
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        
-        try {
-          ctx.drawImage(sourceImg, offsetX, offsetY, drawWidth, drawHeight);
-        } catch (drawError) {
-          // 如果 drawImage 失败（可能是 CORS 问题），尝试使用原始图片 URL
-          console.warn('Failed to draw image to canvas (CORS issue?), using original URL with watermark attempt:', drawError);
-          reject(new Error('CORS restriction: cannot draw image to canvas'));
-          return;
-        }
+      // 检测是否需要旋转
+      const needsRotation = shouldRotateImage(img.width, img.height);
 
-        // 添加水印
-        const hadWatermark = shouldApplyWatermark();
-        addWatermarkToCanvas(ctx, targetWidth, targetHeight);
-        setWatermarkApplied(hadWatermark); // 无论是否有水印都设置状态
+      // 如果需要旋转，先创建一个旋转后的图片
+      let sourceImg = img;
+      let srcWidth = img.width;
+      let srcHeight = img.height;
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.99);
-        resolve(dataUrl);
-      } catch (err) {
-        reject(err);
+      if (needsRotation) {
+        sourceImg = await rotateImage90Degrees(img, 'Rotating image in addWatermarkToImage');
+        srcWidth = sourceImg.width;
+        srcHeight = sourceImg.height;
       }
-    });
+
+      const canvas = document.createElement('canvas');
+      const ctx = initializeCanvas(canvas, targetWidth, targetHeight);
+
+      try {
+        scaleImageToFit(ctx, sourceImg, targetWidth, targetHeight);
+      } catch (drawError) {
+        // 如果 drawImage 失败（可能是 CORS 问题），尝试使用原始图片 URL
+        if (import.meta.env.DEV) console.warn('Failed to draw image to canvas (CORS issue?), using original URL with watermark attempt:', drawError);
+        throw new Error('CORS restriction: cannot draw image to canvas');
+      }
+
+      // 添加水印
+      const hadWatermark = shouldApplyWatermark();
+      addWatermarkToCanvas(ctx, targetWidth, targetHeight);
+      setWatermarkApplied(hadWatermark); // 无论是否有水印都设置状态
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.99);
+      return dataUrl;
+    } catch (err) {
+      throw err as Error;
+    }
   };
 
   // 检测是否需要旋转图片以匹配原图方向
@@ -335,96 +375,51 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   // Fit generated image into target dimensions with letterboxing (no distortion)
   // 同时进行方向校正，确保图片方向与原图一致
   const fitImageToCanvas = async (imgUrl: string, targetWidth: number, targetHeight: number): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        // 使用带 fallback 的图片加载函数
-        const img = await loadImageWithFallback(imgUrl);
-        
-        // 检测是否需要旋转
-        const needsRotation = shouldRotateImage(img.width, img.height);
-        console.log('Image orientation check:', {
-          imgWidth: img.width,
-          imgHeight: img.height,
-          originalIsPortrait: imageDimensions?.isPortrait,
-          needsRotation
-        });
-        
-        // 如果需要旋转，先创建一个旋转后的图片
-        let sourceImg = img;
-        let srcWidth = img.width;
-        let srcHeight = img.height;
-        
-        if (needsRotation) {
-          console.log('Rotating image -90 degrees (counterclockwise) to match original orientation');
-          // 创建旋转后的 canvas
-          const rotateCanvas = document.createElement('canvas');
-          // 旋转后宽高互换
-          rotateCanvas.width = img.height;
-          rotateCanvas.height = img.width;
-          const rotateCtx = rotateCanvas.getContext('2d');
-          if (rotateCtx) {
-            rotateCtx.translate(rotateCanvas.width / 2, rotateCanvas.height / 2);
-            // 使用逆时针旋转90度（-90度）来正确对齐图片方向
-            rotateCtx.rotate(-90 * Math.PI / 180);
-            rotateCtx.drawImage(img, -img.width / 2, -img.height / 2);
-            
-            // 创建新的 Image 对象
-            const rotatedImg = new Image();
-            rotatedImg.crossOrigin = 'anonymous';
-            
-            await new Promise<void>((resolveRotate, rejectRotate) => {
-              rotatedImg.onload = () => resolveRotate();
-              rotatedImg.onerror = () => rejectRotate(new Error('Failed to load rotated image'));
-              rotatedImg.src = rotateCanvas.toDataURL('image/jpeg', 0.99);
-            });
-            
-            sourceImg = rotatedImg;
-            srcWidth = rotatedImg.width;
-            srcHeight = rotatedImg.height;
-            console.log('Image rotated successfully:', { srcWidth, srcHeight });
-          }
-        }
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-        // Fill background white
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
+    try {
+      // 使用带 fallback 的图片加载函数
+      const img = await loadImageWithFallback(imgUrl);
 
-        const scale = Math.min(targetWidth / srcWidth, targetHeight / srcHeight);
-        const drawWidth = srcWidth * scale;
-        const drawHeight = srcHeight * scale;
-        const offsetX = (targetWidth - drawWidth) / 2;
-        const offsetY = (targetHeight - drawHeight) / 2;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        
-        try {
-          ctx.drawImage(sourceImg, offsetX, offsetY, drawWidth, drawHeight);
-        } catch (drawError) {
-          // 如果 drawImage 失败（可能是 CORS 问题），拒绝并让调用者处理
-          console.warn('Failed to draw image to canvas (CORS issue?):', drawError);
-          reject(new Error('CORS restriction: cannot draw image to canvas'));
-          return;
-        }
+      // 检测是否需要旋转
+      const needsRotation = shouldRotateImage(img.width, img.height);
+      if (import.meta.env.DEV) console.log('Image orientation check:', {
+        imgWidth: img.width,
+        imgHeight: img.height,
+        originalIsPortrait: imageDimensions?.isPortrait,
+        needsRotation
+      });
 
-        // 添加水印
-        const hadWatermark = shouldApplyWatermark();
-        addWatermarkToCanvas(ctx, targetWidth, targetHeight);
-        setWatermarkApplied(hadWatermark); // 无论是否有水印都设置状态
+      // 如果需要旋转，先创建一个旋转后的图片
+      let sourceImg = img;
+      let srcWidth = img.width;
+      let srcHeight = img.height;
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.99);
-        resolve(dataUrl);
-      } catch (err) {
-        reject(err);
+      if (needsRotation) {
+        sourceImg = await rotateImage90Degrees(img, 'Rotating image to match original orientation');
+        srcWidth = sourceImg.width;
+        srcHeight = sourceImg.height;
       }
-    });
+
+      const canvas = document.createElement('canvas');
+      const ctx = initializeCanvas(canvas, targetWidth, targetHeight);
+
+      try {
+        scaleImageToFit(ctx, sourceImg, targetWidth, targetHeight);
+      } catch (drawError) {
+        // 如果 drawImage 失败（可能是 CORS 问题），拒绝并让调用者处理
+        if (import.meta.env.DEV) console.warn('Failed to draw image to canvas (CORS issue?):', drawError);
+        throw new Error('CORS restriction: cannot draw image to canvas');
+      }
+
+      // 添加水印
+      const hadWatermark = shouldApplyWatermark();
+      addWatermarkToCanvas(ctx, targetWidth, targetHeight);
+      setWatermarkApplied(hadWatermark); // 无论是否有水印都设置状态
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.99);
+      return dataUrl;
+    } catch (err) {
+      throw err as Error;
+    }
   };
 
   // Slider comparison interaction functions
@@ -468,15 +463,15 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     
     // 确保有有效的尺寸
     if (!width || !height || width === 0 || height === 0) {
-      console.warn('Invalid image dimensions:', { width, height });
+      if (import.meta.env.DEV) console.warn('Invalid image dimensions:', { width, height });
       return 0;
     }
     
     // 如果没有原图信息，使用默认逻辑（横向转纵向）
     if (!imageDimensions) {
-      console.warn('Original image dimensions not available, using default logic');
+      if (import.meta.env.DEV) console.warn('Original image dimensions not available, using default logic');
       if (width > height) {
-        console.log(`Auto-correcting orientation: landscape (${width}x${height}) to portrait - rotating 90°`);
+        if (import.meta.env.DEV) console.log(`Auto-correcting orientation: landscape (${width}x${height}) to portrait - rotating 90°`);
         return 90;
       }
       return 0;
@@ -486,7 +481,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     const generatedIsPortrait = height > width;
     const originalIsPortrait = imageDimensions.isPortrait;
     
-    console.log('Orientation comparison:', {
+    if (import.meta.env.DEV) console.log('Orientation comparison:', {
       original: originalIsPortrait ? 'portrait' : 'landscape',
       generated: generatedIsPortrait ? 'portrait' : 'landscape',
       originalDimensions: `${imageDimensions.width}x${imageDimensions.height}`,
@@ -495,12 +490,12 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     
     // 如果生成图的方向与原图不一致，需要旋转
     if (generatedIsPortrait !== originalIsPortrait) {
-      console.log(`Orientation mismatch detected! Rotating generated image 90° to match original (${originalIsPortrait ? 'portrait' : 'landscape'})`);
+      if (import.meta.env.DEV) console.log(`Orientation mismatch detected! Rotating generated image 90° to match original (${originalIsPortrait ? 'portrait' : 'landscape'})`);
       return 90;
     }
     
     // 方向一致，不需要旋转
-    console.log('Orientation matches original, no rotation needed');
+    if (import.meta.env.DEV) console.log('Orientation matches original, no rotation needed');
     return 0;
   }, [imageDimensions]); // 添加 imageDimensions 到依赖数组
 
@@ -528,19 +523,19 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       img.onload = () => {
         if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
           const detected = detectImageOrientation(img);
-          console.log('Cached image detected in useEffect, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+          if (import.meta.env.DEV) console.log('Cached image detected in useEffect, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
           setAutoRotateDeg(detected);
         }
       };
       img.onerror = () => {
-        console.error('Failed to load cached image for rotation detection in useEffect');
+        if (import.meta.env.DEV) console.error('Failed to load cached image for rotation detection in useEffect');
       };
       img.src = generatedArt;
       
       // 如果图片已经缓存，立即检查
       if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
         const detected = detectImageOrientation(img);
-        console.log('Image already cached in useEffect, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+        if (import.meta.env.DEV) console.log('Image already cached in useEffect, rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
         setAutoRotateDeg(detected);
       }
     } else if (generatedArt) {
@@ -574,13 +569,13 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
 
   // Update DPI, resolution, and quality when subscription plan changes
   useEffect(() => {
-    const newConfig = planConfig[plan as 'free' | 'basic' | 'premium'] || planConfig.free;
+    const newConfig = planConfig[plan] || planConfig.free;
     
     // Always update to plan defaults when plan changes
     setDpi(newConfig.defaultDpi);
     setResolution(newConfig.defaultResolution);
     setQuality(newConfig.defaultQuality);
-  }, [plan, user?.subscription?.plan]);
+  }, [plan]);
   
   // Check if user has sufficient credits
   const checkCredits = async () => {
@@ -606,7 +601,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         },
         body: JSON.stringify({ amount: 1 })
       });
@@ -625,7 +620,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       
       return true;
     } catch (error) {
-      console.error('Credit deduction failed:', error);
+      if (import.meta.env.DEV) console.error('Credit deduction failed:', error);
       throw error;
     }
   };
@@ -634,20 +629,20 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   const refundCredits = async () => {
     try {
       const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-      console.log('Refunding credits due to generation failure...');
+      if (import.meta.env.DEV) console.log('Refunding credits due to generation failure...');
       
       const response = await fetch(`${apiBaseUrl}/subscriptions/credits/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         },
         body: JSON.stringify({ amount: 1 })
       });
   
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to refund credits' }));
-        console.error('Credit refund failed:', errorData);
+        if (import.meta.env.DEV) console.error('Credit refund failed:', errorData);
         return false;
       }
   
@@ -658,10 +653,10 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         updateUser({ ...user, credits: result.credits });
       }
       
-      console.log('Credits refunded successfully. New balance:', result.credits);
+      if (import.meta.env.DEV) console.log('Credits refunded successfully. New balance:', result.credits);
       return true;
     } catch (error) {
-      console.error('Credit refund error:', error);
+      if (import.meta.env.DEV) console.error('Credit refund error:', error);
       return false;
     }
   };
@@ -697,13 +692,13 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     setInsufficientCredits(false);
   
     let creditsDeducted = false;
-    let progressInterval: NodeJS.Timeout | null = null;
+    let progressInterval: number | null = null;
   
     try {
       // Deduct credits first
       await deductCredits();
       creditsDeducted = true;
-      console.log('Credits deducted successfully');
+      if (import.meta.env.DEV) console.log('Credits deducted successfully');
   
       // Simulate progress
       progressInterval = setInterval(() => {
@@ -719,8 +714,8 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       // Generate dynamic prompt based on selected style
       const prompt = generatePrompt(styleId);
       const styleConfig = getStyleConfig(styleId);
-      console.log('Using prompt:', prompt);
-      console.log('Style config:', styleConfig);
+      if (import.meta.env.DEV) console.log('Using prompt:', prompt);
+      if (import.meta.env.DEV) console.log('Style config:', styleConfig);
 
       // Prepare API request - pass image and prompt to Gemini
       const resolutionValue = currentConfig.resolutionOptions.find(r => r.value === resolution)?.value || currentConfig.defaultResolution;
@@ -728,19 +723,19 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       
       // Wait for image dimensions if not yet loaded
       if (!imageDimensions) {
-        console.warn('Image dimensions not yet loaded, waiting...');
+        if (import.meta.env.DEV) console.warn('Image dimensions not yet loaded, waiting...');
         // Wait a bit for image to load
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       // Calculate output dimensions based on original image aspect ratio
       const outputDimensions = calculateOutputDimensions(shortSide);
-      console.log('Original image dimensions:', imageDimensions);
-      console.log('Output dimensions:', outputDimensions, 'short side:', shortSide);
+      if (import.meta.env.DEV) console.log('Original image dimensions:', imageDimensions);
+      if (import.meta.env.DEV) console.log('Output dimensions:', outputDimensions, 'short side:', shortSide);
       
       // Validate dimensions
       if (!outputDimensions.width || !outputDimensions.height || outputDimensions.width <= 0 || outputDimensions.height <= 0) {
-        console.error('Invalid output dimensions, using fallback:', outputDimensions);
+        if (import.meta.env.DEV) console.error('Invalid output dimensions, using fallback:', outputDimensions);
         // Fallback to square
         const fallbackSize = shortSide;
         outputDimensions.width = fallbackSize;
@@ -774,15 +769,15 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         let displayedUrl = result.imageUrl;
         try {
           displayedUrl = await fitImageToCanvas(result.imageUrl, outputDimensions.width, outputDimensions.height);
-          console.log('Image fitted to canvas successfully with watermark');
+          if (import.meta.env.DEV) console.log('Image fitted to canvas successfully with watermark');
         } catch (resizeErr) {
-          console.warn('Fit image to canvas failed, attempting to add watermark to original image:', resizeErr);
+          if (import.meta.env.DEV) console.warn('Fit image to canvas failed, attempting to add watermark to original image:', resizeErr);
           // 即使 fitImageToCanvas 失败，也尝试添加水印
           try {
             displayedUrl = await addWatermarkToImage(result.imageUrl, outputDimensions.width, outputDimensions.height);
-            console.log('Watermark added to original image successfully');
+            if (import.meta.env.DEV) console.log('Watermark added to original image successfully');
           } catch (watermarkErr) {
-            console.error('Failed to add watermark, using original image:', watermarkErr);
+            if (import.meta.env.DEV) console.error('Failed to add watermark, using original image:', watermarkErr);
             // 如果添加水印也失败，使用原始图片（可能没有水印，但至少能显示）
             displayedUrl = result.imageUrl;
             setWatermarkApplied(false); // 标记水印未应用
@@ -791,35 +786,35 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
 
         // Display processed image（先在当前页面展示成功与对比组件，不立即跳转）
         setGeneratedArt(displayedUrl);
-        const currentPlan = (user?.subscription?.plan as PlanKey) || 'free';
+        const currentPlan = user?.subscription?.plan || 'free';
         const shouldHaveWatermark = currentPlan === 'free';
-        console.log('Generated art URL set:', displayedUrl);
-        console.log('Image preview URL available:', imagePreview);
-        console.log('Comparison component should be visible:', !!result.imageUrl && !!imagePreview);
-        console.log('Watermark should be applied:', shouldHaveWatermark, 'Plan:', currentPlan);
+        if (import.meta.env.DEV) console.log('Generated art URL set:', displayedUrl);
+        if (import.meta.env.DEV) console.log('Image preview URL available:', imagePreview);
+        if (import.meta.env.DEV) console.log('Comparison component should be visible:', !!result.imageUrl && !!imagePreview);
+        if (import.meta.env.DEV) console.log('Watermark should be applied:', shouldHaveWatermark, 'Plan:', currentPlan);
         
         // If enhancement is in progress, update when it completes (optional)
         if (result.enhancementPromise) {
-          console.log('Waiting for image enhancement to complete...');
+          if (import.meta.env.DEV) console.log('Waiting for image enhancement to complete...');
           result.enhancementPromise
             .then((enhancedUrl) => {
-              console.log('Enhanced image ready, updating display...');
+              if (import.meta.env.DEV) console.log('Enhanced image ready, updating display...');
               fitImageToCanvas(enhancedUrl, outputDimensions.width, outputDimensions.height)
                 .then((fitted) => {
-                  console.log('Enhanced image fitted to canvas successfully with watermark');
+                  if (import.meta.env.DEV) console.log('Enhanced image fitted to canvas successfully with watermark');
                   setGeneratedArt(fitted);
                 })
                 .catch((fitErr) => {
-                  console.warn('Fit enhanced image to canvas failed, attempting to add watermark:', fitErr);
+                  if (import.meta.env.DEV) console.warn('Fit enhanced image to canvas failed, attempting to add watermark:', fitErr);
                   // 即使 fitImageToCanvas 失败，也尝试添加水印
                   addWatermarkToImage(enhancedUrl, outputDimensions.width, outputDimensions.height)
                     .then((watermarked) => {
-                      console.log('Watermark added to enhanced image successfully');
+                      if (import.meta.env.DEV) console.log('Watermark added to enhanced image successfully');
                       // 水印状态已在 addWatermarkToImage 中设置
                       setGeneratedArt(watermarked);
                     })
                     .catch((watermarkErr) => {
-                      console.error('Failed to add watermark to enhanced image, attempting final watermark attempt:', watermarkErr);
+                      if (import.meta.env.DEV) console.error('Failed to add watermark to enhanced image, attempting final watermark attempt:', watermarkErr);
                       // 即使 addWatermarkToImage 失败，也尝试最后一次添加水印
                       // 创建一个新的 canvas，直接使用 enhancedUrl 作为背景，然后添加水印
                       const finalCanvas = document.createElement('canvas');
@@ -843,21 +838,21 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                               addWatermarkToCanvas(finalCtx, outputDimensions.width, outputDimensions.height);
                               setWatermarkApplied(hadWatermark); // 无论是否有水印都设置状态
                               const finalDataUrl = finalCanvas.toDataURL('image/jpeg', 0.99);
-                              console.log('Final watermark attempt successful');
+                              if (import.meta.env.DEV) console.log('Final watermark attempt successful');
                               setGeneratedArt(finalDataUrl);
                             } catch (finalErr) {
-                              console.error('Final watermark attempt failed, using enhanced without watermark:', finalErr);
+                              if (import.meta.env.DEV) console.error('Final watermark attempt failed, using enhanced without watermark:', finalErr);
                               setWatermarkApplied(false); // 标记水印未应用
                               setGeneratedArt(enhancedUrl); // 最后的后备方案
                             }
                           })
                           .catch((loadErr) => {
-                            console.error('Failed to load enhanced image for final watermark attempt:', loadErr);
+                            if (import.meta.env.DEV) console.error('Failed to load enhanced image for final watermark attempt:', loadErr);
                             setWatermarkApplied(false); // 标记水印未应用
                             setGeneratedArt(enhancedUrl); // 最后的后备方案
                           });
                       } else {
-                        console.error('Failed to get canvas context for final watermark attempt');
+                        if (import.meta.env.DEV) console.error('Failed to get canvas context for final watermark attempt');
                         setWatermarkApplied(false); // 添加错误边界处理
                         setGeneratedArt(enhancedUrl); // 最后的后备方案
                       }
@@ -867,21 +862,21 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
               // onArtGenerated(enhancedUrl);
             })
             .catch((err) => {
-              console.warn('Image enhancement failed, keeping original:', err);
+              if (import.meta.env.DEV) console.warn('Image enhancement failed, keeping original:', err);
             });
         }
       } else {
         throw new Error('API returned invalid image URL');
       }
     } catch (err) {
-      console.error('Generation failed:', err);
+      if (import.meta.env.DEV) console.error('Generation failed:', err);
       
       // Clear progress interval if still running
       if (progressInterval) clearInterval(progressInterval);
       
       // Refund credits if they were deducted
       if (creditsDeducted) {
-        console.log('Generation failed, attempting to refund credits...');
+        if (import.meta.env.DEV) console.log('Generation failed, attempting to refund credits...');
         const refundSuccess = await refundCredits();
         if (refundSuccess) {
           setError((err instanceof Error ? err.message : 'Error occurred during generation') + ' (Credits have been refunded)');
@@ -895,54 +890,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       setIsGenerating(false);
     }
   };
-  
-  // Credit display and recharge guidance
-  {isAuthenticated && user && (
-    <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Coins className="w-5 h-5 text-yellow-600" />
-            <span className="font-medium">Current Credits:</span>
-            <span className="text-xl font-bold text-blue-600">{user.credits || 0}</span>
-          </div>
-          {user.credits && user.credits < 3 && (
-            <div className="flex items-center gap-2 text-orange-600">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm">Insufficient credits, please recharge</span>
-            </div>
-          )}
-        </div>
-        <Button 
-          onClick={() => navigate('/subscription')}
-          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white"
-        >
-          <Coins className="w-4 h-4 mr-2" />
-          Recharge Credits
-        </Button>
-      </div>
-    </div>
-  )}
-  
-  // Start AI Generation button
-  <Button
-    onClick={generateArtWithAI}
-    disabled={isGenerating || insufficientCredits}
-    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 text-lg font-semibold"
-  >
-    {isGenerating ? (
-      <>
-        <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-        Generating...
-      </>
-    ) : (
-      <>
-        <Wand2 className="w-5 h-5 mr-2" />
-        Start AI Generation (Costs 1 Credit)
-      </>
-    )}
-  </Button>
-  
+
   const handleDownload = () => {
     if (generatedArt) {
       const link = document.createElement('a');
@@ -1033,215 +981,22 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
           
           {/* Quality Settings Panel */}
           {showQualitySettings && (
-            <div className="bg-muted/20 p-4 rounded-lg mb-4">
-              {/* Plan info banner */}
-              {plan === 'free' && (
-                <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm text-blue-800">
-                    <Crown className="w-4 h-4" />
-                    <span>You're on the <strong>Free</strong> plan. Upgrade to unlock higher quality options!</span>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => navigate('/subscription')}
-                      className="ml-auto"
-                    >
-                      Upgrade
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* DPI Setting */}
-                <div className="space-y-2">
-                  <Label htmlFor="dpi-select">DPI Resolution</Label>
-                  <Select 
-                    value={dpi.toString()} 
-                    onValueChange={(value) => {
-                      const newDpi = Number(value);
-                      // Only allow change if option is allowed for current plan
-                      if (currentConfig.dpiOptions.includes(newDpi)) {
-                        setDpi(newDpi);
-                      } else {
-                        // Navigate to subscription page if trying to select restricted option
-                        navigate('/subscription');
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="dpi-select">
-                      <SelectValue placeholder="Select DPI" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allDpiOptions.map((opt) => {
-                        const isAllowed = currentConfig.dpiOptions.includes(opt);
-                        const isRestricted = !isAllowed;
-                        return (
-                          <SelectItem 
-                            key={opt} 
-                            value={opt.toString()}
-                            disabled={isRestricted}
-                            className={isRestricted ? 'opacity-50' : ''}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <span>{opt} DPI</span>
-                              {isRestricted && (
-                                <Lock className="w-3 h-3 ml-2 text-muted-foreground" />
-                              )}
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {dpi >= 300 ? '✓ Print-ready quality' : 'Web display only'}
-                    {!currentConfig.dpiOptions.includes(dpi) && plan === 'free' && (
-                      <span className="block mt-1 text-amber-600">
-                        <Lock className="w-3 h-3 inline mr-1" />
-                        Upgrade required for {dpi} DPI
-                      </span>
-                    )}
-                  </p>
-                </div>
-                
-                {/* Resolution Setting */}
-                <div className="space-y-2">
-                  <Label htmlFor="resolution-select">Image Resolution</Label>
-                  <Select 
-                    value={resolution} 
-                    onValueChange={(value) => {
-                      // Only allow change if option is allowed for current plan
-                      if (currentConfig.resolutionOptions.find(r => r.value === value)) {
-                        setResolution(value);
-                      } else {
-                        // Navigate to subscription page if trying to select restricted option
-                        navigate('/subscription');
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="resolution-select">
-                      <SelectValue placeholder="Select Resolution" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allResolutionOptions.map((opt) => {
-                        const isAllowed = currentConfig.resolutionOptions.find(r => r.value === opt.value) !== undefined;
-                        const isRestricted = !isAllowed;
-                        const requiredPlan = opt.plan === 'basic' ? 'Basic' : opt.plan === 'premium' ? 'Premium' : '';
-                        return (
-                          <SelectItem 
-                            key={opt.value} 
-                            value={opt.value}
-                            disabled={isRestricted}
-                            className={isRestricted ? 'opacity-50' : ''}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <span>{opt.label}</span>
-                              {isRestricted && (
-                                <div className="flex items-center gap-1 ml-2">
-                                  <Lock className="w-3 h-3 text-muted-foreground" />
-                                  {requiredPlan && (
-                                    <span className="text-xs text-muted-foreground">{requiredPlan}</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {currentConfig.resolutionOptions.find(r => r.value === resolution)?.label || 'Good for most uses'}
-                    {!currentConfig.resolutionOptions.find(r => r.value === resolution) && plan === 'free' && (
-                      <span className="block mt-1 text-amber-600">
-                        <Lock className="w-3 h-3 inline mr-1" />
-                        Upgrade required for {resolution}px
-                      </span>
-                    )}
-                  </p>
-                </div>
-                
-                {/* Quality Setting */}
-                <div className="space-y-2">
-                  <Label htmlFor="quality-select">Generation Quality</Label>
-                  <Select 
-                    value={quality} 
-                    onValueChange={(value) => {
-                      // Only allow change if option is allowed for current plan
-                      if (currentConfig.qualityOptions.includes(value)) {
-                        setQuality(value);
-                      } else {
-                        // Navigate to subscription page if trying to select restricted option
-                        navigate('/subscription');
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="quality-select">
-                      <SelectValue placeholder="Select Quality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allQualityOptions.map((opt) => {
-                        const isAllowed = currentConfig.qualityOptions.includes(opt.value);
-                        const isRestricted = !isAllowed;
-                        const requiredPlan = opt.plan === 'basic' ? 'Basic' : opt.plan === 'premium' ? 'Premium' : '';
-                        return (
-                          <SelectItem 
-                            key={opt.value} 
-                            value={opt.value}
-                            disabled={isRestricted}
-                            className={isRestricted ? 'opacity-50' : ''}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <span>{opt.label}</span>
-                              {isRestricted && (
-                                <div className="flex items-center gap-1 ml-2">
-                                  <Lock className="w-3 h-3 text-muted-foreground" />
-                                  {requiredPlan && (
-                                    <span className="text-xs text-muted-foreground">{requiredPlan}</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {quality === 'ultra' ? '✓ Professional print quality' : quality === 'high' ? '✓ High quality output' : 'Standard quality'}
-                    {!currentConfig.qualityOptions.includes(quality) && plan === 'free' && (
-                      <span className="block mt-1 text-amber-600">
-                        <Lock className="w-3 h-3 inline mr-1" />
-                        Upgrade required for {quality} quality
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Print Quality Information */}
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium">Print Quality Recommendations:</p>
-                    <ul className="mt-1 space-y-1">
-                      <li>• <strong>300 DPI + Ultra Quality</strong> - Professional printing</li>
-                      <li>• <strong>600 DPI + Ultra Quality</strong> - Premium large format prints</li>
-                      <li>• <strong>1200 DPI</strong> - Maximum detail for close inspection</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-3 text-sm text-muted-foreground">
-                <p>Current settings: {dpi} DPI • {resolution.toUpperCase()} Resolution • {quality.toUpperCase()} Quality</p>
-                <p>These requirements will be sent to the AI model and enhanced for optimal print quality.</p>
-              </div>
-            </div>
+            <QualitySettings
+              plan={plan}
+              dpi={dpi}
+              resolution={resolution}
+              quality={quality}
+              currentConfig={currentConfig}
+              allDpiOptions={allDpiOptions}
+              allResolutionOptions={allResolutionOptions}
+              allQualityOptions={allQualityOptions}
+              onDpiChange={setDpi}
+              onResolutionChange={setResolution}
+              onQualityChange={setQuality}
+              onUpgradeClick={() => navigate('/subscription')}
+            />
           )}
-          
+
           {/* Start Generation Button */}
           {!generatedArt && !isGenerating && (
             <div className="mt-4 text-center">
@@ -1336,16 +1091,16 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                       // 确保原图信息已加载
                       if (imageDimensions) {
                         const detected = detectImageOrientation(img);
-                        console.log('Image loaded, detected rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+                        if (import.meta.env.DEV) console.log('Image loaded, detected rotation:', detected, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
                         // 直接设置检测结果，允许重新检测（如果原图信息后来才加载）
                         setAutoRotateDeg(detected);
                       } else {
-                        console.warn('Original image dimensions not available yet, will retry in 100ms');
+                        if (import.meta.env.DEV) console.warn('Original image dimensions not available yet, will retry in 100ms');
                         // 延迟重试，等待原图信息加载
                         setTimeout(() => {
                           if (imageDimensions && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
                             const detected = detectImageOrientation(img);
-                            console.log('Retry: Image rotation detected:', detected);
+                            if (import.meta.env.DEV) console.log('Retry: Image rotation detected:', detected);
                             setAutoRotateDeg(detected);
                           }
                         }, 100);
@@ -1353,7 +1108,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                     }
                   }}
                   onError={() => {
-                    console.error('Failed to load generated image');
+                    if (import.meta.env.DEV) console.error('Failed to load generated image');
                   }}
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-smooth flex items-center justify-center gap-3">

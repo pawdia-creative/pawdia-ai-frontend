@@ -44,8 +44,6 @@ const Payment = () => {
       const orderId = await PaymentService.createOrder(orderData);
       setPaypalOrderId(orderId);
       return orderId;
-    } catch (error) {
-      throw error;
     } finally {
       setIsProcessing(false);
     }
@@ -53,28 +51,23 @@ const Payment = () => {
 
   // Capture PayPal payment
   const onApprove = async (data: { orderID: string }) => {
-    try {
-      setIsProcessing(true);
-      
-      const result = await PaymentService.capturePayment(data.orderID);
-      
-      // Clear cart
-      clearCart();
-      
-      // Navigate to payment success page
-      navigate('/payment/success', { 
-        state: { 
-          orderId: data.orderID,
-          captureId: result.captureId,
-          totalAmount: cartState.total 
-        } 
-      });
-      
-    } catch (error) {
-      // Error handling already done in PaymentService
-    } finally {
-      setIsProcessing(false);
-    }
+    setIsProcessing(true);
+
+    const result = await PaymentService.capturePayment(data.orderID);
+
+    // Clear cart
+    clearCart();
+
+    // Navigate to payment success page
+    navigate('/payment/success', {
+      state: {
+        orderId: data.orderID,
+        captureId: result.captureId,
+        totalAmount: cartState.total
+      }
+    });
+
+    setIsProcessing(false);
   };
 
   // Payment cancellation handling
@@ -84,8 +77,8 @@ const Payment = () => {
   };
 
   // Payment error handling
-  const onError = (error: any) => {
-    console.error('[PAYMENT] PayPal SDK error:', error);
+  const onError = (error: unknown) => {
+    if (import.meta.env.DEV) console.error('[PAYMENT] PayPal SDK error:', error);
     
     let errorMessage = 'An error occurred during payment. Please try again.';
     

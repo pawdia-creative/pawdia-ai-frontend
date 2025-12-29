@@ -87,7 +87,7 @@ const Contact = () => {
                         toast.error(data.message || 'Failed to send message');
                       }
                     } catch (err) {
-                      console.error('Contact send error', err);
+                      if (import.meta.env.DEV) console.error('Contact send error', err);
                       toast.error('Network error. Please try again later.');
                     }
                   }}>

@@ -21,23 +21,44 @@ const EmailVerificationRequired: React.FC = () => {
   const [isResending, setIsResending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
+  function maskEmail(email?: string | null) {
+    if (!email) return '';
+    const [local, domain] = email.split('@');
+    if (!local || !domain) return email;
+    if (local.length <= 2) {
+      return `${local[0]}***@${domain}`;
+    }
+    const head = local.slice(0, 2);
+    return `${head}***@${domain}`;
+  }
+
   const handleResendEmail = async () => {
     setIsResending(true);
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('请先登录');
-        navigate('/login');
-        return;
+      let response;
+      if (token) {
+        response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else {
+        // allow anonymous resend by email
+        const emailToSend = user?.email;
+        if (!emailToSend) {
+          toast.error('无法找到邮箱，请先登录');
+          navigate('/login');
+          return;
+        }
+        response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailToSend })
+        });
       }
-
-      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
       const data = await response.json();
 
@@ -48,7 +69,7 @@ const EmailVerificationRequired: React.FC = () => {
         toast.error(data.message || '发送验证邮件失败，请稍后重试');
       }
     } catch (error) {
-      console.error('Resend verification error:', error);
+      if (import.meta.env.DEV) console.error('Resend verification error:', error);
       toast.error('网络错误，请稍后重试');
     } finally {
       setIsResending(false);
@@ -116,7 +137,40 @@ const EmailVerificationRequired: React.FC = () => {
             </Button>
 
             <Button
-              onClick={() => window.location.reload()}
+              onClick={async () => {
+                // Refresh user status via /auth/me
+                const token = localStorage.getItem('token');
+                if (!token) {
+                  toast.error('请先登录以刷新验证状态');
+                  navigate('/login');
+                  return;
+                }
+                try {
+                  const meResp = await fetch(`${API_BASE_URL}/auth/me`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  });
+                  if (meResp.ok) {
+                    const meData = await meResp.json();
+                    const meUser = meData.user;
+                    if (meUser && (meUser.isVerified === true || meUser.is_verified === 1)) {
+                      toast.success('验证成功，跳转到首页');
+                      localStorage.setItem('user', JSON.stringify(meUser));
+                      navigate('/');
+                    } else {
+                      toast.error('尚未完成验证，请检查邮件并点击验证链接');
+                    }
+                  } else {
+                    toast.error('会话失效，请重新登录后再尝试');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    navigate('/login');
+                  }
+                } catch (err) {
+                  if (import.meta.env.DEV) console.error('Refresh verification error:', err);
+                  toast.error('网络错误，请稍后重试');
+                }
+              }}
               variant="outline"
               className="w-full"
             >

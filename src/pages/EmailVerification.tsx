@@ -17,7 +17,7 @@ const EmailVerification = () => {
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get('token');
-      console.log('[VERIFY FRONTEND] Token received:', token ? `${token.substring(0, 10)}...` : 'missing');
+      if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Token received:', token ? `${token.substring(0, 10)}...` : 'missing');
       setHasToken(!!token);
 
       // If there's no token in the URL, this page is being used as a "check your email" landing.
@@ -31,11 +31,11 @@ const EmailVerification = () => {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
         const verifyUrl = `${apiUrl}/auth/verify-email?token=${token}`;
-        console.log('[VERIFY FRONTEND] Calling API:', verifyUrl);
+        if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Calling API:', verifyUrl);
         
         const response = await fetch(verifyUrl);
         const data = await response.json();
-        console.log('[VERIFY FRONTEND] Response status:', response.status, 'data:', data);
+        if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Response status:', response.status, 'data:', data);
 
         if (response.ok) {
           setStatus('success');
@@ -43,7 +43,7 @@ const EmailVerification = () => {
           
           // 更新用户状态
           if (data.user && updateUser) {
-            console.log('[VERIFY FRONTEND] Updating user status to verified');
+            if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Updating user status to verified');
             updateUser({ isVerified: true });
           }
           
@@ -59,12 +59,12 @@ const EmailVerification = () => {
               if (meResponse.ok) {
                 const meData = await meResponse.json();
                 if (meData.user && updateUser) {
-                  console.log('[VERIFY FRONTEND] Refreshed user data from /auth/me');
+                  if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Refreshed user data from /auth/me');
                   updateUser(meData.user);
                 }
               }
             } catch (refreshError) {
-              console.error('[VERIFY FRONTEND] Error refreshing user data:', refreshError);
+              if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Error refreshing user data:', refreshError);
             }
           }
         } else {
@@ -72,7 +72,7 @@ const EmailVerification = () => {
           setMessage(data.message || 'Email verification failed. Please try again.');
         }
       } catch (error) {
-        console.error('[VERIFY FRONTEND] Email verification error:', error);
+        if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Email verification error:', error);
         setStatus('error');
         setMessage('Network error. Please check your internet connection and try again.');
       }
@@ -147,7 +147,7 @@ const EmailVerification = () => {
             {status === 'success' && !hasToken && (
               <Button 
                 className="flex-1"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/login', { state: { preResend: true } })}
               >
                 Log in
               </Button>

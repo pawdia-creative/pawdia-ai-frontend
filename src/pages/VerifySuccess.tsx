@@ -11,9 +11,9 @@ const VerifySuccess: React.FC = () => {
     try {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      console.log('[VerifySuccess] Cleared local auth tokens to avoid auto sign-in issues');
+      if (import.meta.env.DEV) console.log('[VerifySuccess] Cleared local auth tokens to avoid auto sign-in issues');
     } catch (e) {
-      console.warn('[VerifySuccess] Failed to clear localStorage:', e);
+      if (import.meta.env.DEV) console.warn('[VerifySuccess] Failed to clear localStorage:', e);
     }
   }, []);
 
