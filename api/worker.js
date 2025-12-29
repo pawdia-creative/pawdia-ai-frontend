@@ -804,6 +804,10 @@ export default {
     // Admin delete user endpoint: DELETE /api/admin/users/:id
     if (url.pathname.startsWith('/api/admin/users/') && request.method === 'DELETE') {
       console.log('Admin delete user endpoint called');
+
+      // Test error handling
+      throw new Error('Test error for debugging');
+
       try {
         const authHeader = request.headers.get('authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
