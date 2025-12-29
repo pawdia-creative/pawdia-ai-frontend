@@ -212,6 +212,7 @@ async function getPayloadFromHeader(authHeader, env) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.substring(7);
   const secret = env.JWT_SECRET;
+  console.log('JWT_SECRET exists:', !!secret);
   if (!secret) {
     console.error('JWT_SECRET not set in env');
     return null;
@@ -269,6 +270,31 @@ export default {
           }), {
             headers: corsHeaders
           });
+    }
+
+    // Debug endpoint for testing
+    if (url.pathname === '/api/debug' && request.method === 'GET') {
+      try {
+        const jwtSecretExists = !!env.JWT_SECRET;
+        const dbTest = await env.DB.prepare('SELECT 1 as test').first();
+
+        return new Response(JSON.stringify({
+          jwtSecretExists,
+          dbConnection: !!dbTest,
+          dbTestResult: dbTest,
+          timestamp: new Date().toISOString()
+        }), {
+          headers: corsHeaders
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          error: error.message,
+          stack: error.stack
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
     }
 
     // Auth endpoints
@@ -777,6 +803,7 @@ export default {
 
     // Admin delete user endpoint: DELETE /api/admin/users/:id
     if (url.pathname.startsWith('/api/admin/users/') && request.method === 'DELETE') {
+      console.log('Admin delete user endpoint called');
       try {
         const authHeader = request.headers.get('authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
