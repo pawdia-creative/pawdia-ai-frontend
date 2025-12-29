@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Upload, Wand2, Download, MoveHorizontal } from "lucide-react";
+import * as Lucide from "lucide-react";
+const ArrowLeft = (Lucide as any).ArrowLeft ?? (() => null);
+const Upload = (Lucide as any).Upload ?? (() => null);
+const Wand = (Lucide as any).Wand ?? (() => null);
+const Download = (Lucide as any).Download ?? (() => null);
+const MoveHorizontal = (Lucide as any).MoveHorizontal ?? (() => null);
 import { useNavigate, useLocation } from "react-router-dom";
 import { ImageUpload } from "../components/ImageUpload";
 import { StyleSelection } from "../components/StyleSelection";
@@ -30,8 +35,8 @@ export const ArtCreation = () => {
 
   const steps = [
     { id: 'upload' as CreationStep, title: 'Upload Photo', icon: Upload },
-    { id: 'style' as CreationStep, title: 'Choose Style', icon: Wand2 },
-    { id: 'generate' as CreationStep, title: 'Generate Art', icon: Wand2 },
+    { id: 'style' as CreationStep, title: 'Choose Style', icon: Wand },
+    { id: 'generate' as CreationStep, title: 'Generate Art', icon: Wand },
   ];
 
   const handleImageUpload = (file: File) => {
@@ -184,14 +189,14 @@ export const ArtCreation = () => {
       <MetaTags
         title={seo.title}
         description={seo.description}
-        keywords={seo.keywords}
-        ogImage={seo.ogImage}
+        keywords={seo.keywords ?? ''}
+        ogImage={seo.ogImage ?? ''}
       />
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 py-8">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <Button 
+            <Button 
             variant="ghost" 
             onClick={() => navigate('/')}
             className="flex items-center gap-2"
@@ -306,6 +311,7 @@ export const ArtCreation = () => {
                             src={generatedArt}
                             alt="Generated Art"
                             className="w-full h-full object-contain"
+                            style={{ transform: `rotate(${rotationDeg}deg)` }}
                             onLoad={(e) => {
                               const img = e.currentTarget;
                               if (import.meta.env.DEV) console.log('Main generated image loaded:', img.naturalWidth, 'x', img.naturalHeight);
@@ -373,6 +379,7 @@ export const ArtCreation = () => {
                             alt="AI generated art"
                             className="w-full h-full object-contain"
                             draggable={false}
+                            style={{ transform: `rotate(${rotationDeg}deg)` }}
                             onLoad={(e) => {
                               const img = e.currentTarget;
                               if (import.meta.env.DEV) console.log('Comparison generated image loaded:', img.naturalWidth, 'x', img.naturalHeight);

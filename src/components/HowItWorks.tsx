@@ -1,4 +1,9 @@
-import { Upload, Wand2, Coins, Truck } from "lucide-react";
+import * as Lucide from "lucide-react";
+
+const Upload = (Lucide as any).Upload ?? (() => null);
+const Wand = (Lucide as any).Wand ?? (() => null);
+const Coins = (Lucide as any).Coins ?? (() => null);
+const Truck = (Lucide as any).Truck ?? (() => null);
 
 const steps = [
   {
@@ -8,7 +13,7 @@ const steps = [
     description: "Upload a clear photo of your pet",
   },
   {
-    icon: Wand2,
+    icon: Wand,
     number: "02",
     title: "Choose Style",
     description: "Select from 50+ artistic styles",

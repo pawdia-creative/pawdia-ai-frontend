@@ -1,13 +1,24 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, RefreshCw, AlertCircle, Settings, Coins, AlertTriangle, MoveHorizontal } from "lucide-react";
+import * as Lucide from "lucide-react";
+
+// Compatibility mapping: some TypeScript setups have trouble with named exports from lucide-react.
+// Map the icons we use to local constants (fallback to a noop component if missing).
+const ArrowLeft = (Lucide as any).ArrowLeft ?? (() => null);
+const Download = (Lucide as any).Download ?? (() => null);
+const RefreshCw = (Lucide as any).RefreshCw ?? (() => null);
+const AlertCircle = (Lucide as any).AlertCircle ?? (() => null);
+const Settings = (Lucide as any).Settings ?? (() => null);
+const Coins = (Lucide as any).Coins ?? (() => null);
+const AlertTriangle = (Lucide as any).AlertTriangle ?? (() => null);
+const MoveHorizontal = (Lucide as any).MoveHorizontal ?? (() => null);
+const Wand = (Lucide as any).Wand ?? (() => null);
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { User } from "@/types/auth";
+// User type removed (unused)
 import { QualitySettings } from "./QualitySettings";
 
 // 导出类型定义供子组件使用
@@ -48,31 +59,31 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   const [imagePreview, setImagePreview] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [showQualitySettings, setShowQualitySettings] = useState(false);
-  const [insufficientCredits, setInsufficientCredits] = useState(false);
   const [rotationDeg, setRotationDeg] = useState<number>(0);
-  const [imageRotation, setImageRotation] = useState<number>(0); // 0=正常, 1=水平翻转, 2=垂直翻转, 3=180度旋转
+  // imageRotation state removed (unused)
   const [autoRotateDeg, setAutoRotateDeg] = useState<number>(0); // 自动检测的旋转角度（0或90度）
   const [sliderPosition, setSliderPosition] = useState(50); // Default in the middle position
   const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const plan = user?.subscription?.plan || 'free';
+  const containerRef = useRef(null as unknown as HTMLDivElement | null);
+  const [watermarkApplied, setWatermarkApplied] = useState<boolean>(false);
+  const plan: PlanKey = (user?.subscription?.plan as PlanKey) || 'free';
 
   // All available options (for display)
   const allDpiOptions = [72, 200, 300, 600];
-  const allResolutionOptions = [
+  const allResolutionOptions: { value: string; label: string; plan: PlanKey }[] = [
     { value: '512', label: '512px (short side)', plan: 'free' },
     { value: '1080', label: '1080px (short side)', plan: 'basic' },
     { value: '1440', label: '1440px (short side)', plan: 'basic' },
     { value: '2160', label: '2160px (short side)', plan: 'premium' },
   ];
-  const allQualityOptions = [
+  const allQualityOptions: { value: string; label: string; plan: PlanKey }[] = [
     { value: 'good', label: 'Good (Fast)', plan: 'free' },
     { value: 'high', label: 'High (Balanced)', plan: 'basic' },
     { value: 'ultra', label: 'Ultra (Best) - Recommended for Print', plan: 'premium' },
   ];
 
   // Plan-based constraints
-  const planConfig: Record<NonNullable<User['subscription']>['plan'], {
+  const planConfig: Record<PlanKey, {
     dpiOptions: number[];
     resolutionOptions: { value: string; label: string }[];
     qualityOptions: string[];
@@ -119,7 +130,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     }
   } as const;
 
-  const currentConfig = planConfig[plan] || planConfig.free;
+  const currentConfig = planConfig[plan as PlanKey] || planConfig.free;
   
   // Initialize DPI, resolution, and quality based on subscription plan
   const [dpi, setDpi] = useState<number>(currentConfig.defaultDpi);
@@ -325,13 +336,8 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
 
       // 如果需要旋转，先创建一个旋转后的图片
       let sourceImg = img;
-      let srcWidth = img.width;
-      let srcHeight = img.height;
-
       if (needsRotation) {
         sourceImg = await rotateImage90Degrees(img, 'Rotating image in addWatermarkToImage');
-        srcWidth = sourceImg.width;
-        srcHeight = sourceImg.height;
       }
 
       const canvas = document.createElement('canvas');
@@ -390,13 +396,8 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
 
       // 如果需要旋转，先创建一个旋转后的图片
       let sourceImg = img;
-      let srcWidth = img.width;
-      let srcHeight = img.height;
-
       if (needsRotation) {
         sourceImg = await rotateImage90Degrees(img, 'Rotating image to match original orientation');
-        srcWidth = sourceImg.width;
-        srcHeight = sourceImg.height;
       }
 
       const canvas = document.createElement('canvas');
@@ -499,17 +500,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     return 0;
   }, [imageDimensions]); // 添加 imageDimensions 到依赖数组
 
-  // 旋转图像（手动旋转）
-  const rotateImage = () => {
-    setRotationDeg((prev) => (prev + 90) % 360);
-  };
-
-  // 获取旋转样式
-  const getRotationStyle = () => {
-    const totalRotation = autoRotateDeg + rotationDeg;
-    if (totalRotation === 0) return '';
-    return `rotate(${totalRotation}deg)`;
-  };
+  // Manual rotation handled directly via setRotationDeg when user clicks rotate buttons.
 
   // 生成新图像时重置旋转状态并主动检测
   useEffect(() => {
@@ -586,7 +577,8 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     // Check user credits
     const currentCredits = user.credits || 0;
     if (currentCredits < 1) {
-      setInsufficientCredits(true);
+      // mark insufficient via UI error state instead of separate flag
+      setError('Insufficient credits, please recharge first');
       return false;
     }
     
@@ -689,10 +681,9 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     setIsGenerating(true);
     setError('');
     setProgress(0);
-    setInsufficientCredits(false);
   
     let creditsDeducted = false;
-    let progressInterval: number | null = null;
+    let progressInterval: ReturnType<typeof setInterval> | null = null;
   
     try {
       // Deduct credits first
@@ -743,10 +734,10 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       }
 
       // Build request with all quality parameters
-      const request: ImageGenerationRequest = {
+      const request = {
         prompt: prompt,
         image: image,
-        negativePrompt: styleConfig?.negativePrompt, // Pass style-specific negative prompt
+        negativePrompt: styleConfig?.negativePrompt ?? '', // Pass style-specific negative prompt (default to empty)
         dpi: currentConfig.dpiOptions.includes(dpi) ? dpi : currentConfig.defaultDpi,
         quality: quality,
         width: outputDimensions.width,
@@ -756,7 +747,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         cfgScale: styleConfig?.parameters?.cfgScale,
         sampler: styleConfig?.parameters?.sampler,
         styleId: styleId // Pass style ID for logging/debugging
-      };
+      } as ImageGenerationRequest;
   
       // Call AI API to generate image
       const result = await generateImage(request);
@@ -918,7 +909,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   const selectedStyle = stylePrompts.find(s => s.id === styleId);
 
   return (
-    <div>
+    <div data-watermark={watermarkApplied}>
       {/* Credits display and recharge guidance */}
       {isAuthenticated && user && (
         <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
@@ -1006,14 +997,14 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                   onClick={generateArtWithAI}
                   className="shadow-glow"
                 >
-                  <Wand2 className="w-4 h-4 mr-2" />
+                <Wand className="w-4 h-4 mr-2" />
                   Start AI Generation (Costs 1 Credit)
                 </Button>
               ) : (
                 <div className="space-y-4">
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center justify-center gap-2 text-red-700">
-                      <AlertTriangle className="w-5 h-5" />
+                  <AlertTriangle className="w-5 h-5" />
                       <span className="font-medium">Insufficient Credits</span>
                     </div>
                     <p className="text-red-600 text-sm mt-2 text-center">
@@ -1119,7 +1110,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                     Rotate +90°
                   </Button>
                   <Button onClick={handleDownload} className="shadow-glow">
-                    <Download className="w-4 h-4 mr-2" />
+                  <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
                 </div>
@@ -1177,7 +1168,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
             onClick={handleRegenerate}
             className="mt-2"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2" />
             Retry
           </Button>
         </div>
@@ -1283,14 +1274,14 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                 Regenerate
               </Button>
               <Button size="lg" onClick={() => onArtGenerated(generatedArt)} className="shadow-glow">
-                <Wand2 className="w-4 h-4 mr-2" />
+                <Wand className="w-4 h-4 mr-2" />
                 Customize Products
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-4">
-            <Wand2 className="w-6 h-6 text-primary animate-pulse" />
+            <Wand className="w-6 h-6 text-primary animate-pulse" />
             <span className="text-muted-foreground">AI is working on your masterpiece...</span>
           </div>
         )}

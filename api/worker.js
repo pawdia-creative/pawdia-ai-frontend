@@ -43,6 +43,11 @@ import {
   , setVerificationToken, verifyUserByToken
 } from './database.js';
 
+// Simple test function
+function testFunction() {
+  return 'test';
+}
+
 // Helper to send verification email via SendGrid if configured
 async function sendVerificationEmail(env, toEmail, toName, token) {
   try {
@@ -260,6 +265,8 @@ export default {
     // compute CORS headers for this request origin to preserve backwards compatibility
     const corsHeaders = makeCorsHeaders(request.headers.get('origin'), env);
 
+    // NOTE: removed temporary catch-all response so real API routes (e.g. /api/generate) are reachable.
+
     // Health check endpoint
     if (url.pathname === '/api/health' && request.method === 'GET') {
       return new Response(JSON.stringify({
@@ -307,6 +314,11 @@ export default {
       }), {
         headers: corsHeaders
       });
+    }
+
+    // Minimal test endpoint
+    if (url.pathname === '/api/minimal' && request.method === 'GET') {
+      return new Response('OK', { status: 200 });
     }
 
     // Auth endpoints
