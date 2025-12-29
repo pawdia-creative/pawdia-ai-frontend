@@ -297,6 +297,18 @@ export default {
       }
     }
 
+    // Simple test endpoint
+    if (url.pathname === '/api/test' && request.method === 'GET') {
+      return new Response(JSON.stringify({
+        message: 'API is working',
+        timestamp: new Date().toISOString(),
+        method: 'GET',
+        path: '/api/test'
+      }), {
+        headers: corsHeaders
+      });
+    }
+
     // Auth endpoints
     if (url.pathname === '/api/auth/login' && request.method === 'POST') {
       try {
@@ -803,95 +815,15 @@ export default {
 
     // Admin delete user endpoint: DELETE /api/admin/users/:id
     if (url.pathname.startsWith('/api/admin/users/') && request.method === 'DELETE') {
-      console.log('Admin delete user endpoint called');
-
-      try {
-        // Step 1: Check authentication header
-        const authHeader = request.headers.get('authorization');
-        console.log('Auth header exists:', !!authHeader);
-
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          console.log('No Bearer token found');
-          return new Response(JSON.stringify({
-            message: 'Authentication required',
-            debug: 'no_bearer_token'
-          }), {
-            status: 401,
-            headers: corsHeaders
-          });
-        }
-
-        // Step 2: JWT verification
-        console.log('Starting JWT verification...');
-        const vCheck = await requireVerifiedFromHeader(authHeader, env);
-
-        if (vCheck.errorResponse) {
-          console.log('JWT verification failed');
-          // Return the actual error response from requireVerifiedFromHeader
-          return vCheck.errorResponse;
-        }
-
-        const requester = vCheck.user;
-        console.log('JWT verified successfully. User:', requester.id, 'is_admin:', requester.is_admin);
-
-        // Step 3: Admin check
-        if (!requester.is_admin) {
-          console.log('User is not admin');
-          return new Response(JSON.stringify({
-            message: 'Admin access required',
-            debug: 'not_admin'
-          }), { status: 403, headers: corsHeaders });
-        }
-
-        // Step 4: Parse target user ID
-        const parts = url.pathname.split('/');
-        const targetId = parts[parts.length - 1];
-        console.log('Target user ID:', targetId);
-
-        if (!targetId) {
-          return new Response(JSON.stringify({
-            message: 'Invalid user ID',
-            debug: 'no_target_id'
-          }), { status: 400, headers: corsHeaders });
-        }
-
-        if (targetId === requester.id) {
-          return new Response(JSON.stringify({
-            message: 'Cannot delete yourself',
-            debug: 'cannot_delete_self'
-          }), { status: 400, headers: corsHeaders });
-        }
-
-        // Step 5: Delete user
-        console.log('Attempting database delete for user:', targetId);
-        const deleted = await deleteUser(env.DB, targetId);
-        console.log('Database delete result:', deleted);
-
-        if (!deleted) {
-          return new Response(JSON.stringify({
-            message: 'User not found or could not be deleted',
-            debug: 'delete_failed'
-          }), { status: 404, headers: corsHeaders });
-        }
-
-        console.log('User deleted successfully:', targetId);
-        return new Response(JSON.stringify({
-          success: true,
-          debug: 'delete_success'
-        }), { headers: corsHeaders });
-
-      } catch (error) {
-        console.error('Unexpected error in delete user:', error);
-        console.error('Error stack:', error.stack);
-
-        // Return detailed error for debugging
-        return new Response(JSON.stringify({
-          message: 'Server error',
-          error: error.message,
-          stack: error.stack,
-          debug: 'unexpected_error'
-        }), { status: 500, headers: corsHeaders });
-      }
+      // Simple response for testing
+      return new Response(JSON.stringify({
+        message: 'Delete endpoint reached',
+        timestamp: new Date().toISOString(),
+        path: url.pathname,
+        method: request.method
+      }), {
+        headers: corsHeaders
+      });
     }
 
     if (url.pathname === '/api/admin/analytics/stats' && request.method === 'GET') {
