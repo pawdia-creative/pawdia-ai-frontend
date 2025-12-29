@@ -279,6 +279,32 @@ export default {
           });
     }
 
+    // Development-only: issue a debug JWT for a given user id (ONLY WHEN ENV=development)
+    if (url.pathname === '/api/debug/issue-token' && request.method === 'POST') {
+      // Only allow in development environment
+      if ((env.ENVIRONMENT || '').toLowerCase() !== 'development') {
+        return new Response(JSON.stringify({ message: 'Not allowed' }), { status: 403, headers: corsHeaders });
+      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const userId = body.userId;
+        const isAdmin = !!body.isAdmin;
+        if (!userId) {
+          return new Response(JSON.stringify({ message: 'userId required' }), { status: 400, headers: corsHeaders });
+        }
+        const jwtSecret = env.JWT_SECRET;
+        if (!jwtSecret) {
+          return new Response(JSON.stringify({ message: 'JWT secret not configured' }), { status: 500, headers: corsHeaders });
+        }
+        const payload = { sub: userId, isAdmin };
+        const token = await signJwt(payload, jwtSecret);
+        return new Response(JSON.stringify({ token, payload }), { headers: corsHeaders });
+      } catch (err) {
+        console.error('Debug issue-token error:', err);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // Debug endpoint for testing
     if (url.pathname === '/api/debug' && request.method === 'GET') {
       try {
@@ -828,6 +854,20 @@ export default {
     // Admin endpoints for user management
     if (url.pathname.startsWith('/api/admin/users/') && (request.method === 'DELETE' || request.method === 'POST' || request.method === 'PUT')) {
       try {
+        // Helper validation utilities for admin routes
+        const isValidUserId = (id) => typeof id === 'string' && id.trim() !== '' && id !== 'null';
+        const clampNumber = (n, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) => {
+          const v = Number(n);
+          if (!Number.isFinite(v)) return null;
+          return Math.max(min, Math.min(max, v));
+        };
+        const allowedPlans = ['free', 'basic', 'premium', 'custom'];
+        const isValidIsoDateOrSpecial = (s) => {
+          if (!s) return true;
+          if (s === 'PERMANENT') return true;
+          const d = new Date(s);
+          return !isNaN(d.getTime());
+        };
         const authHeader = request.headers.get('authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
           return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
@@ -876,9 +916,27 @@ export default {
           if (parts.length >= 6 && parts[4] === 'credits') {
             const action = parts[5]; // add | remove | set
             const body = await request.json().catch(() => ({}));
-            const amount = Number(body.amount);
-            if (!Number.isFinite(amount) && action !== 'set') {
+            const rawAmount = body.amount;
+            // validate amount depending on action
+            if (action === 'set') {
+              if (typeof rawAmount === 'undefined') {
+                return new Response(JSON.stringify({ message: 'Missing amount for set operation' }), { status: 400, headers: corsHeaders });
+              }
+            } else {
+              if (typeof rawAmount === 'undefined') {
+                return new Response(JSON.stringify({ message: 'Missing amount' }), { status: 400, headers: corsHeaders });
+              }
+            }
+            const amount = Number(rawAmount);
+            if (!Number.isFinite(amount)) {
               return new Response(JSON.stringify({ message: 'Invalid amount' }), { status: 400, headers: corsHeaders });
+            }
+            // clamp to reasonable bounds to avoid abuse
+            const CLAMP_MIN = -100000;
+            const CLAMP_MAX = 100000;
+            const safeAmount = clampNumber(amount, CLAMP_MIN, CLAMP_MAX);
+            if (safeAmount === null) {
+              return new Response(JSON.stringify({ message: 'Amount out of bounds' }), { status: 400, headers: corsHeaders });
             }
 
             const user = await getUserById(env.DB, targetId);
@@ -886,11 +944,11 @@ export default {
 
             let newCredits = Number(user.credits || 0);
             if (action === 'add') {
-              newCredits = newCredits + amount;
+              newCredits = newCredits + safeAmount;
             } else if (action === 'remove' || action === 'subtract') {
-              newCredits = Math.max(0, newCredits - Math.abs(amount));
+              newCredits = Math.max(0, newCredits - Math.abs(safeAmount));
             } else if (action === 'set') {
-              const setVal = Number(body.amount);
+              const setVal = safeAmount;
               if (!Number.isFinite(setVal) || setVal < 0) {
                 return new Response(JSON.stringify({ message: 'Invalid set value' }), { status: 400, headers: corsHeaders });
               }
@@ -909,6 +967,10 @@ export default {
           if (parts.length >= 5 && parts[4] === 'reset-password') {
             const body = await request.json().catch(() => ({}));
             const newPassword = body.newPassword || null;
+            // validate password length if provided
+            if (newPassword && newPassword.length < 6) {
+              return new Response(JSON.stringify({ message: 'Password must be at least 6 characters' }), { status: 400, headers: corsHeaders });
+            }
             // If no password provided, generate a temporary one
             const tempPassword = newPassword || ('tmp-' + Math.random().toString(36).slice(2, 10));
             const hash = await hashPassword(tempPassword);
@@ -931,12 +993,18 @@ export default {
           const updates = [];
           const params = [];
           if (typeof body.plan !== 'undefined') {
+            if (!allowedPlans.includes(body.plan)) {
+              return new Response(JSON.stringify({ message: 'Invalid subscription plan' }), { status: 400, headers: corsHeaders });
+            }
             updates.push('subscription_plan = ?'); params.push(body.plan);
           }
           if (typeof body.status !== 'undefined') {
             updates.push('subscription_status = ?'); params.push(body.status);
           }
           if (typeof body.expiresAt !== 'undefined') {
+            if (!isValidIsoDateOrSpecial(body.expiresAt)) {
+              return new Response(JSON.stringify({ message: 'Invalid expiresAt value' }), { status: 400, headers: corsHeaders });
+            }
             updates.push('subscription_expires = ?'); params.push(body.expiresAt);
           }
           try {
@@ -948,8 +1016,10 @@ export default {
             // Handle credits changes
             if (typeof body.setCredits !== 'undefined') {
               const setVal = Number(body.setCredits);
-              if (Number.isFinite(setVal) && setVal >= 0) {
+              if (Number.isFinite(setVal) && setVal >= 0 && setVal <= 100000) {
                 await updateUserCredits(env.DB, targetId, Math.floor(setVal));
+              } else {
+                return new Response(JSON.stringify({ message: 'Invalid setCredits value' }), { status: 400, headers: corsHeaders });
               }
             } else if (body.addPlanCredits) {
               // Optionally add default plan credits (example: +3)

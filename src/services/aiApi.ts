@@ -521,16 +521,38 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
         let imgFile = await compressImage(request.image, clampMaxWidth, 0.92);
         let b64 = await fileToBase64(imgFile);
 
-        // If payload still too large for provider/Cloudflare, perform an extra aggressive compression pass.
+        // If payload still too large for provider/Cloudflare, perform additional aggressive compression passes.
         // Use a conservative threshold on base64 length (characters). Adjust as needed by provider limits.
-        const BASE64_WARN_THRESHOLD = 5_000_000; // ~3.75MB binary
+        const BASE64_WARN_THRESHOLD = 4_000_000; // ~3MB binary
         if (b64.length > BASE64_WARN_THRESHOLD) {
-          console.warn('Image base64 payload is large, applying extra compression pass', { length: b64.length, clampMaxWidth });
-          // Further reduce dimensions and quality
-          const aggressiveWidth = Math.min(Math.floor(clampMaxWidth / 2), 1024);
-          imgFile = await compressImage(request.image, aggressiveWidth, 0.80);
+          console.warn('Image base64 payload is large, applying extra compression passes', { length: b64.length, clampMaxWidth });
+          // Multi-pass aggressive compression strategy:
+          // 1) Reduce to target short side (request.width/request.height short side or 512) at quality 0.80
+          // 2) If still too large, reduce to 384 at quality 0.72
+          // 3) If still too large, reduce to 256 at quality 0.65
+          const targetShortSide = Math.max(request.width || 512, request.height || 512);
+          const firstTarget = Math.min(Math.max(512, targetShortSide), 1024);
+          imgFile = await compressImage(request.image, firstTarget, 0.80);
           b64 = await fileToBase64(imgFile);
-          console.log('After aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+          console.log('After pass 1 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+
+          if (b64.length > BASE64_WARN_THRESHOLD) {
+            const secondTarget = 384;
+            imgFile = await compressImage(request.image, secondTarget, 0.72);
+            b64 = await fileToBase64(imgFile);
+            console.log('After pass 2 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+          }
+
+          if (b64.length > BASE64_WARN_THRESHOLD) {
+            const thirdTarget = 256;
+            imgFile = await compressImage(request.image, thirdTarget, 0.65);
+            b64 = await fileToBase64(imgFile);
+            console.log('After pass 3 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+          }
+
+          if (b64.length > BASE64_WARN_THRESHOLD) {
+            console.warn('Image still large after aggressive compression passes; final base64 length:', b64.length);
+          }
         } else {
           if (import.meta.env.DEV) console.log('Image compressed within acceptable size', { length: b64.length, mime: imgFile.type });
         }
