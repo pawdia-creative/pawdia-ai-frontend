@@ -825,17 +825,154 @@ export default {
       }
     }
 
-    // Admin delete user endpoint: DELETE /api/admin/users/:id
-    if (url.pathname.startsWith('/api/admin/users/') && request.method === 'DELETE') {
-      // Simple response for testing
-      return new Response(JSON.stringify({
-        message: 'Delete endpoint reached',
-        timestamp: new Date().toISOString(),
-        path: url.pathname,
-        method: request.method
-      }), {
-        headers: corsHeaders
-      });
+    // Admin endpoints for user management
+    if (url.pathname.startsWith('/api/admin/users/') && (request.method === 'DELETE' || request.method === 'POST' || request.method === 'PUT')) {
+      try {
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
+        }
+
+        const vCheck = await requireVerifiedFromHeader(authHeader, env);
+        if (vCheck.errorResponse) return vCheck.errorResponse;
+        const adminUser = vCheck.user;
+        if (!adminUser.is_admin) {
+          return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
+        }
+
+        // Extract target user id from path: /api/admin/users/:id/...
+        const parts = url.pathname.split('/').filter(Boolean);
+        // parts example: ['api','admin','users','<id>','credits','add']
+        const targetId = parts[3];
+        if (!targetId) {
+          return new Response(JSON.stringify({ message: 'User id required' }), { status: 400, headers: corsHeaders });
+        }
+
+        // Route: DELETE /api/admin/users/:id
+        if (request.method === 'DELETE' && parts.length === 4) {
+          // Prevent deleting self
+          if (targetId === adminUser.id) {
+            return new Response(JSON.stringify({ message: 'Cannot delete your own account' }), { status: 403, headers: corsHeaders });
+          }
+          const targetUser = await getUserById(env.DB, targetId);
+          if (!targetUser) {
+            return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+          }
+          if (targetUser.is_admin) {
+            return new Response(JSON.stringify({ message: 'Cannot delete an admin account' }), { status: 403, headers: corsHeaders });
+          }
+
+          const deleted = await deleteUser(env.DB, targetId);
+          await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
+          if (!deleted) {
+            return new Response(JSON.stringify({ message: 'Failed to delete user' }), { status: 500, headers: corsHeaders });
+          }
+          return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        }
+
+        // POST actions: credits add/remove/set or reset-password
+        if (request.method === 'POST') {
+          // /api/admin/users/:id/credits/add|remove|set
+          if (parts.length >= 6 && parts[4] === 'credits') {
+            const action = parts[5]; // add | remove | set
+            const body = await request.json().catch(() => ({}));
+            const amount = Number(body.amount);
+            if (!Number.isFinite(amount) && action !== 'set') {
+              return new Response(JSON.stringify({ message: 'Invalid amount' }), { status: 400, headers: corsHeaders });
+            }
+
+            const user = await getUserById(env.DB, targetId);
+            if (!user) return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+
+            let newCredits = Number(user.credits || 0);
+            if (action === 'add') {
+              newCredits = newCredits + amount;
+            } else if (action === 'remove' || action === 'subtract') {
+              newCredits = Math.max(0, newCredits - Math.abs(amount));
+            } else if (action === 'set') {
+              const setVal = Number(body.amount);
+              if (!Number.isFinite(setVal) || setVal < 0) {
+                return new Response(JSON.stringify({ message: 'Invalid set value' }), { status: 400, headers: corsHeaders });
+              }
+              newCredits = Math.max(0, Math.floor(setVal));
+            } else {
+              return new Response(JSON.stringify({ message: 'Invalid credit operation' }), { status: 400, headers: corsHeaders });
+            }
+
+            const ok = await updateUserCredits(env.DB, targetId, newCredits);
+            await logAnalyticsEvent(env.DB, 'admin_credit_operation', adminUser.id, { targetId, action, amount, newCredits }, request);
+            if (!ok) return new Response(JSON.stringify({ message: 'Failed to update credits' }), { status: 500, headers: corsHeaders });
+            return new Response(JSON.stringify({ success: true, credits: newCredits }), { headers: corsHeaders });
+          }
+
+          // /api/admin/users/:id/reset-password
+          if (parts.length >= 5 && parts[4] === 'reset-password') {
+            const body = await request.json().catch(() => ({}));
+            const newPassword = body.newPassword || null;
+            // If no password provided, generate a temporary one
+            const tempPassword = newPassword || ('tmp-' + Math.random().toString(36).slice(2, 10));
+            const hash = await hashPassword(tempPassword);
+            try {
+              await env.DB.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(hash, targetId).run();
+              await logAnalyticsEvent(env.DB, 'admin_reset_password', adminUser.id, { targetId }, request);
+              // Optionally return the temp password (only for admin use) — be cautious in production
+              return new Response(JSON.stringify({ success: true, tempPassword: newPassword ? undefined : tempPassword }), { headers: corsHeaders });
+            } catch (e) {
+              console.error('Reset password error:', e);
+              return new Response(JSON.stringify({ message: 'Failed to reset password' }), { status: 500, headers: corsHeaders });
+            }
+          }
+        }
+
+        // PUT actions: subscription update
+        if (request.method === 'PUT' && parts.length >= 5 && parts[4] === 'subscription') {
+          const body = await request.json().catch(() => ({}));
+          // Allowed fields: plan, status, expiresAt, setCredits, addPlanCredits
+          const updates = [];
+          const params = [];
+          if (typeof body.plan !== 'undefined') {
+            updates.push('subscription_plan = ?'); params.push(body.plan);
+          }
+          if (typeof body.status !== 'undefined') {
+            updates.push('subscription_status = ?'); params.push(body.status);
+          }
+          if (typeof body.expiresAt !== 'undefined') {
+            updates.push('subscription_expires = ?'); params.push(body.expiresAt);
+          }
+          try {
+            if (updates.length > 0) {
+              const sql = `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+              params.push(targetId);
+              await env.DB.prepare(sql).bind(...params).run();
+            }
+            // Handle credits changes
+            if (typeof body.setCredits !== 'undefined') {
+              const setVal = Number(body.setCredits);
+              if (Number.isFinite(setVal) && setVal >= 0) {
+                await updateUserCredits(env.DB, targetId, Math.floor(setVal));
+              }
+            } else if (body.addPlanCredits) {
+              // Optionally add default plan credits (example: +3)
+              const user = await getUserById(env.DB, targetId);
+              const add = 3;
+              if (user) {
+                const newCredits = (user.credits || 0) + add;
+                await updateUserCredits(env.DB, targetId, newCredits);
+              }
+            }
+            await logAnalyticsEvent(env.DB, 'admin_update_subscription', adminUser.id, { targetId, body }, request);
+            return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+          } catch (e) {
+            console.error('Subscription update error:', e);
+            return new Response(JSON.stringify({ message: 'Failed to update subscription' }), { status: 500, headers: corsHeaders });
+          }
+        }
+
+        return new Response(JSON.stringify({ message: 'Admin endpoint not found' }), { status: 404, headers: corsHeaders });
+      } catch (error) {
+        console.error('Admin users route error:', error);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
     }
 
     if (url.pathname === '/api/admin/analytics/stats' && request.method === 'GET') {
