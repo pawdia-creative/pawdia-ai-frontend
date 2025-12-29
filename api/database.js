@@ -186,10 +186,13 @@ export async function deleteUser(db, id) {
     console.log('Database delete result:', result);
     const success = result && result.success === true;
     console.log('Delete operation success:', success);
-    return success;
+    if (!success) {
+      throw new Error('Database reported failure when deleting user');
+    }
+    return true;
   } catch (error) {
     console.error('Error deleting user:', error);
-    console.error('Error details:', error.message);
-    return false;
+    console.error('Error details:', error && error.message ? error.message : String(error));
+    throw error;
   }
 }

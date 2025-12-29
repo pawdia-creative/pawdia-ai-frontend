@@ -902,12 +902,16 @@ export default {
             return new Response(JSON.stringify({ message: 'Cannot delete an admin account' }), { status: 403, headers: corsHeaders });
           }
 
-          const deleted = await deleteUser(env.DB, targetId);
-          await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
-          if (!deleted) {
-            return new Response(JSON.stringify({ message: 'Failed to delete user' }), { status: 500, headers: corsHeaders });
+          try {
+            const deleted = await deleteUser(env.DB, targetId);
+            await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
+            return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+          } catch (delErr) {
+            console.error('Delete user failed:', delErr && delErr.stack ? delErr.stack : delErr);
+            // Return detail to client for debugging (will be visible in response)
+            const detail = delErr && delErr.message ? delErr.message : String(delErr);
+            return new Response(JSON.stringify({ message: 'Server error', detail }), { status: 500, headers: corsHeaders });
           }
-          return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
         }
 
         // POST actions: credits add/remove/set or reset-password
