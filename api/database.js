@@ -171,11 +171,16 @@ export async function getAnalyticsStats(db) {
 // Delete user by ID
 export async function deleteUser(db, id) {
   try {
+    console.log('Database delete operation for user ID:', id);
     const result = await db.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+    console.log('Database delete result:', result);
     // result.success indicates the statement executed; check meta if available
-    return result.success === true;
+    const success = result.success === true;
+    console.log('Delete operation success:', success);
+    return success;
   } catch (error) {
     console.error('Error deleting user:', error);
+    console.error('Error details:', error.message);
     return false;
   }
 }

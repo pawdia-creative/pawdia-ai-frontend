@@ -789,9 +789,15 @@ export default {
         }
 
         // require verified admin
+        console.log('Checking admin authentication...');
         const vCheck = await requireVerifiedFromHeader(authHeader, env);
-        if (vCheck.errorResponse) return vCheck.errorResponse;
+        if (vCheck.errorResponse) {
+          console.log('Authentication failed:', vCheck.errorResponse);
+          return vCheck.errorResponse;
+        }
         const requester = vCheck.user;
+        console.log('Authenticated user:', requester.id, 'is_admin:', requester.is_admin);
+
         if (!requester.is_admin) {
           return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
         }
@@ -804,15 +810,24 @@ export default {
         }
 
         // Delete user
+        console.log('Attempting to delete user:', targetId);
         const deleted = await deleteUser(env.DB, targetId);
+        console.log('Delete result:', deleted);
+
         if (!deleted) {
           return new Response(JSON.stringify({ message: 'User not found or could not be deleted' }), { status: 404, headers: corsHeaders });
         }
 
+        console.log('User deleted successfully:', targetId);
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       } catch (error) {
         console.error('Admin delete user error:', error);
-        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+        console.error('Error stack:', error.stack);
+        return new Response(JSON.stringify({
+          message: 'Server error',
+          error: error.message,
+          stack: error.stack
+        }), { status: 500, headers: corsHeaders });
       }
     }
 
