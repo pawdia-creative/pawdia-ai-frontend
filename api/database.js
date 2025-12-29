@@ -172,10 +172,19 @@ export async function getAnalyticsStats(db) {
 export async function deleteUser(db, id) {
   try {
     console.log('Database delete operation for user ID:', id);
+    // Remove related records first to avoid foreign key constraints or orphaned rows.
+    try {
+      await db.prepare('DELETE FROM images WHERE user_id = ?').bind(id).run();
+      await db.prepare('DELETE FROM analytics WHERE user_id = ?').bind(id).run();
+      // Add other related cleanup as needed (orders, subscriptions, etc.) if present.
+    } catch (cleanupErr) {
+      console.warn('Cleanup of related records failed (continuing):', cleanupErr);
+      // continue to attempt user deletion even if cleanup had issues
+    }
+
     const result = await db.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
     console.log('Database delete result:', result);
-    // result.success indicates the statement executed; check meta if available
-    const success = result.success === true;
+    const success = result && result.success === true;
     console.log('Delete operation success:', success);
     return success;
   } catch (error) {

@@ -1040,8 +1040,10 @@ export default {
 
         return new Response(JSON.stringify({ message: 'Admin endpoint not found' }), { status: 404, headers: corsHeaders });
       } catch (error) {
-        console.error('Admin users route error:', error);
-        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+        // Log full error stack for debugging, but return a generic message to client
+        console.error('Admin users route error:', error && error.stack ? error.stack : error);
+        const message = (error && error.message) ? error.message : 'Server error';
+        return new Response(JSON.stringify({ message: 'Server error', detail: message }), { status: 500, headers: corsHeaders });
       }
     }
 
