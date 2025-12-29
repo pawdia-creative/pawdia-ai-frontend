@@ -50,10 +50,11 @@ export interface ImageGenerationResponse {
 
 // Compress image while maintaining quality (for faster base64 conversion)
 // Only compress when absolutely necessary to maintain maximum quality
-async function compressImage(file: File, maxWidth: number = 3072, quality: number = 0.99): Promise<File> {
+async function compressImage(file: File, maxWidth: number = 3072, quality: number = 0.99, force: boolean = false): Promise<File> {
   return new Promise((resolve, reject) => {
-    // Only compress if file is extremely large (10MB+) to maintain maximum quality
-    if (file.size < 10 * 1024 * 1024) { // Less than 10MB - don't compress at all
+    // Only skip compression for small files when not forced.
+    // Allow forcing compression (used when we need to aggressively reduce payload).
+    if (!force && file.size < 10 * 1024 * 1024) { // Less than 10MB - don't compress by default
       resolve(file);
       return;
     }
@@ -518,7 +519,8 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
         const clampMaxWidth = Math.min(Math.max(targetShortSide, 512) * 2, 2048);
 
         // First-pass compress: aim for roughly twice the short side (keeps quality but reduces large originals)
-        let imgFile = await compressImage(request.image, clampMaxWidth, 0.92);
+        // Force compression to ensure even files under 10MB get resized if needed.
+        let imgFile = await compressImage(request.image, clampMaxWidth, 0.92, true);
         let b64 = await fileToBase64(imgFile);
 
         // If payload still too large for provider/Cloudflare, perform additional aggressive compression passes.
@@ -557,6 +559,11 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
           if (import.meta.env.DEV) console.log('Image compressed within acceptable size', { length: b64.length, mime: imgFile.type });
         }
 
+        // Final safety check: if still too large after aggressive compression, abort and surface error.
+        const FINAL_BASE64_HARD_LIMIT = 6_000_000; // ~4.5MB binary
+        if (b64.length > FINAL_BASE64_HARD_LIMIT) {
+          throw new Error('Image too large after compression; please use a smaller image or crop before uploading');
+        }
         proxyRequestBody.imageBase64 = b64;
         // include MIME type so backend can assemble a proper data URI
         proxyRequestBody.imageMimeType = imgFile.type || 'image/jpeg';
