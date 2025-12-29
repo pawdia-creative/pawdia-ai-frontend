@@ -80,6 +80,9 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(50);
+  const [total, setTotal] = useState<number>(0);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [creditDialogOpen, setCreditDialogOpen] = useState(false);
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
@@ -112,7 +115,7 @@ const AdminDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-      const response = await fetch(`${apiBaseUrl}/admin/users?search=${searchTerm}`, {
+      const response = await fetch(`${apiBaseUrl}/admin/users?search=${encodeURIComponent(searchTerm)}&page=${page}&perPage=${perPage}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -123,6 +126,7 @@ const AdminDashboard = () => {
         // Filter out users with null or undefined IDs
         const validUsers = (data.users || []).filter((u: User) => u.id != null && u.id !== 'null' && u.id !== '');
         setUsers(validUsers);
+        setTotal(Number(data.total || 0));
       } else {
         toast.error('Failed to fetch user list');
       }
@@ -137,6 +141,11 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchUsers();
   }, [searchTerm]);
+
+  useEffect(() => {
+    // refetch when page or perPage changes
+    fetchUsers();
+  }, [page, perPage]);
 
   // Real-time polling to keep subscription/credits fresh
   useEffect(() => {
@@ -470,6 +479,36 @@ const AdminDashboard = () => {
                     onChange={handleSearchChange}
                     className="pl-10"
                   />
+                </div>
+                <div className="flex items-center gap-3 ml-4">
+                  <label className="text-sm">Per page:</label>
+                  <select
+                    value={perPage}
+                    onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+                    className="rounded-md border px-2 py-1"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <div className="text-sm text-muted-foreground ml-2">
+                    Page {page} / {Math.max(1, Math.ceil(total / perPage))}
+                  </div>
+                  <button
+                    className="px-2 py-1 rounded border"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    className="px-2 py-1 rounded border"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={page >= Math.max(1, Math.ceil(total / perPage))}
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
 

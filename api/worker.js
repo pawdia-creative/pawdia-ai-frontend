@@ -97,6 +97,53 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
     return { sent: false, error: String(err) };
   }
 }
+
+// Send reset password email via Resend
+async function sendResetPasswordEmail(env, toEmail, toName, tempPassword) {
+  try {
+    const resendKey = env.RESEND_API_KEY;
+    const subject = 'Your Pawdia AI temporary password';
+    const html = `
+      <p>Hi ${toName || ''},</p>
+      <p>Your password has been reset by an administrator. Use the temporary password below to log in, then change it immediately in your profile.</p>
+      <p><strong>${tempPassword}</strong></p>
+      <p>If you did not request this, please contact support.</p>
+    `;
+
+    if (resendKey && resendKey.trim() !== '') {
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: env.RESEND_FROM || 'no-reply@pawdia-ai.com',
+            to: toEmail,
+            subject,
+            html
+          })
+        });
+        if (!r.ok) {
+          const t = await r.text();
+          console.error('Resend send error (reset):', r.status, t);
+          return { sent: false, error: t };
+        }
+        return { sent: true };
+      } catch (e) {
+        console.error('Resend send exception (reset):', e);
+        return { sent: false, error: String(e) };
+      }
+    }
+
+    console.warn('Resend not configured; reset password temp:', tempPassword);
+    return { sent: false, temp: tempPassword };
+  } catch (err) {
+    console.error('sendResetPasswordEmail error:', err);
+    return { sent: false, error: String(err) };
+  }
+}
 // Using Web Crypto API for password hashing (simplified bcrypt alternative)
 async function hashPassword(password) {
   const encoder = new TextEncoder();
@@ -474,31 +521,38 @@ export default {
           console.error('Failed to set verification token via DB update:', e);
         }
 
-        // Rate limit: check recent verification_sent events in analytics (last 5 minutes)
+        // Rate limit: check users.last_verification_sent (more reliable than analytics table)
         try {
-          const recent = await env.DB.prepare(
-            "SELECT COUNT(*) AS cnt FROM analytics WHERE event_type = ? AND user_id = ? AND created_at > datetime('now','-5 minutes')"
-          ).bind('verification_sent', user.id).first();
-          const recentCount = (recent && recent.cnt) ? Number(recent.cnt) : 0;
-          const MAX_PER_WINDOW = 3;
-          if (recentCount >= MAX_PER_WINDOW) {
-            return new Response(JSON.stringify({ message: 'Too many requests. Please wait a few minutes before retrying.' }), { status: 429, headers: corsHeaders });
+          const row = await env.DB.prepare('SELECT last_verification_sent FROM users WHERE id = ?').bind(user.id).first();
+          if (row && row.last_verification_sent) {
+            // Compare timestamps: if last_verification_sent within 5 minutes, reject
+            const last = new Date(row.last_verification_sent);
+            const now = new Date();
+            const diffMs = now - last;
+            const MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+            if (diffMs < MIN_INTERVAL_MS) {
+              return new Response(JSON.stringify({ message: 'Too many requests. Please wait a few minutes before retrying.' }), { status: 429, headers: corsHeaders });
+            }
           }
         } catch (e) {
-          // If analytics table query fails, log and allow sending to proceed (fail-open)
-          console.warn('Failed to check resend rate limit:', e);
+          console.warn('Failed to check last_verification_sent:', e);
+          // fail-open
         }
 
         const sendResult = await sendVerificationEmail(env, user.email, user.name || '', token);
         if (!sendResult.sent) {
-          // still return success to the client but log
           console.warn('Verification email not sent:', sendResult.error || sendResult.link);
         } else {
-          // record audit event for verification sent
           try {
             await logAnalyticsEvent(env.DB, 'verification_sent', user.id, { email: user.email }, request);
           } catch (e) {
             console.warn('Failed to log verification_sent event:', e);
+          }
+          // update last_verification_sent timestamp on user
+          try {
+            await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(user.id).run();
+          } catch (e) {
+            console.warn('Failed to update last_verification_sent:', e);
           }
         }
 
@@ -546,6 +600,18 @@ export default {
           const sendResult = await sendVerificationEmail(env, email, name || '', token);
           if (!sendResult.sent) {
             console.warn('Verification email not sent on registration:', sendResult.error || sendResult.link);
+          } else {
+            try {
+              await logAnalyticsEvent(env.DB, 'verification_sent', userId, { email }, request);
+            } catch (e) {
+              console.warn('Failed to log verification_sent event on registration:', e);
+            }
+          }
+          // update last_verification_sent regardless to prevent immediate retries
+          try {
+            await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(userId).run();
+          } catch (e) {
+            console.warn('Failed to update last_verification_sent on registration:', e);
           }
         } catch (err) {
           console.error('Post-registration verification error:', err);
@@ -822,15 +888,39 @@ export default {
           });
         }
 
-        // Get search parameter
+        // Get search and pagination parameters
         const urlObj = new URL(request.url);
-        const searchTerm = urlObj.searchParams.get('search') || '';
+        const searchTerm = (urlObj.searchParams.get('search') || '').trim();
+        const page = Math.max(1, parseInt(urlObj.searchParams.get('page') || '1', 10));
+        const perPage = Math.max(1, Math.min(200, parseInt(urlObj.searchParams.get('perPage') || '50', 10)));
+        const offset = (page - 1) * perPage;
 
-        const users = await getAllUsers(env.DB, searchTerm);
+        // Build count query
+        let countSql = 'SELECT COUNT(*) as cnt FROM users';
+        let selectSql = 'SELECT id, name, email, avatar, credits, is_verified, is_admin, created_at, subscription_plan, subscription_status FROM users';
+        const params = [];
+        if (searchTerm) {
+          countSql += ' WHERE email LIKE ? OR name LIKE ?';
+          selectSql += ' WHERE email LIKE ? OR name LIKE ?';
+          params.push(`%${searchTerm}%`, `%${searchTerm}%`);
+        }
+        selectSql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+
+        // Execute count
+        const countRow = await env.DB.prepare(countSql).bind(...params).first();
+        const total = countRow && countRow.cnt ? Number(countRow.cnt) : 0;
+
+        // Execute select with pagination
+        const selectParams = params.slice();
+        selectParams.push(perPage, offset);
+        const rows = await env.DB.prepare(selectSql).bind(...selectParams).all();
+        const users = rows && rows.results ? rows.results : [];
 
         return new Response(JSON.stringify({
           users,
-          total: users.length
+          total,
+          page,
+          perPage
         }), {
           headers: corsHeaders
         });
@@ -975,8 +1065,16 @@ export default {
             try {
               await env.DB.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(hash, targetId).run();
               await logAnalyticsEvent(env.DB, 'admin_reset_password', adminUser.id, { targetId }, request);
-              // Optionally return the temp password (only for admin use) — be cautious in production
-              return new Response(JSON.stringify({ success: true, tempPassword: newPassword ? undefined : tempPassword }), { headers: corsHeaders });
+              // Send temporary password to user's email via Resend; do not return it in the API response.
+              try {
+                const mailResult = await sendResetPasswordEmail(env, user.email, user.name || '', tempPassword);
+                if (!mailResult.sent) {
+                  console.warn('Failed to send reset password email:', mailResult.error || mailResult.temp);
+                }
+              } catch (mailErr) {
+                console.warn('Error sending reset password email:', mailErr);
+              }
+              return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
             } catch (e) {
               console.error('Reset password error:', e);
               return new Response(JSON.stringify({ message: 'Failed to reset password' }), { status: 500, headers: corsHeaders });
