@@ -51,49 +51,19 @@ function testFunction() {
 // Helper to send verification email via SendGrid if configured
 async function sendVerificationEmail(env, toEmail, toName, token) {
   try {
-    const sendgridKey = env.SENDGRID_API_KEY;
+    // Use Resend exclusively for email sending.
+    const resendKey = env.RESEND_API_KEY;
     const frontendUrl = env.FRONTEND_URL || 'https://www.pawdia-ai.com';
-    // Frontend verification route is /verify-email (keep /verify as legacy alias)
     const verifyLink = `${frontendUrl.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
-    const backendVerifyBase = env.API_BASE_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev';
-    const backendVerifyRedirect = `${backendVerifyBase.replace(/\/$/, '')}/api/auth/verify-redirect?token=${encodeURIComponent(token)}`;
-
     const subject = 'Verify your Pawdia AI email';
     const html = `
       <p>Hi ${toName || ''},</p>
-      <p>Thanks for registering at Pawdia AI. Please verify your email by clicking one of the links below:</p>
-      <ul>
-        <li><a href="${verifyLink}">Verify via website</a> (recommended)</li>
-        <li><a href="${backendVerifyRedirect}">One-click verify (opens verification page)</a></li>
-      </ul>
+      <p>Thanks for registering at Pawdia AI. Please verify your email by clicking the link below:</p>
+      <p><a href="${verifyLink}">Verify your email</a></p>
       <p>This link will expire in 24 hours.</p>
     `;
 
-    if (sendgridKey) {
-      const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${sendgridKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: toEmail, name: toName }], subject }],
-          from: { email: env.SENDGRID_FROM || 'no-reply@pawdia-ai.com', name: 'Pawdia AI' },
-          content: [{ type: 'text/html', value: html }]
-        })
-      });
-      if (!resp.ok) {
-        const text = await resp.text();
-        console.error('SendGrid send error:', resp.status, text);
-        // fall through to try RESEND if available
-      } else {
-        return { sent: true };
-      }
-    }
-
-    // Try Resend.com if configured
-    const resendKey = env.RESEND_API_KEY;
-    if (resendKey) {
+    if (resendKey && resendKey.trim() !== '') {
       try {
         const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -120,7 +90,7 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
       }
     }
 
-    console.warn('No mail provider configured; verification link:', verifyLink);
+    console.warn('Resend not configured; verification link:', verifyLink);
     return { sent: false, link: verifyLink };
   } catch (err) {
     console.error('sendVerificationEmail error:', err);
@@ -503,11 +473,35 @@ export default {
         } catch (e) {
           console.error('Failed to set verification token via DB update:', e);
         }
+
+        // Rate limit: check recent verification_sent events in analytics (last 5 minutes)
+        try {
+          const recent = await env.DB.prepare(
+            "SELECT COUNT(*) AS cnt FROM analytics WHERE event_type = ? AND user_id = ? AND created_at > datetime('now','-5 minutes')"
+          ).bind('verification_sent', user.id).first();
+          const recentCount = (recent && recent.cnt) ? Number(recent.cnt) : 0;
+          const MAX_PER_WINDOW = 3;
+          if (recentCount >= MAX_PER_WINDOW) {
+            return new Response(JSON.stringify({ message: 'Too many requests. Please wait a few minutes before retrying.' }), { status: 429, headers: corsHeaders });
+          }
+        } catch (e) {
+          // If analytics table query fails, log and allow sending to proceed (fail-open)
+          console.warn('Failed to check resend rate limit:', e);
+        }
+
         const sendResult = await sendVerificationEmail(env, user.email, user.name || '', token);
         if (!sendResult.sent) {
           // still return success to the client but log
           console.warn('Verification email not sent:', sendResult.error || sendResult.link);
+        } else {
+          // record audit event for verification sent
+          try {
+            await logAnalyticsEvent(env.DB, 'verification_sent', user.id, { email: user.email }, request);
+          } catch (e) {
+            console.warn('Failed to log verification_sent event:', e);
+          }
         }
+
         return new Response(JSON.stringify({ message: 'Verification email sent' }), { headers: corsHeaders });
       } catch (err) {
         console.error('Resend verification error:', err);
