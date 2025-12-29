@@ -799,7 +799,7 @@ export default {
         // parse target user id from path
         const parts = url.pathname.split('/');
         const targetId = parts[parts.length - 1];
-        if (!targetId || targetId === requesterId) {
+        if (!targetId || targetId === requester.id) {
           return new Response(JSON.stringify({ message: 'Invalid target user' }), { status: 400, headers: corsHeaders });
         }
 
