@@ -805,59 +805,91 @@ export default {
     if (url.pathname.startsWith('/api/admin/users/') && request.method === 'DELETE') {
       console.log('Admin delete user endpoint called');
 
-      // Test error handling
-      throw new Error('Test error for debugging');
-
       try {
+        // Step 1: Check authentication header
         const authHeader = request.headers.get('authorization');
+        console.log('Auth header exists:', !!authHeader);
+
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          console.log('No Bearer token found');
           return new Response(JSON.stringify({
-            message: 'Authentication required'
+            message: 'Authentication required',
+            debug: 'no_bearer_token'
           }), {
             status: 401,
             headers: corsHeaders
           });
         }
 
-        // require verified admin
-        console.log('Checking admin authentication...');
+        // Step 2: JWT verification
+        console.log('Starting JWT verification...');
         const vCheck = await requireVerifiedFromHeader(authHeader, env);
+
         if (vCheck.errorResponse) {
-          console.log('Authentication failed:', vCheck.errorResponse);
+          console.log('JWT verification failed');
+          // Return the actual error response from requireVerifiedFromHeader
           return vCheck.errorResponse;
         }
-        const requester = vCheck.user;
-        console.log('Authenticated user:', requester.id, 'is_admin:', requester.is_admin);
 
+        const requester = vCheck.user;
+        console.log('JWT verified successfully. User:', requester.id, 'is_admin:', requester.is_admin);
+
+        // Step 3: Admin check
         if (!requester.is_admin) {
-          return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
+          console.log('User is not admin');
+          return new Response(JSON.stringify({
+            message: 'Admin access required',
+            debug: 'not_admin'
+          }), { status: 403, headers: corsHeaders });
         }
 
-        // parse target user id from path
+        // Step 4: Parse target user ID
         const parts = url.pathname.split('/');
         const targetId = parts[parts.length - 1];
-        if (!targetId || targetId === requester.id) {
-          return new Response(JSON.stringify({ message: 'Invalid target user' }), { status: 400, headers: corsHeaders });
+        console.log('Target user ID:', targetId);
+
+        if (!targetId) {
+          return new Response(JSON.stringify({
+            message: 'Invalid user ID',
+            debug: 'no_target_id'
+          }), { status: 400, headers: corsHeaders });
         }
 
-        // Delete user
-        console.log('Attempting to delete user:', targetId);
+        if (targetId === requester.id) {
+          return new Response(JSON.stringify({
+            message: 'Cannot delete yourself',
+            debug: 'cannot_delete_self'
+          }), { status: 400, headers: corsHeaders });
+        }
+
+        // Step 5: Delete user
+        console.log('Attempting database delete for user:', targetId);
         const deleted = await deleteUser(env.DB, targetId);
-        console.log('Delete result:', deleted);
+        console.log('Database delete result:', deleted);
 
         if (!deleted) {
-          return new Response(JSON.stringify({ message: 'User not found or could not be deleted' }), { status: 404, headers: corsHeaders });
+          return new Response(JSON.stringify({
+            message: 'User not found or could not be deleted',
+            debug: 'delete_failed'
+          }), { status: 404, headers: corsHeaders });
         }
 
         console.log('User deleted successfully:', targetId);
-        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        return new Response(JSON.stringify({
+          success: true,
+          debug: 'delete_success'
+        }), { headers: corsHeaders });
+
       } catch (error) {
-        console.error('Admin delete user error:', error);
+        console.error('Unexpected error in delete user:', error);
         console.error('Error stack:', error.stack);
+
+        // Return detailed error for debugging
         return new Response(JSON.stringify({
           message: 'Server error',
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
+          debug: 'unexpected_error'
         }), { status: 500, headers: corsHeaders });
       }
     }
