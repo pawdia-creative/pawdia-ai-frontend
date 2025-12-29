@@ -504,24 +504,42 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       prompt: fullPrompt,
       width: request.width || 512,
       height: request.height || 512,
-      steps: request.steps,
-      cfgScale: request.cfgScale,
-      negativePrompt: request.negativePrompt
     };
+    if (typeof request.steps !== 'undefined') proxyRequestBody.steps = request.steps;
+    if (typeof request.cfgScale !== 'undefined') proxyRequestBody.cfgScale = request.cfgScale;
+    if (typeof request.negativePrompt !== 'undefined') proxyRequestBody.negativePrompt = request.negativePrompt;
 
     // Support image input: convert to base64 and include for image-to-image mode
     if (request.image) {
       try {
-        // compress if large
-        const imgFile = await compressImage(request.image);
-        const b64 = await fileToBase64(imgFile);
+        // Decide a sensible compression target based on requested output dimensions.
+        const targetShortSide = Math.max(request.width || 512, request.height || 512);
+        // Clamp max width to a reasonable upper bound to avoid extremely large uploads.
+        const clampMaxWidth = Math.min(Math.max(targetShortSide, 512) * 2, 2048);
+
+        // First-pass compress: aim for roughly twice the short side (keeps quality but reduces large originals)
+        let imgFile = await compressImage(request.image, clampMaxWidth, 0.92);
+        let b64 = await fileToBase64(imgFile);
+
+        // If payload still too large for provider/Cloudflare, perform an extra aggressive compression pass.
+        // Use a conservative threshold on base64 length (characters). Adjust as needed by provider limits.
+        const BASE64_WARN_THRESHOLD = 5_000_000; // ~3.75MB binary
+        if (b64.length > BASE64_WARN_THRESHOLD) {
+          console.warn('Image base64 payload is large, applying extra compression pass', { length: b64.length, clampMaxWidth });
+          // Further reduce dimensions and quality
+          const aggressiveWidth = Math.min(Math.floor(clampMaxWidth / 2), 1024);
+          imgFile = await compressImage(request.image, aggressiveWidth, 0.80);
+          b64 = await fileToBase64(imgFile);
+          console.log('After aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+        } else {
+          if (import.meta.env.DEV) console.log('Image compressed within acceptable size', { length: b64.length, mime: imgFile.type });
+        }
+
         proxyRequestBody.imageBase64 = b64;
         // include MIME type so backend can assemble a proper data URI
         proxyRequestBody.imageMimeType = imgFile.type || 'image/jpeg';
         proxyRequestBody.mode = 'image_to_image';
         // image_strength controls how much to preserve original.
-        // Use a low default (0.15) to prioritize preserving the original image composition.
-        // Use a permissive access to avoid requiring request interface changes.
         const requestedImageStrength = request.image_strength;
         proxyRequestBody.image_strength = typeof requestedImageStrength !== 'undefined' ? requestedImageStrength : 0.15;
         console.log('Image-to-image request prepared, size:', b64.length, 'mime:', proxyRequestBody.imageMimeType, 'strength:', proxyRequestBody.image_strength);
