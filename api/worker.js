@@ -1050,7 +1050,12 @@ export default {
 
           try {
             const deleted = await deleteUser(env.DB, targetId);
-            await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
+            // Log analytics event (non-blocking - don't fail the delete operation if logging fails)
+            try {
+              await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
+            } catch (logErr) {
+              console.warn('Failed to log admin delete event (non-critical):', logErr);
+            }
             return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
           } catch (delErr) {
             console.error('Delete user failed:', delErr && delErr.stack ? delErr.stack : delErr);

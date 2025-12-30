@@ -173,12 +173,29 @@ export async function getAnalyticsStats(db) {
 export async function deleteUser(db, id) {
   try {
     console.log('Database delete operation for user ID:', id);
+
+    // First check if user exists
+    const userExists = await db.prepare('SELECT id FROM users WHERE id = ?').bind(id).first();
+    if (!userExists) {
+      console.warn('User not found for deletion:', id);
+      return true; // Consider this successful - user already doesn't exist
+    }
+
+    console.log('User exists, proceeding with deletion');
+
     // Remove related records first to avoid foreign key constraints or orphaned rows.
     try {
-      await db.prepare('DELETE FROM images WHERE user_id = ?').bind(id).run();
-      await db.prepare('DELETE FROM payments WHERE user_id = ?').bind(id).run();
-      await db.prepare('DELETE FROM analytics WHERE user_id = ?').bind(id).run();
-      // Add other related cleanup as needed (orders, subscriptions, etc.) if present.
+      console.log('Cleaning up related records...');
+      const imagesResult = await db.prepare('DELETE FROM images WHERE user_id = ?').bind(id).run();
+      console.log('Deleted images:', imagesResult?.meta?.changes || 0);
+
+      const paymentsResult = await db.prepare('DELETE FROM payments WHERE user_id = ?').bind(id).run();
+      console.log('Deleted payments:', paymentsResult?.meta?.changes || 0);
+
+      const analyticsResult = await db.prepare('DELETE FROM analytics WHERE user_id = ?').bind(id).run();
+      console.log('Deleted analytics:', analyticsResult?.meta?.changes || 0);
+
+      console.log('Related records cleanup completed');
     } catch (cleanupErr) {
       console.warn('Cleanup of related records failed (continuing):', cleanupErr);
       // continue to attempt user deletion even if cleanup had issues
@@ -186,10 +203,21 @@ export async function deleteUser(db, id) {
 
     const result = await db.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
     console.log('Database delete result:', result);
-    const success = result && result.success === true;
-    console.log('Delete operation success:', success);
-    if (!success) {
-      throw new Error('Database reported failure when deleting user');
+    console.log('Result meta:', result?.meta);
+    console.log('Changes:', result?.meta?.changes);
+
+    // D1 returns changes count in meta.changes
+    const changes = result?.meta?.changes;
+    console.log('Delete operation changes:', changes);
+
+    if (typeof changes === 'undefined' || changes < 0) {
+      throw new Error('Database operation failed or returned invalid result');
+    }
+
+    // changes === 0 means no user was found to delete (might be already deleted)
+    if (changes === 0) {
+      console.warn('No user found to delete with ID:', id);
+      // Don't throw error for this case - user might already be deleted
     }
     return true;
   } catch (error) {
