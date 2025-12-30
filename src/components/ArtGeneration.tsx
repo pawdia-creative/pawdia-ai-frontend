@@ -1004,7 +1004,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                 <div className="space-y-4">
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center justify-center gap-2 text-red-700">
-                  <AlertTriangle className="w-5 h-5" />
+                      <AlertTriangle className="w-5 h-5" />
                       <span className="font-medium">Insufficient Credits</span>
                     </div>
                     <p className="text-red-600 text-sm mt-2 text-center">
@@ -1110,7 +1110,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
                     Rotate +90°
                   </Button>
                   <Button onClick={handleDownload} className="shadow-glow">
-                  <Download className="w-4 h-4 mr-2" />
+                    <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
                 </div>
@@ -1168,7 +1168,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
             onClick={handleRegenerate}
             className="mt-2"
           >
-              <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Retry
           </Button>
         </div>

@@ -196,7 +196,7 @@ export const ArtCreation = () => {
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-            <Button 
+          <Button 
             variant="ghost" 
             onClick={() => navigate('/')}
             className="flex items-center gap-2"

@@ -120,7 +120,8 @@ export async function logAnalyticsEvent(db, eventType, userId = null, data = nul
     const userAgent = request.headers.get('User-Agent') || 'unknown';
 
     await db.prepare(
-      'INSERT INTO analytics (event_type, user_id, data, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)'
+      // Include created_at using CURRENT_TIMESTAMP to satisfy NOT NULL constraint
+      'INSERT INTO analytics (event_type, user_id, data, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
     ).bind(eventType, userId, JSON.stringify(data), ip, userAgent).run();
 
     return true;
@@ -194,5 +195,28 @@ export async function deleteUser(db, id) {
     console.error('Error deleting user:', error);
     console.error('Error details:', error && error.message ? error.message : String(error));
     throw error;
+  }
+}
+
+// Ensure required schema columns exist, safe to run multiple times.
+export async function ensureSchema(db) {
+  try {
+    const usersInfo = await db.prepare("PRAGMA table_info(users)").all();
+    const usersRows = usersInfo && usersInfo.results ? usersInfo.results : usersInfo;
+    const usersCols = Array.isArray(usersRows) ? usersRows.map(r => r.name) : [];
+    if (!usersCols.includes('last_verification_sent')) {
+      await db.prepare("ALTER TABLE users ADD COLUMN last_verification_sent DATETIME").run();
+      console.log('Added users.last_verification_sent');
+    }
+
+    const analyticsInfo = await db.prepare("PRAGMA table_info(analytics)").all();
+    const analyticsRows = analyticsInfo && analyticsInfo.results ? analyticsInfo.results : analyticsInfo;
+    const analyticsCols = Array.isArray(analyticsRows) ? analyticsRows.map(r => r.name) : [];
+    if (!analyticsCols.includes('data')) {
+      await db.prepare("ALTER TABLE analytics ADD COLUMN data TEXT").run();
+      console.log('Added analytics.data');
+    }
+  } catch (err) {
+    console.warn('Schema ensure error (non-fatal):', err);
   }
 }

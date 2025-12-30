@@ -42,6 +42,7 @@ import {
   deleteUser
   , setVerificationToken, verifyUserByToken
 } from './database.js';
+import { ensureSchema } from './database.js';
 
 // Simple test function
 function testFunction() {
@@ -64,24 +65,38 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
     `;
 
     if (resendKey && resendKey.trim() !== '') {
+      // sanitize RESEND_FROM and optionally enforce expected verified domain
+      let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
+      const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
+      try {
+        const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
+        if (expectedDomain && fromDomain !== expectedDomain) {
+          console.warn('RESEND_FROM domain mismatch, falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
+          fromAddress = `no-reply@${expectedDomain}`;
+        }
+      } catch (e) {
+        console.warn('Failed to parse RESEND_FROM, using default', e);
+        fromAddress = 'no-reply@pawdia-ai.com';
+      }
       try {
         const r = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
+        method: 'POST',
+        headers: {
             Authorization: `Bearer ${resendKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: env.RESEND_FROM || 'no-reply@pawdia-ai.com',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            from: fromAddress,
             to: toEmail,
             subject,
             html
-          })
-        });
+        })
+      });
         if (!r.ok) {
           const t = await r.text();
+          // Log full provider response for debugging
           console.error('Resend send error:', r.status, t);
-          return { sent: false, error: t };
+          return { sent: false, error: t, status: r.status, providerBody: t };
         }
         return { sent: true };
       } catch (e) {
@@ -111,6 +126,19 @@ async function sendResetPasswordEmail(env, toEmail, toName, tempPassword) {
     `;
 
     if (resendKey && resendKey.trim() !== '') {
+      // sanitize RESEND_FROM and enforce verified domain fallback
+      let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
+      const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
+      try {
+        const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
+        if (expectedDomain && fromDomain !== expectedDomain) {
+          console.warn('RESEND_FROM domain mismatch (reset), falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
+          fromAddress = `no-reply@${expectedDomain}`;
+        }
+      } catch (e) {
+        console.warn('Failed to parse RESEND_FROM (reset), using default', e);
+        fromAddress = 'no-reply@pawdia-ai.com';
+      }
       try {
         const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -119,7 +147,7 @@ async function sendResetPasswordEmail(env, toEmail, toName, tempPassword) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: env.RESEND_FROM || 'no-reply@pawdia-ai.com',
+            from: fromAddress,
             to: toEmail,
             subject,
             html
@@ -128,7 +156,7 @@ async function sendResetPasswordEmail(env, toEmail, toName, tempPassword) {
         if (!r.ok) {
           const t = await r.text();
           console.error('Resend send error (reset):', r.status, t);
-          return { sent: false, error: t };
+          return { sent: false, error: t, status: r.status, providerBody: t };
         }
         return { sent: true };
       } catch (e) {
@@ -234,7 +262,6 @@ async function getPayloadFromHeader(authHeader, env) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.substring(7);
   const secret = env.JWT_SECRET;
-  console.log('JWT_SECRET exists:', !!secret);
   if (!secret) {
     console.error('JWT_SECRET not set in env');
     return null;
@@ -273,6 +300,16 @@ async function requireVerifiedFromHeader(authHeader, env) {
 // Main worker handler
 export default {
   async fetch(request, env, ctx) {
+    // Ensure DB schema is present (run once)
+    if (!globalThis.__schemaEnsured) {
+      try {
+        await ensureSchema(env.DB);
+      } catch (e) {
+        console.warn('ensureSchema failed:', e);
+      }
+      globalThis.__schemaEnsured = true;
+    }
+    const isDev = ((env.ENVIRONMENT || '').toLowerCase() === 'development' || (env.NODE_ENV || '').toLowerCase() === 'development');
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: makeCorsHeaders(request.headers.get('origin'), env), status: 204 });
@@ -318,6 +355,27 @@ export default {
         return new Response(JSON.stringify({ token, payload }), { headers: corsHeaders });
       } catch (err) {
         console.error('Debug issue-token error:', err);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // Debug endpoint: show Resend-related config (protected by DEBUG_TOKEN)
+    if (url.pathname === '/api/debug/resend-config' && request.method === 'GET') {
+      try {
+        const debugToken = request.headers.get('x-debug-token') || '';
+        if (!env.DEBUG_TOKEN || debugToken !== env.DEBUG_TOKEN) {
+          return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+        }
+        const hasResendKey = !!(env.RESEND_API_KEY && env.RESEND_API_KEY.trim() !== '');
+        const resendFrom = env.RESEND_FROM || null;
+        const resendDomain = env.RESEND_DOMAIN || null;
+        return new Response(JSON.stringify({
+          hasResendKey,
+          resendFrom,
+          resendDomain
+        }), { headers: corsHeaders });
+      } catch (err) {
+        console.error('Resend-config debug error:', err);
         return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
       }
     }
@@ -529,7 +587,11 @@ export default {
             const last = new Date(row.last_verification_sent);
             const now = new Date();
             const diffMs = now - last;
-            const MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+            // Allow configuring the resend interval via env var:
+            // RESEND_VERIFICATION_INTERVAL_MINUTES (number of minutes, default 5)
+            const intervalEnv = env.RESEND_VERIFICATION_INTERVAL_MINUTES || env.RESEND_INTERVAL_MINUTES;
+            const intervalMinutes = intervalEnv ? parseInt(String(intervalEnv), 10) : 5;
+            const MIN_INTERVAL_MS = (!isNaN(intervalMinutes) && intervalMinutes > 0) ? intervalMinutes * 60 * 1000 : 5 * 60 * 1000;
             if (diffMs < MIN_INTERVAL_MS) {
               return new Response(JSON.stringify({ message: 'Too many requests. Please wait a few minutes before retrying.' }), { status: 429, headers: corsHeaders });
             }
@@ -1242,10 +1304,21 @@ export default {
 
           // mark mode for backend logs
           providerPayload.mode = 'image_to_image';
-          console.log('Image-to-image payload prepared: mime=', mimeType, 'strength=', preserveStrength);
+          if (isDev) console.log('Image-to-image payload prepared: mime=', mimeType, 'strength=', preserveStrength);
         }
+        if (isDev) console.log('Calling AI API with payload:', providerPayload);
 
-        console.log('Calling AI API with payload:', providerPayload);
+        // Server-side protection: limit payload size (chars) to avoid 413 from upstream
+        const maxChars = parseInt(String(env.MAX_PAYLOAD_CHARS || env.MAX_IMAGE_B64_CHARS || '6000000'), 10);
+        try {
+          const providerPayloadStr = JSON.stringify(providerPayload);
+          if (providerPayloadStr.length > maxChars) {
+            return new Response(JSON.stringify({ error: 'Payload too large. Please reduce image size or quality before retrying.' }), { status: 413, headers: corsHeaders });
+          }
+        } catch (e) {
+          // if stringify fails, continue and let provider handle; but log in dev
+          if (isDev) console.warn('Failed to stringify providerPayload for size check', e);
+        }
 
         let frontendResponse = null;
         let statusCode = 200;
