@@ -941,9 +941,9 @@ export default {
         const userId = payload.sub || payload.userId;
         const user = await getUserById(env.DB, userId);
 
-        if (!user || !user.is_admin || user.is_verified !== 1) {
+        if (!user || user.is_admin !== 1) {
           return new Response(JSON.stringify({
-            message: 'Admin access required or email not verified'
+            message: 'Admin access required'
           }), {
             status: 403,
             headers: corsHeaders
@@ -1019,10 +1019,17 @@ export default {
           return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
         }
 
-        const vCheck = await requireVerifiedFromHeader(authHeader, env);
-        if (vCheck.errorResponse) return vCheck.errorResponse;
-        const adminUser = vCheck.user;
-        if (!adminUser.is_admin) {
+        // For admin operations, allow unverified admin users to proceed
+        const payload = await getPayloadFromHeader(authHeader, env);
+        if (!payload) {
+          return new Response(JSON.stringify({ message: 'Invalid or expired token' }), { status: 401, headers: corsHeaders });
+        }
+        const userId = payload.sub || payload.userId;
+        const adminUser = await getUserById(env.DB, userId);
+        if (!adminUser) {
+          return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+        }
+        if (adminUser.is_admin !== 1) {
           return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
         }
 
