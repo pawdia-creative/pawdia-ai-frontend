@@ -1076,12 +1076,14 @@ export default {
 
           try {
             const deleted = await deleteUser(env.DB, targetId);
+            // Temporarily disable analytics logging to test if it's causing the 500 error
             // Log analytics event (non-blocking - don't fail the delete operation if logging fails)
-            try {
-              await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
-            } catch (logErr) {
-              console.warn('Failed to log admin delete event (non-critical):', logErr);
-            }
+            // try {
+            //   await logAnalyticsEvent(env.DB, 'admin_delete_user', adminUser.id, { targetId }, request);
+            // } catch (logErr) {
+            //   console.warn('Failed to log admin delete event (non-critical):', logErr);
+            // }
+            console.log('User deletion completed successfully');
             return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
           } catch (delErr) {
             console.error('Delete user failed:', delErr && delErr.stack ? delErr.stack : delErr);
