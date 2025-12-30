@@ -287,10 +287,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (import.meta.env.DEV) console.warn('[AUTH] Error calling /auth/me after login:', meErr);
       }
 
-      // Normalize verification flag
+      // Normalize verification flag and admin status
       const isVerified = (finalUser.isVerified === true) || (finalUser.is_verified === 1);
+      const isAdmin = (finalUser.isAdmin === true) || (finalUser.is_admin === 1);
 
-      if (isVerified) {
+      // Allow login if user is either verified OR is an admin
+      if (isVerified || isAdmin) {
         // Persist token + user and mark authenticated
         localStorage.setItem('token', tempToken);
         localStorage.setItem('user', JSON.stringify(finalUser));

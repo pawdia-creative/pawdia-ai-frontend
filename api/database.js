@@ -176,6 +176,7 @@ export async function deleteUser(db, id) {
     // Remove related records first to avoid foreign key constraints or orphaned rows.
     try {
       await db.prepare('DELETE FROM images WHERE user_id = ?').bind(id).run();
+      await db.prepare('DELETE FROM payments WHERE user_id = ?').bind(id).run();
       await db.prepare('DELETE FROM analytics WHERE user_id = ?').bind(id).run();
       // Add other related cleanup as needed (orders, subscriptions, etc.) if present.
     } catch (cleanupErr) {

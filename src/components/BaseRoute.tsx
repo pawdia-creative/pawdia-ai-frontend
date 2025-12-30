@@ -62,7 +62,9 @@ const BaseRoute = ({
   // Check if email verification is required
   // Only allow access when `isVerified` is explicitly true (or is_verified === 1).
   // If `isVerified` is false or undefined, enforce verification UI to prevent bypass.
-  if (requireEmailVerification && user && !(user.isVerified === true || user.is_verified === 1)) {
+  // However, allow admin users to bypass email verification
+  const isAdmin = (user?.isAdmin === true) || (user?.is_admin === 1);
+  if (requireEmailVerification && user && !(user.isVerified === true || user.is_verified === 1) && !isAdmin) {
     return <EmailVerificationRequired />;
   }
 
