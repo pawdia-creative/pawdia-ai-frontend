@@ -1043,17 +1043,36 @@ export default {
 
         // Route: DELETE /api/admin/users/:id
         if (request.method === 'DELETE' && parts.length === 4) {
+          console.log('DELETE operation requested for user ID:', targetId);
+          console.log('Admin user ID:', adminUser.id);
+
           // Prevent deleting self
           if (targetId === adminUser.id) {
+            console.log('Cannot delete own account');
             return new Response(JSON.stringify({ message: 'Cannot delete your own account' }), { status: 403, headers: corsHeaders });
           }
+
           const targetUser = await getUserById(env.DB, targetId);
+          console.log('Target user found:', !!targetUser);
+          if (targetUser) {
+            console.log('Target user data:', {
+              id: targetUser.id,
+              email: targetUser.email,
+              is_admin: targetUser.is_admin,
+              is_verified: targetUser.is_verified
+            });
+          }
+
           if (!targetUser) {
+            console.log('User not found');
             return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
           }
-          if (targetUser.is_admin) {
+          if (targetUser.is_admin === 1) {
+            console.log('Cannot delete admin account');
             return new Response(JSON.stringify({ message: 'Cannot delete an admin account' }), { status: 403, headers: corsHeaders });
           }
+
+          console.log('Proceeding with user deletion');
 
           try {
             const deleted = await deleteUser(env.DB, targetId);
