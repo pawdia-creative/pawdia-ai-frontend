@@ -49,67 +49,279 @@ function testFunction() {
   return 'test';
 }
 
-// Helper to send verification email via SendGrid if configured
+// Helper function to get analytics count with optional time filter
+async function getAnalyticsCount(db, eventType, timeFilter = null) {
+  let sql = 'SELECT COUNT(*) as count FROM analytics WHERE event_type = ?';
+  const params = [eventType];
+
+  if (timeFilter) {
+    switch (timeFilter) {
+      case 'today':
+        sql += ' AND DATE(created_at) = DATE(\'now\')';
+        break;
+      case 'week':
+        sql += ' AND created_at >= datetime(\'now\', \'-7 days\')';
+        break;
+      case 'month':
+        sql += ' AND created_at >= datetime(\'now\', \'-30 days\')';
+        break;
+    }
+  }
+
+  try {
+    const result = await db.prepare(sql).bind(...params).first();
+    return result ? result.count : 0;
+  } catch (error) {
+    console.error(`Error getting analytics count for ${eventType}:`, error);
+    return 0;
+  }
+}
+
+// Helper to send verification email with fallback support
 async function sendVerificationEmail(env, toEmail, toName, token) {
   try {
-    // Use Resend exclusively for email sending.
-    const resendKey = env.RESEND_API_KEY;
     const frontendUrl = env.FRONTEND_URL || 'https://www.pawdia-ai.com';
     const verifyLink = `${frontendUrl.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
     const subject = 'Verify your Pawdia AI email';
     const html = `
-      <p>Hi ${toName || ''},</p>
-      <p>Thanks for registering at Pawdia AI. Please verify your email by clicking the link below:</p>
-      <p><a href="${verifyLink}">Verify your email</a></p>
-      <p>This link will expire in 24 hours.</p>
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verify your Pawdia AI email</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f8fafc;
+          }
+          .container {
+            background-color: #ffffff;
+            margin: 20px;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+          }
+          .subtitle {
+            color: #64748b;
+            font-size: 16px;
+          }
+          .content {
+            margin-bottom: 30px;
+          }
+          .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #1f2937;
+          }
+          .message {
+            margin-bottom: 25px;
+            line-height: 1.7;
+          }
+          .button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+            transition: background-color 0.3s ease;
+          }
+          .button:hover {
+            background-color: #1d4ed8;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+            color: #6b7280;
+          }
+          .warning {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #92400e;
+          }
+          .link {
+            color: #2563eb;
+            word-break: break-all;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">🐾 Pawdia AI</div>
+            <div class="subtitle">AI-Powered Pet Portraits</div>
+          </div>
+
+          <div class="content">
+            <div class="greeting">Hi ${toName || 'there'},</div>
+
+            <div class="message">
+              <p>Welcome to Pawdia AI! Thank you for joining our community of pet lovers.</p>
+              <p>To complete your registration and start creating beautiful AI portraits of your pets, please verify your email address by clicking the button below:</p>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${verifyLink}" class="button">Verify Your Email</a>
+            </div>
+
+            <div class="warning">
+              <strong>Important:</strong> This verification link will expire in 24 hours for security reasons.
+            </div>
+
+            <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
+            <p><a href="${verifyLink}" class="link">${verifyLink}</a></p>
+
+            <p>If you did not create an account with Pawdia AI, please ignore this email.</p>
+          </div>
+
+          <div class="footer">
+            <p><strong>Pawdia AI</strong></p>
+            <p>Creating beautiful AI portraits of your beloved pets</p>
+            <p>Questions? Contact us at <a href="mailto:pawdia.creative@gmail.com" style="color: #2563eb;">pawdia.creative@gmail.com</a></p>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
 
-    if (resendKey && resendKey.trim() !== '') {
-      // sanitize RESEND_FROM and optionally enforce expected verified domain
-      let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
-      const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
-      try {
-        const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
-        if (expectedDomain && fromDomain !== expectedDomain) {
-          console.warn('RESEND_FROM domain mismatch, falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
-          fromAddress = `no-reply@${expectedDomain}`;
-        }
-      } catch (e) {
-        console.warn('Failed to parse RESEND_FROM, using default', e);
-        fromAddress = 'no-reply@pawdia-ai.com';
-      }
-      try {
-        const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${resendKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            from: fromAddress,
-            to: toEmail,
-            subject,
-            html
-        })
-      });
-        if (!r.ok) {
-          const t = await r.text();
-          // Log full provider response for debugging
-          console.error('Resend send error:', r.status, t);
-          return { sent: false, error: t, status: r.status, providerBody: t };
-        }
-        return { sent: true };
-      } catch (e) {
-        console.error('Resend send exception:', e);
-        return { sent: false, error: String(e) };
-      }
+    // Try primary service (Resend)
+    const primaryResult = await sendViaResend(env, toEmail, toName, subject, html);
+    if (primaryResult.sent) {
+      return { sent: true, provider: 'resend' };
     }
 
-    console.warn('Resend not configured; verification link:', verifyLink);
-    return { sent: false, link: verifyLink };
+    console.warn('Primary email service (Resend) failed, trying backup service...');
+
+    // Try backup service (SendGrid)
+    const backupResult = await sendViaSendGrid(env, toEmail, toName, subject, html);
+    if (backupResult.sent) {
+      return { sent: true, provider: 'sendgrid', fallback: true };
+    }
+
+    console.error('All email services failed');
+    return {
+      sent: false,
+      error: 'All email services failed',
+      primaryError: primaryResult.error,
+      backupError: backupResult.error,
+      link: verifyLink
+    };
   } catch (err) {
     console.error('sendVerificationEmail error:', err);
     return { sent: false, error: String(err) };
+  }
+}
+
+// Send email via Resend (primary service)
+async function sendViaResend(env, toEmail, toName, subject, html) {
+  try {
+    const resendKey = env.RESEND_API_KEY;
+    if (!resendKey || resendKey.trim() === '') {
+      return { sent: false, error: 'Resend API key not configured' };
+    }
+
+    // sanitize RESEND_FROM and optionally enforce expected verified domain
+    let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
+    const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
+    try {
+      const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
+      if (expectedDomain && fromDomain !== expectedDomain) {
+        console.warn('RESEND_FROM domain mismatch, falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
+        fromAddress = `no-reply@${expectedDomain}`;
+      }
+    } catch (e) {
+      console.warn('Failed to parse RESEND_FROM, using default', e);
+      fromAddress = 'no-reply@pawdia-ai.com';
+    }
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: toEmail,
+        subject,
+        html
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Resend send error:', response.status, errorText);
+      return { sent: false, error: `Resend API error: ${response.status} - ${errorText}` };
+    }
+
+    return { sent: true };
+  } catch (e) {
+    console.error('Resend send exception:', e);
+    return { sent: false, error: `Resend exception: ${String(e)}` };
+  }
+}
+
+// Send email via SendGrid (backup service)
+async function sendViaSendGrid(env, toEmail, toName, subject, html) {
+  try {
+    const sendGridKey = env.SENDGRID_API_KEY;
+    if (!sendGridKey || sendGridKey.trim() === '') {
+      return { sent: false, error: 'SendGrid API key not configured' };
+    }
+
+    let fromAddress = (env.SENDGRID_FROM || 'no-reply@pawdia-ai.com').trim();
+
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${sendGridKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        personalizations: [{
+          to: [{ email: toEmail, name: toName }]
+        }],
+        from: { email: fromAddress },
+        subject,
+        content: [{ type: 'text/html', value: html }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('SendGrid send error:', response.status, errorText);
+      return { sent: false, error: `SendGrid API error: ${response.status} - ${errorText}` };
+    }
+
+    return { sent: true };
+  } catch (e) {
+    console.error('SendGrid send exception:', e);
+    return { sent: false, error: `SendGrid exception: ${String(e)}` };
   }
 }
 
@@ -561,20 +773,53 @@ export default {
 
     if (url.pathname === '/api/auth/resend-verification' && request.method === 'POST') {
       try {
-        const body = await request.json();
-        const { email } = body;
-        if (!email) {
-          return new Response(JSON.stringify({ message: 'Email required' }), { status: 400, headers: corsHeaders });
+        // Require authentication for security - user must have a valid token
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
         }
+
+        const token = authHeader.slice(7); // Remove 'Bearer ' prefix
+        let currentUser = null;
+
+        // Verify the token is valid and get user info
+        try {
+          const meResponse = await fetch(`${new URL(request.url).origin}/api/auth/me`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (!meResponse.ok) {
+            return new Response(JSON.stringify({ message: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
+          }
+
+          const meData = await meResponse.json();
+          currentUser = meData.user;
+        } catch (authError) {
+          console.error('Token verification failed:', authError);
+          return new Response(JSON.stringify({ message: 'Authentication verification failed' }), { status: 401, headers: corsHeaders });
+        }
+
+        if (!currentUser || !currentUser.email) {
+          return new Response(JSON.stringify({ message: 'User authentication required' }), { status: 401, headers: corsHeaders });
+        }
+
+        // Use the authenticated user's email instead of request body email
+        const email = currentUser.email;
         const user = await getUserByEmail(env.DB, email);
+
         if (!user) {
-          // do not reveal existence in production; mimic success
-          return new Response(JSON.stringify({ message: 'Verification email sent' }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
         }
-        const token = crypto.randomUUID();
+
+        // Ensure the authenticated user matches the database user
+        if (user.id !== currentUser.id) {
+          return new Response(JSON.stringify({ message: 'Authentication mismatch' }), { status: 403, headers: corsHeaders });
+        }
+        const verificationToken = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
         try {
-          await env.DB.prepare('UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?').bind(token, expiresAt, user.id).run();
+          await env.DB.prepare('UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?').bind(verificationToken, expiresAt, user.id).run();
         } catch (e) {
           console.error('Failed to set verification token via DB update:', e);
         }
@@ -651,6 +896,8 @@ export default {
         }
 
         // generate verification token and send verification email
+        let emailSent = false;
+        let emailError = null;
         try {
           const token = crypto.randomUUID();
           const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
@@ -659,16 +906,35 @@ export default {
           } catch (e) {
             console.error('Failed to set verification token via DB update:', e);
           }
+
           const sendResult = await sendVerificationEmail(env, email, name || '', token);
-          if (!sendResult.sent) {
-            console.warn('Verification email not sent on registration:', sendResult.error || sendResult.link);
-          } else {
+          if (sendResult.sent) {
+            emailSent = true;
             try {
-              await logAnalyticsEvent(env.DB, 'verification_sent', userId, { email }, request);
+              await logAnalyticsEvent(env.DB, 'verification_sent', userId, {
+                email,
+                provider: sendResult.provider,
+                fallback: sendResult.fallback || false
+              }, request);
             } catch (e) {
               console.warn('Failed to log verification_sent event on registration:', e);
             }
+          } else {
+            emailError = sendResult.error;
+            console.error('Verification email not sent on registration:', sendResult);
+            // Log email failure for monitoring
+            try {
+              await logAnalyticsEvent(env.DB, 'email_send_failed', userId, {
+                email,
+                error: sendResult.error,
+                primaryError: sendResult.primaryError,
+                backupError: sendResult.backupError
+              }, request);
+            } catch (logErr) {
+              console.warn('Failed to log email_send_failed event:', logErr);
+            }
           }
+
           // update last_verification_sent regardless to prevent immediate retries
           try {
             await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(userId).run();
@@ -677,9 +943,26 @@ export default {
           }
         } catch (err) {
           console.error('Post-registration verification error:', err);
+          emailError = String(err);
         }
 
-        return new Response(JSON.stringify({ message: 'Registration successful' }), { headers: corsHeaders });
+        const responseMessage = emailSent
+          ? 'Registration successful. Please check your email to verify your account.'
+          : 'Registration successful, but we were unable to send the verification email. Please try logging in and resending the verification email.';
+
+        return new Response(JSON.stringify({
+          message: responseMessage,
+          user: {
+            id: userId,
+            email,
+            name,
+            credits: 0,
+            isAdmin: false,
+            isVerified: false
+          },
+          emailSent,
+          emailError: emailSent ? null : emailError
+        }), { headers: corsHeaders });
       } catch (error) {
         console.error('Registration error:', error);
         return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
@@ -1492,6 +1775,62 @@ export default {
           status: 500,
           headers: corsHeaders
         });
+      }
+    }
+
+    // Email monitoring endpoint - Admin only
+    if (url.pathname === '/api/admin/email-stats' && request.method === 'GET') {
+      try {
+        // Require admin authentication
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
+        }
+
+        const token = authHeader.slice(7);
+        const meResponse = await fetch(`${new URL(request.url).origin}/api/auth/me`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!meResponse.ok) {
+          return new Response(JSON.stringify({ message: 'Invalid authentication' }), { status: 401, headers: corsHeaders });
+        }
+
+        const meData = await meResponse.json();
+        const user = meData.user;
+        if (!user || (user.is_admin !== 1 && user.isAdmin !== true)) {
+          return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
+        }
+
+        // Get email statistics from analytics
+        const stats = {
+          verification_sent: await getAnalyticsCount(env.DB, 'verification_sent'),
+          verification_sent_today: await getAnalyticsCount(env.DB, 'verification_sent', 'today'),
+          verification_sent_week: await getAnalyticsCount(env.DB, 'verification_sent', 'week'),
+          email_send_failed: await getAnalyticsCount(env.DB, 'email_send_failed'),
+          email_send_failed_today: await getAnalyticsCount(env.DB, 'email_send_failed', 'today'),
+          verification_success: await getAnalyticsCount(env.DB, 'verification_success'),
+          verification_success_today: await getAnalyticsCount(env.DB, 'verification_success', 'today')
+        };
+
+        // Get recent email events
+        const recentEvents = await env.DB.prepare(`
+          SELECT event_type, user_id, metadata, created_at
+          FROM analytics
+          WHERE event_type IN ('verification_sent', 'email_send_failed', 'verification_success')
+          ORDER BY created_at DESC
+          LIMIT 50
+        `).all();
+
+        return new Response(JSON.stringify({
+          stats,
+          recentEvents: recentEvents.results || []
+        }), { headers: corsHeaders });
+
+      } catch (error) {
+        console.error('Email stats error:', error);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
       }
     }
 

@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { tokenStorage } from '@/contexts/AuthContext';
 
 interface OrderData {
   items: Array<{
@@ -60,7 +61,7 @@ class PaymentService {
    */
   static async createOrder(orderData: OrderData): Promise<string> {
     try {
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       if (!token) {
         throw new Error('Authentication required. Please log in to create an order.');
       }
@@ -87,7 +88,7 @@ class PaymentService {
       const data = await response.json();
       return data.orderId;
     } catch (error) {
-      console.error('Error creating PayPal order:', error);
+      if (import.meta.env.DEV) console.error('Error creating PayPal order:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create payment order');
       throw error;
     }
@@ -98,7 +99,7 @@ class PaymentService {
    */
   static async capturePayment(orderId: string): Promise<PaymentResult> {
     try {
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       if (!token) {
         throw new Error('Authentication required. Please log in to capture the payment.');
       }
@@ -124,7 +125,7 @@ class PaymentService {
         status: result.status
       };
     } catch (error) {
-      console.error('Error capturing payment:', error);
+      if (import.meta.env.DEV) console.error('Error capturing payment:', error);
       toast.error('Payment capture failed');
       throw error;
     }
@@ -144,7 +145,7 @@ class PaymentService {
       const data = await response.json();
       return data.order;
     } catch (error) {
-      console.error('Error getting order details:', error);
+      if (import.meta.env.DEV) console.error('Error getting order details:', error);
       throw error;
     }
   }
@@ -154,7 +155,7 @@ class PaymentService {
    */
   static async getUserOrders(): Promise<UserOrder[]> {
     try {
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       if (!token) {
         throw new Error('Authentication required. Please log in to view your orders.');
       }
@@ -172,7 +173,7 @@ class PaymentService {
       const data = await response.json();
       return data.orders;
     } catch (error) {
-      console.error('Error getting user orders:', error);
+      if (import.meta.env.DEV) console.error('Error getting user orders:', error);
       throw error;
     }
   }
@@ -181,18 +182,18 @@ class PaymentService {
    * Handle payment success logic
    */
   static handlePaymentSuccess(
-    orderId: string, 
-    captureId: string, 
+    orderId: string,
+    captureId: string,
     totalAmount: number,
     onSuccess?: () => void
-  );
-  static handlePaymentSuccess(message: string);
+  ): void;
+  static handlePaymentSuccess(message: string): void;
   static handlePaymentSuccess(
-    arg1: string, 
-    arg2?: string, 
-    arg3?: number,
+    arg1: string,
+    arg2?: string,
+    _arg3?: number,
     arg4?: () => void
-  ) {
+  ): void {
     if (typeof arg2 === 'string') {
       // This is the full version: handlePaymentSuccess(orderId, captureId, totalAmount, onSuccess)
       const onSuccess = arg4;
@@ -219,7 +220,7 @@ class PaymentService {
    * Handle payment errors
    */
   static handlePaymentError(error: unknown) {
-    console.error('PayPal error:', error);
+    if (import.meta.env.DEV) console.error('PayPal error:', error);
     toast.error('An error occurred during payment');
   }
 }

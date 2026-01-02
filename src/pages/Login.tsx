@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, tokenStorage } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import AuthForm from '@/components/AuthForm';
 
@@ -21,6 +21,14 @@ const Login = () => {
         const isVerified =
           (user && (user.isVerified === true || user.is_verified === 1)) ||
           (localUser && (localUser.isVerified === true || localUser.is_verified === 1));
+
+        // If a must_verify flag is present, force the verification-required UI
+        const mustVerify = localStorage.getItem('must_verify') === '1';
+        if (mustVerify) {
+          if (import.meta.env.DEV) console.log('[Login] must_verify present, redirecting to verification required page');
+          navigate('/verify-required', { replace: true });
+          return;
+        }
 
         if (isVerified) {
           if (import.meta.env.DEV) console.log('[Login] User authenticated and verified, redirecting to:', from);
@@ -48,7 +56,6 @@ const Login = () => {
   const handleSubmit = async (data: { email: string; password: string }) => {
     try {
       const result = await login({ email: data.email, password: data.password });
-      const user = result?.user || result;
       const isFirstLogin = result?.isFirstLogin === true;
       toast.success('Login successful!');
 
@@ -56,7 +63,7 @@ const Login = () => {
       // Use the newly-stored token to fetch /auth/me and decide redirect behavior.
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-        const token = localStorage.getItem('token');
+        const token = tokenStorage.getToken();
         let isVerified = false;
         if (token) {
           const meResp = await fetch(`${apiUrl}/auth/me`, {

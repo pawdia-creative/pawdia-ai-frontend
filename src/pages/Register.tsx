@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -17,14 +17,21 @@ const Register: React.FC = () => {
 
   const handleSubmit = async (data: { email: string; password: string; name?: string; confirmPassword?: string }) => {
     try {
-      await register({ 
-        name: data.name || '', 
-        email: data.email, 
-        password: data.password, 
-        confirmPassword: data.confirmPassword || '' 
+      const result = await register({
+        name: data.name || '',
+        email: data.email,
+        password: data.password,
+        confirmPassword: data.confirmPassword || ''
       });
-      toast.success('Registration successful! Please check your email to verify your account.');
-      // Redirect to email verification info page instead of auto-login
+
+      if (result && !result.emailSent) {
+        // Email sending failed, show warning but still allow user to proceed
+        toast.warning('Registration successful, but verification email could not be sent. Please try logging in and resending the verification email.');
+      } else {
+        toast.success('Registration successful! Please check your email to verify your account.');
+      }
+
+      // Always redirect to email verification info page
       navigate('/verify-email');
     } catch (error) {
       // Error is handled by the context and useEffect

@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
-import { Coins, Crown, Zap, Star, Check, ArrowLeft } from 'lucide-react';
+import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import * as Lucide from 'lucide-react';
+
+// Map icons with safe fallbacks in case named exports differ between environments
+const Coins = (Lucide as any).Coins ?? (() => null);
+const Crown = (Lucide as any).Crown ?? (() => null);
+const Zap = (Lucide as any).Zap ?? (() => null);
+const Star = (Lucide as any).Star ?? (() => null);
+const Check = (Lucide as any).Check ?? (() => null);
+const ArrowLeft = (Lucide as any).ArrowLeft ?? (() => null);
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
 import { MetaTags } from '@/components/SEO/MetaTags';
@@ -52,7 +60,6 @@ const Subscription: React.FC = () => {
   const [selectedCreditPackage, setSelectedCreditPackage] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [userCredits, setUserCredits] = useState(user?.credits || 0);
-  const [paypalOrderId, setPaypalOrderId] = useState<string>('');
   const [paypalError, setPaypalError] = useState<string>('');
   const [paymentType, setPaymentType] = useState<'subscription' | 'credits'>('subscription');
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -152,7 +159,6 @@ const Subscription: React.FC = () => {
       };
 
       const orderId = await PaymentService.createOrder(orderData);
-      setPaypalOrderId(orderId);
       return orderId;
     } finally {
       setIsProcessing(false);
@@ -171,7 +177,7 @@ const Subscription: React.FC = () => {
       }
       
       // Step 2: Process payment and add credits via payment API
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       const baseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
       
       if (paymentType === 'subscription') {
@@ -242,7 +248,8 @@ const Subscription: React.FC = () => {
       
     } catch (error) {
       if (import.meta.env.DEV) console.error('PayPal approval error:', error);
-      PaymentService.handlePaymentError(error.message || 'Failed to complete payment. Please contact support.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to complete payment. Please contact support.';
+      PaymentService.handlePaymentError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -261,18 +268,19 @@ const Subscription: React.FC = () => {
     // Provide more specific error messages
     let errorMessage = 'PayPal payment service is currently unavailable. Please try again later.';
     
-    if (error && typeof error === 'object') {
-      if (error.message) {
-        if (error.message.includes('client-id') || error.message.includes('MISSING_CLIENT_ID')) {
+    if (error && typeof error === 'object' && error !== null) {
+      const errorObj = error as any;
+      if (errorObj.message) {
+        if (errorObj.message.includes('client-id') || errorObj.message.includes('MISSING_CLIENT_ID')) {
           errorMessage = 'PayPal is not properly configured. Please contact support.';
-        } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
+        } else if (errorObj.message.includes('400') || errorObj.message.includes('Bad Request')) {
           errorMessage = 'PayPal Client ID is invalid or misconfigured. Please check: 1) Client ID value, 2) environment (Sandbox vs Live), 3) that your domain is authorized in the PayPal app.';
-        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        } else if (errorObj.message.includes('401') || errorObj.message.includes('Unauthorized')) {
           errorMessage = 'PayPal Client ID is not authorized. Please check your PayPal app settings.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        } else if (errorObj.message.includes('network') || errorObj.message.includes('fetch')) {
           errorMessage = 'Network error connecting to PayPal. Please check your internet connection and try again.';
         } else {
-          errorMessage = `PayPal error: ${error.message}`;
+          errorMessage = `PayPal error: ${errorObj.message}`;
         }
       }
     }
@@ -310,7 +318,7 @@ const Subscription: React.FC = () => {
       // Free plan direct processing
       setIsProcessing(true);
       try {
-        const token = localStorage.getItem('token');
+        const token = tokenStorage.getToken();
         const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/subscribe`, {
           method: 'POST',
           headers: {
@@ -387,7 +395,8 @@ const Subscription: React.FC = () => {
         setSelectedPlan('');
       } catch (error) {
         if (import.meta.env.DEV) console.error('Subscription error:', error);
-        PaymentService.handlePaymentError(error.message || 'Failed to activate free subscription. Please try again.');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to activate free subscription. Please try again.';
+        PaymentService.handlePaymentError(errorMessage);
       } finally {
         setIsProcessing(false);
       }
@@ -401,13 +410,6 @@ const Subscription: React.FC = () => {
     }
   };
 
-  const handleBuyCredits = async (credits: number, price: number) => {
-    // Setup PayPal payment
-    setPaymentType('credits');
-    setPaymentAmount(price);
-    setPaymentCredits(credits);
-    setPaypalError('');
-  };
 
   const handlePlanSelect = (planId: string) => {
     if (import.meta.env.DEV) console.log('[SUBSCRIPTION] handlePlanSelect called with planId:', planId);
@@ -452,7 +454,7 @@ const Subscription: React.FC = () => {
   const processSubscription = async (planId: string) => {
     setIsProcessing(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/subscribe`, {
         method: 'POST',
         headers: {
@@ -491,50 +493,14 @@ const Subscription: React.FC = () => {
   };
 
   // Actual credit purchase processing (called after PayPal payment success)
-  const processCreditPurchase = async (credits: number) => {
-    setIsProcessing(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/credits/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ amount: credits })
-      });
-
-      if (!response.ok) {
-        throw new Error('Credit purchase failed');
-      }
-
-      const result = await response.json();
-      
-      // Update local user information
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        const updatedUser = { ...userData, credits: result.credits };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUserCredits(result.credits);
-      }
-
-      PaymentService.handlePaymentSuccess(`${credits} credits added to your account!`);
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Credit purchase error:', error);
-      PaymentService.handlePaymentError('Failed to purchase credits. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   return (
     <>
       <MetaTags
         title={seo.title}
         description={seo.description}
-        keywords={seo.keywords}
-        ogImage={seo.ogImage}
+        keywords={seo.keywords || ''}
+        ogImage={seo.ogImage || ''}
       />
       <StructuredData data={faqSchema} type="FAQSubscription" />
     <div className="min-h-screen bg-background py-8">
@@ -593,7 +559,7 @@ const Subscription: React.FC = () => {
                   </ul>
                   <Button 
                     className="w-full" 
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                       e.preventDefault();
                       e.stopPropagation();
                       if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Select Plan button clicked for:', plan.id);

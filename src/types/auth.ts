@@ -41,9 +41,10 @@ export interface UpdateProfileData {
 
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<User>;
-  register: (credentials: RegisterCredentials) => Promise<void>;
+  register: (credentials: RegisterCredentials) => Promise<any>;
   logout: () => void;
   clearError: () => void;
   updateProfile: (data: UpdateProfileData) => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
+  syncVerificationStatus: () => Promise<boolean>;
 }

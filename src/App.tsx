@@ -3,34 +3,45 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from "react";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Navbar from "@/components/Navbar";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import AdminRoute from "@/components/AdminRoute";
-import Index from "@/pages/Index";
-import { ArtCreation } from "@/pages/ArtCreation";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import Profile from "@/pages/Profile";
-import Subscription from "@/pages/Subscription";
-import AdminDashboard from "@/pages/AdminDashboard";
-import NotFound from "@/pages/NotFound";
-import PrivacyPolicy from "@/pages/PrivacyPolicy";
-import TermsOfService from "@/pages/TermsOfService";
-import EmailVerification from "@/pages/EmailVerification";
-import EmailVerificationRequired from "@/pages/EmailVerificationRequired";
-import VerifySuccess from "@/pages/VerifySuccess";
-import About from "@/pages/About";
-import Contact from "@/pages/Contact";
-import Examples from "@/pages/Examples";
-import Blog from "@/pages/Blog";
-import {
-  WatercolorPetPortrait,
-  SketchPetPortrait,
-  OilPaintingPetPortrait,
-  CartoonPetPortrait,
-} from "@/pages/StylePage";
+import React, { useEffect } from "react";
+import { AuthProvider, useAuth, tokenStorage } from "@/contexts/AuthContext";
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+  </div>
+);
+
+// Lazy load components
+const Navbar = React.lazy(() => import("@/components/Navbar"));
+const ProtectedRoute = React.lazy(() => import("@/components/ProtectedRoute"));
+const AdminRoute = React.lazy(() => import("@/components/AdminRoute"));
+const BaseRoute = React.lazy(() => import("@/components/BaseRoute"));
+
+const Index = React.lazy(() => import("@/pages/Index"));
+const ArtCreation = React.lazy(() => import("@/pages/ArtCreation").then(module => ({ default: module.ArtCreation })));
+const Login = React.lazy(() => import("@/pages/Login"));
+const Register = React.lazy(() => import("@/pages/Register"));
+const Profile = React.lazy(() => import("@/pages/Profile"));
+const Subscription = React.lazy(() => import("@/pages/Subscription"));
+const AdminDashboard = React.lazy(() => import("@/pages/AdminDashboard"));
+const NotFound = React.lazy(() => import("@/pages/NotFound"));
+const PrivacyPolicy = React.lazy(() => import("@/pages/PrivacyPolicy"));
+const TermsOfService = React.lazy(() => import("@/pages/TermsOfService"));
+const EmailVerification = React.lazy(() => import("@/pages/EmailVerification"));
+const EmailVerificationRequired = React.lazy(() => import("@/pages/EmailVerificationRequired"));
+const VerifySuccess = React.lazy(() => import("@/pages/VerifySuccess"));
+const About = React.lazy(() => import("@/pages/About"));
+const Contact = React.lazy(() => import("@/pages/Contact"));
+const Examples = React.lazy(() => import("@/pages/Examples"));
+const Blog = React.lazy(() => import("@/pages/Blog"));
+
+const WatercolorPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.WatercolorPetPortrait })));
+const SketchPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.SketchPetPortrait })));
+const OilPaintingPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.OilPaintingPetPortrait })));
+const CartoonPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.CartoonPetPortrait })));
+
 
 const queryClient = new QueryClient();
 
@@ -44,7 +55,7 @@ const PageViewTracker = () => {
     const trackPageView = async () => {
       try {
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-        const token = localStorage.getItem('token');
+        const token = tokenStorage.getToken();
         
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
@@ -83,10 +94,17 @@ const AppContent = () => (
           >
     <PageViewTracker />
             <div className="min-h-screen">
-              <Navbar />
-              <Routes>
-                {/* Public homepage — show Index to unauthenticated visitors */}
-                <Route path="/" element={<Index />} />
+              <React.Suspense fallback={<LoadingSpinner />}>
+                <Navbar />
+              </React.Suspense>
+              <React.Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                {/* Homepage — requires email verification */}
+                <Route path="/" element={
+                  <BaseRoute requireEmailVerification={true}>
+                    <Index />
+                  </BaseRoute>
+                } />
                 <Route path="/create" element={
                   <ProtectedRoute>
                     <ArtCreation />
@@ -109,17 +127,41 @@ const AppContent = () => (
                     <AdminDashboard />
                   </AdminRoute>
                 } />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/privacy" element={
+                  <BaseRoute publicForGuests={true}>
+                    <PrivacyPolicy />
+                  </BaseRoute>
+                } />
+                <Route path="/terms" element={
+                  <BaseRoute publicForGuests={true}>
+                    <TermsOfService />
+                  </BaseRoute>
+                } />
                 <Route path="/verify-email" element={<EmailVerification />} />
                 {/* Legacy/alternate verification path for email links */}
                 <Route path="/verify" element={<EmailVerification />} />
                 <Route path="/verify-success" element={<VerifySuccess />} />
                 <Route path="/verify-required" element={<EmailVerificationRequired />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/examples" element={<Examples />} />
-        <Route path="/blog" element={<Blog />} />
+        <Route path="/about" element={
+                  <BaseRoute publicForGuests={true}>
+                    <About />
+                  </BaseRoute>
+                } />
+        <Route path="/contact" element={
+                  <BaseRoute publicForGuests={true}>
+                    <Contact />
+                  </BaseRoute>
+                } />
+        <Route path="/examples" element={
+                  <BaseRoute publicForGuests={true}>
+                    <Examples />
+                  </BaseRoute>
+                } />
+        <Route path="/blog" element={
+                  <BaseRoute publicForGuests={true}>
+                    <Blog />
+                  </BaseRoute>
+                } />
         {/* Style pages */}
         <Route path="/watercolor-pet-portrait-ai" element={<WatercolorPetPortrait />} />
         <Route path="/sketch-pet-portrait-ai" element={<SketchPetPortrait />} />
@@ -149,6 +191,7 @@ const AppContent = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </React.Suspense>
             </div>
             </BrowserRouter>
 );

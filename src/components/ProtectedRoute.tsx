@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   return (
-    <BaseRoute>
+    <BaseRoute requireEmailVerification={true}>
       {children}
     </BaseRoute>
   );

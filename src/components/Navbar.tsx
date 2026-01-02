@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
@@ -8,13 +8,12 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, tokenStorage } from '@/contexts/AuthContext';
 import { NavLink } from './NavLink';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -27,7 +26,7 @@ const Navbar: React.FC = () => {
   const handleSignInClick = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     const apiBase = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-    const token = localStorage.getItem('token');
+    const token = tokenStorage.getToken();
     if (token) {
       try {
         const meResp = await fetch(`${apiBase}/auth/me`, {
@@ -72,9 +71,6 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const navItems = [
-    // Remove Home and Create Art navigation items, keep only Logo and user actions
-  ];
 
   return (
     <nav className="bg-gradient-to-b from-black/40 via-black/20 to-transparent sticky top-0 z-50 transition-all duration-300">

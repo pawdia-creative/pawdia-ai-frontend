@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 const EmailVerification = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
+  const { updateUser, syncVerificationStatus } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [hasToken, setHasToken] = useState(false);
@@ -32,49 +32,64 @@ const EmailVerification = () => {
         const apiUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
         const verifyUrl = `${apiUrl}/auth/verify-email?token=${token}`;
         if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Calling API:', verifyUrl);
-        
-        const response = await fetch(verifyUrl);
+
+        // Add timeout and better error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        const response = await fetch(verifyUrl, {
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        clearTimeout(timeoutId);
+
         const data = await response.json();
         if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Response status:', response.status, 'data:', data);
 
         if (response.ok) {
           setStatus('success');
-          setMessage(data.message);
-          
+          setMessage(data.message || 'Email verified successfully!');
+
           // 更新用户状态
           if (data.user && updateUser) {
             if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Updating user status to verified');
             updateUser({ isVerified: true });
           }
-          
-          // 如果用户已登录，刷新用户信息
-          const token = localStorage.getItem('token');
-          if (token) {
-            try {
-              const meResponse = await fetch(`${apiUrl}/auth/me`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
-              if (meResponse.ok) {
-                const meData = await meResponse.json();
-                if (meData.user && updateUser) {
-                  if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Refreshed user data from /auth/me');
-                  updateUser(meData.user);
-                }
-              }
-            } catch (refreshError) {
-              if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Error refreshing user data:', refreshError);
-            }
+
+          // 同步验证状态并清除相关标记
+          try {
+            await syncVerificationStatus();
+            // Clear must_verify flag when verification succeeds
+            try { localStorage.removeItem('must_verify'); } catch (e) {}
+          } catch (syncError) {
+            if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Error syncing verification status:', syncError);
           }
+
+          // 验证成功后自动跳转到首页
+          setTimeout(() => {
+            if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Verification successful, redirecting to home');
+            navigate('/', { replace: true });
+          }, 2000); // 2秒后跳转，给用户时间看到成功消息
         } else {
           setStatus('error');
           setMessage(data.message || 'Email verification failed. Please try again.');
         }
-      } catch (error) {
+      } catch (error: any) {
         if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Email verification error:', error);
-        setStatus('error');
-        setMessage('Network error. Please check your internet connection and try again.');
+
+        // Better error handling for different error types
+        if (error.name === 'AbortError') {
+          setStatus('error');
+          setMessage('Request timed out. This might be due to a local proxy interfering with the connection. Please try disabling any VPN or proxy, or contact support.');
+        } else if (error.message && error.message.includes('fetch')) {
+          setStatus('error');
+          setMessage('Network connection failed. Please check your internet connection and try again. If the problem persists, try disabling any VPN or proxy.');
+        } else {
+          setStatus('error');
+          setMessage(`Verification failed: ${error.message || 'Unknown error'}. Please try again or contact support.`);
+        }
       }
     };
 

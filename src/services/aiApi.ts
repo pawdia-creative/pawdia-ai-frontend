@@ -1,4 +1,6 @@
 
+import { tokenStorage } from '@/contexts/AuthContext';
+
 // API call configuration - Use backend proxy endpoint
 const API_CONFIG = {
   baseURL: import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api',
@@ -127,315 +129,15 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 
-// Enhance image quality using canvas for upscaling (balanced quality and speed)
-function enhanceImageQuality(imageUrl: string, targetDPI: number = 300): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      try {
-        // 不再在后端增强函数中旋转图片
-        // 旋转由前端组件负责，基于与原图的比较
-        // 这样可以避免双重旋转，并保持逻辑一致性
-        const finalWidth = img.naturalWidth || img.width;
-        const finalHeight = img.naturalHeight || img.height;
-        
-        console.log(`Enhancing image: ${finalWidth}x${finalHeight} at ${targetDPI} DPI`);
-        
-        // Calculate scale factor based on target DPI
-        // Assuming original image is 72 DPI (web standard)
-        const originalDPI = 72;
-        const scaleFactor = targetDPI / originalDPI;
-        
-        console.log(`Scale factor: ${scaleFactor.toFixed(2)}`);
-        
-        // If scale factor is very small (< 1.2), no need to enhance
-        if (scaleFactor < 1.2) {
-          console.log('Scale factor too small, skipping enhancement');
-          resolve(imageUrl);
-          return;
-        }
-        
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          console.warn('Failed to get canvas context, returning original image');
-          resolve(imageUrl); // Return original if can't get context
-          return;
-        }
-        
-        // Calculate target dimensions (use original dimensions)
-        canvas.width = Math.round(finalWidth * scaleFactor);
-        canvas.height = Math.round(finalHeight * scaleFactor);
-        
-        console.log(`Target dimensions: ${canvas.width}x${canvas.height}`);
-        
-        // Use high-quality image rendering
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        
-        // Progressive upscaling for better quality (2-step for large scale factors)
-        if (scaleFactor > 2.5) {
-          // Step 1: Upscale to intermediate size (2x)
-          const intermediateCanvas = document.createElement('canvas');
-          intermediateCanvas.width = Math.round(img.width * 2);
-          intermediateCanvas.height = Math.round(img.height * 2);
-          const intermediateCtx = intermediateCanvas.getContext('2d');
-          
-          if (intermediateCtx) {
-            intermediateCtx.imageSmoothingEnabled = true;
-            intermediateCtx.imageSmoothingQuality = 'high';
-            intermediateCtx.drawImage(img, 0, 0, intermediateCanvas.width, intermediateCanvas.height);
-            
-            // Step 2: Final upscale to target size
-            ctx.drawImage(intermediateCanvas, 0, 0, canvas.width, canvas.height);
-          } else {
-            // Fallback to single-step
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          }
-        } else {
-          // Single-step upscale for smaller scale factors
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }
-        
-        // Apply sharpening based on DPI requirements
-        if (targetDPI >= 300) {
-          try {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            let sharpenedData: ImageData;
-            
-            // Use advanced sharpening for high DPI (600+)
-            if (targetDPI >= 600 && scaleFactor > 2) {
-              sharpenedData = applyAdvancedSharpening(imageData);
-            } else {
-              // Use light sharpening for standard DPI
-              sharpenedData = applyLightSharpening(imageData);
-            }
-            
-            ctx.putImageData(sharpenedData, 0, 0);
-          } catch (sharpError) {
-            console.warn('Sharpening failed, using upscaled image:', sharpError);
-            // Continue with upscaled image without sharpening
-          }
-        }
-        
-        // Convert to maximum quality JPEG (0.99 quality for best quality)
-        const enhancedImageUrl = canvas.toDataURL('image/jpeg', 0.99);
-        console.log('Image enhancement completed successfully');
-        resolve(enhancedImageUrl);
-        
-      } catch (error) {
-        console.error('Image enhancement error:', error);
-        // If enhancement fails, return original image
-        resolve(imageUrl);
-      }
-    };
-    
-    img.onerror = () => {
-      console.error('Failed to load image for enhancement');
-      resolve(imageUrl); // Return original if enhancement fails
-    };
-    
-    img.src = imageUrl;
-  });
-}
-
 // Light sharpening filter (faster than advanced sharpening)
-function applyLightSharpening(imageData: ImageData): ImageData {
-  const { width, height, data } = imageData;
-  const outputData = new Uint8ClampedArray(data.length);
-  
-  // Simple sharpening kernel (lighter than advanced version)
-  const kernel = [
-    [0, -0.25, 0],
-    [-0.25, 2, -0.25],
-    [0, -0.25, 0]
-  ];
-  
-  // Copy border pixels unchanged
-  for (let i = 0; i < data.length; i++) {
-    outputData[i] = data[i];
-  }
-  
-  // Apply kernel to interior pixels (only process every other pixel for speed)
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      for (let c = 0; c < 3; c++) { // RGB channels only
-        let sum = 0;
-        for (let ky = -1; ky <= 1; ky++) {
-          for (let kx = -1; kx <= 1; kx++) {
-            const pixelIndex = ((y + ky) * width + (x + kx)) * 4 + c;
-            const kernelValue = kernel[ky + 1][kx + 1];
-            sum += data[pixelIndex] * kernelValue;
-          }
-        }
-        const outputIndex = (y * width + x) * 4 + c;
-        outputData[outputIndex] = Math.max(0, Math.min(255, sum));
-      }
-      // Keep alpha channel unchanged
-      outputData[(y * width + x) * 4 + 3] = data[(y * width + x) * 4 + 3];
-    }
-  }
-  
-  return new ImageData(outputData, width, height);
-}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
-// Advanced sharpening with edge preservation
-function applyAdvancedSharpening(imageData: ImageData): ImageData {
-  const { width, height, data } = imageData;
-  const outputData = new Uint8ClampedArray(data.length);
-  
-  // Advanced sharpening kernel with edge preservation
-  const kernel = [
-    [0, -0.5, 0],
-    [-0.5, 3, -0.5],
-    [0, -0.5, 0]
-  ];
-  
-  // Copy border pixels unchanged
-  for (let i = 0; i < data.length; i++) {
-    outputData[i] = data[i];
-  }
-  
-  // Apply kernel to interior pixels
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      for (let c = 0; c < 3; c++) { // RGB channels
-        let sum = 0;
-        for (let ky = -1; ky <= 1; ky++) {
-          for (let kx = -1; kx <= 1; kx++) {
-            const pixelIndex = ((y + ky) * width + (x + kx)) * 4 + c;
-            const kernelValue = kernel[ky + 1][kx + 1];
-            sum += data[pixelIndex] * kernelValue;
-          }
-        }
-        const outputIndex = (y * width + x) * 4 + c;
-        // Apply edge-preserving sharpening
-        const originalValue = data[outputIndex];
-        const sharpenedValue = Math.max(0, Math.min(255, sum));
-        
-        // Blend based on edge detection to avoid over-sharpening
-        const edgeStrength = detectEdgeStrength(data, x, y, width);
-        const blendedValue = originalValue * (1 - edgeStrength) + sharpenedValue * edgeStrength;
-        
-        outputData[outputIndex] = Math.max(0, Math.min(255, blendedValue));
-      }
-    }
-  }
-  
-  return new ImageData(outputData, width, height);
-}
 
-// Edge detection for adaptive sharpening
-function detectEdgeStrength(data: Uint8ClampedArray, x: number, y: number, width: number): number {
-  const centerIndex = (y * width + x) * 4;
-  const centerLuminance = (data[centerIndex] + data[centerIndex + 1] + data[centerIndex + 2]) / 3;
-  
-  let maxDiff = 0;
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      
-      const neighborIndex = ((y + dy) * width + (x + dx)) * 4;
-      const neighborLuminance = (data[neighborIndex] + data[neighborIndex + 1] + data[neighborIndex + 2]) / 3;
-      const diff = Math.abs(centerLuminance - neighborLuminance);
-      maxDiff = Math.max(maxDiff, diff);
-    }
-  }
-  
-  // Normalize to 0-1 range
-  return Math.min(maxDiff / 100, 1);
-}
 
-// Print-specific enhancement for high DPI
-function applyPrintEnhancement(imageData: ImageData, targetDPI: number): ImageData {
-  const { width, height, data } = imageData;
-  const outputData = new Uint8ClampedArray(data.length);
-  
-  // Copy original data
-  for (let i = 0; i < data.length; i++) {
-    outputData[i] = data[i];
-  }
-  
-  // Apply print-specific enhancements based on DPI
-  if (targetDPI >= 600) {
-    // Ultra DPI: Apply noise reduction and color enhancement
-    applyNoiseReduction(outputData, width, height);
-    applyColorEnhancement(outputData, width, height);
-  }
-  
-  if (targetDPI >= 1200) {
-    // Maximum DPI: Apply additional sharpening and contrast enhancement
-    applyContrastEnhancement(outputData, width, height);
-  }
-  
-  return new ImageData(outputData, width, height);
-}
 
-// Noise reduction using median filter
-function applyNoiseReduction(data: Uint8ClampedArray, width: number, height: number): void {
-  const tempData = new Uint8ClampedArray(data.length);
-  
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      for (let c = 0; c < 3; c++) {
-        const values = [];
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const pixelIndex = ((y + dy) * width + (x + dx)) * 4 + c;
-            values.push(data[pixelIndex]);
-          }
-        }
-        // Use median value for noise reduction
-        values.sort((a, b) => a - b);
-        const medianValue = values[4]; // Middle value of 9 elements
-        
-        const outputIndex = (y * width + x) * 4 + c;
-        tempData[outputIndex] = medianValue;
-      }
-      // Copy alpha channel
-      tempData[(y * width + x) * 4 + 3] = data[(y * width + x) * 4 + 3];
-    }
-  }
-  
-  // Copy back to original data
-  for (let i = 0; i < data.length; i++) {
-    data[i] = tempData[i];
-  }
-}
 
 // Color enhancement for print
-function applyColorEnhancement(data: Uint8ClampedArray, width: number, height: number): void {
-  for (let i = 0; i < data.length; i += 4) {
-    // Slightly boost saturation for print
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    
-    const avg = (r + g + b) / 3;
-    const saturationBoost = 1.1; // 10% saturation boost
-    
-    data[i] = Math.min(255, avg + (r - avg) * saturationBoost);
-    data[i + 1] = Math.min(255, avg + (g - avg) * saturationBoost);
-    data[i + 2] = Math.min(255, avg + (b - avg) * saturationBoost);
-  }
-}
 
-// Contrast enhancement
-function applyContrastEnhancement(data: Uint8ClampedArray, width: number, height: number): void {
-  for (let i = 0; i < data.length; i += 4) {
-    // Apply mild contrast enhancement
-    const contrast = 1.05; // 5% contrast boost
-    const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-    
-    for (let c = 0; c < 3; c++) {
-      const value = data[i + c];
-      data[i + c] = Math.min(255, Math.max(0, factor * (value - 128) + 128));
-    }
-  }
-}
 
 
 // Build complete prompt with quality consistency requirements
@@ -495,7 +197,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
   try {
     const startTime = Date.now();
 
-    console.log('Calling backend proxy for image generation...');
+    if (import.meta.env.DEV) console.log('Calling backend proxy for image generation...');
 
     // Build complete prompt (include dimensions in prompt for Gemini API)
     const fullPrompt = buildFullPrompt(request.prompt, request.negativePrompt, request.dpi, request.quality);
@@ -527,7 +229,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
         // Use a conservative threshold on base64 length (characters). Adjust as needed by provider limits.
         const BASE64_WARN_THRESHOLD = 4_000_000; // ~3MB binary
         if (b64.length > BASE64_WARN_THRESHOLD) {
-          console.warn('Image base64 payload is large, applying extra compression passes', { length: b64.length, clampMaxWidth });
+          if (import.meta.env.DEV) console.warn('Image base64 payload is large, applying extra compression passes', { length: b64.length, clampMaxWidth });
           // Multi-pass aggressive compression strategy:
           // 1) Reduce to target short side (request.width/request.height short side or 512) at quality 0.80
           // 2) If still too large, reduce to 384 at quality 0.72
@@ -536,24 +238,24 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
           const firstTarget = Math.min(Math.max(512, targetShortSide), 1024);
           imgFile = await compressImage(request.image, firstTarget, 0.80);
           b64 = await fileToBase64(imgFile);
-          console.log('After pass 1 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+          if (import.meta.env.DEV) console.log('After pass 1 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
             const secondTarget = 384;
             imgFile = await compressImage(request.image, secondTarget, 0.72);
             b64 = await fileToBase64(imgFile);
-            console.log('After pass 2 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+            if (import.meta.env.DEV) console.log('After pass 2 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
           }
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
             const thirdTarget = 256;
             imgFile = await compressImage(request.image, thirdTarget, 0.65);
             b64 = await fileToBase64(imgFile);
-            console.log('After pass 3 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
+            if (import.meta.env.DEV) console.log('After pass 3 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
           }
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
-            console.warn('Image still large after aggressive compression passes; final base64 length:', b64.length);
+            if (import.meta.env.DEV) console.warn('Image still large after aggressive compression passes; final base64 length:', b64.length);
           }
         } else {
           if (import.meta.env.DEV) console.log('Image compressed within acceptable size', { length: b64.length, mime: imgFile.type });
@@ -571,9 +273,9 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
         // image_strength controls how much to preserve original.
         const requestedImageStrength = request.image_strength;
         proxyRequestBody.image_strength = typeof requestedImageStrength !== 'undefined' ? requestedImageStrength : 0.15;
-        console.log('Image-to-image request prepared, size:', b64.length, 'mime:', proxyRequestBody.imageMimeType, 'strength:', proxyRequestBody.image_strength);
+        if (import.meta.env.DEV) console.log('Image-to-image request prepared, size:', b64.length, 'mime:', proxyRequestBody.imageMimeType, 'strength:', proxyRequestBody.image_strength);
       } catch (e) {
-        console.warn('Failed to prepare image input for A.I. proxy, falling back to text-only:', e);
+        if (import.meta.env.DEV) console.warn('Failed to prepare image input for A.I. proxy, falling back to text-only:', e);
       }
     }
 
@@ -582,11 +284,11 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       'Content-Type': 'application/json'
     };
     try {
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
     } catch (e) {
       // localStorage may be unavailable in some environments; ignore
-      console.warn('Could not read token from localStorage for AI request', e);
+      if (import.meta.env.DEV) console.warn('Could not read token from localStorage for AI request', e);
     }
 
     const response = await fetch(`${API_CONFIG.baseURL}/generate`, {
@@ -599,12 +301,12 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Backend proxy error:', response.status, errorText);
+      if (import.meta.env.DEV) console.error('Backend proxy error:', response.status, errorText);
       throw new Error(`Backend proxy error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Backend proxy response:', data);
+    if (import.meta.env.DEV) console.log('Backend proxy response:', data);
 
     // Check if the backend returned an error
     if (data.error) {
@@ -626,7 +328,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       throw new Error('Backend proxy returned invalid response format');
     }
 
-    console.log('Image generation successful via backend proxy');
+    if (import.meta.env.DEV) console.log('Image generation successful via backend proxy');
 
     return {
       imageUrl,
@@ -635,158 +337,12 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     };
 
   } catch (error) {
-    console.error('AI API Error:', error);
+    if (import.meta.env.DEV) console.error('AI API Error:', error);
     throw new Error(`Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 
 
-// Try Gemini format API call
-async function tryGeminiFormat(request: ImageGenerationRequest, fullPrompt: string, startTime: number): Promise<ImageGenerationResponse> {
-  try {
-    // Use standard OpenAI image generation format, not Gemini format
-    const response = await fetch(`${API_CONFIG.baseURL}/images/generations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        prompt: fullPrompt,
-        n: 1,
-        size: getSupportedSize(request.width, request.height),
-        response_format: 'url'
-      }),
-    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
 
-    const data = await response.json();
-    const generationTime = Date.now() - startTime;
-    
-    // Parse Gemini format response
-    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-      const parts = data.candidates[0].content.parts;
-      
-      // Find image URL
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.mimeType === 'image/png') {
-          // Process base64 image data
-          const imageData = part.inlineData.data;
-          return {
-            imageUrl: `data:image/png;base64,${imageData}`,
-            generationTime,
-            model: API_CONFIG.model
-          };
-        } else if (part.text && part.text.includes('http')) {
-          // Extract URL
-          const urlMatch = part.text.match(/https?:\/\/[^\s]+/);
-          if (urlMatch) {
-            return {
-              imageUrl: urlMatch[0],
-              generationTime,
-              model: API_CONFIG.model
-            };
-          }
-        }
-      }
-    }
-    
-    // Try other response formats
-    if (data.images && data.images[0] && data.images[0].url) {
-      return {
-        imageUrl: data.images[0].url,
-        generationTime,
-        model: API_CONFIG.model
-      };
-    }
-    
-    if (data.data && data.data[0] && data.data[0].url) {
-      return {
-        imageUrl: data.data[0].url,
-        generationTime,
-        model: API_CONFIG.model
-      };
-    }
-    
-    throw new Error('Unable to parse Gemini API response format');
-  } catch (error) {
-    console.error('Gemini format API Error:', error);
-    
-    // If Gemini format also fails, try simplest format
-    return await trySimpleFormat(request, fullPrompt, startTime);
-  }
-}
-
-// Try simplest API format
-async function trySimpleFormat(request: ImageGenerationRequest, fullPrompt: string, startTime: number): Promise<ImageGenerationResponse> {
-  try {
-    const response = await fetch(`${API_CONFIG.baseURL}/images/generations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        prompt: fullPrompt,
-        n: 1,
-        size: getSupportedSize(request.width, request.height),
-        response_format: 'url'
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    const generationTime = Date.now() - startTime;
-    
-    // Try parsing different response formats
-    if (data.data && data.data[0] && data.data[0].url) {
-      return {
-        imageUrl: data.data[0].url,
-        generationTime,
-        model: API_CONFIG.model
-      };
-    } else if (data.images && data.images[0] && data.images[0].url) {
-      return {
-        imageUrl: data.images[0].url,
-        generationTime,
-        model: API_CONFIG.model
-      };
-    } else if (data.url) {
-      return {
-        imageUrl: data.url,
-        generationTime,
-        model: API_CONFIG.model
-      };
-    }
-    
-    throw new Error('Unable to parse API response format');
-  } catch (error) {
-    console.error('Simple format API Error:', error);
-    throw new Error(`All API call methods failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-// Get supported image size string for API (use actual dimensions if provided)
-function getSupportedSize(width?: number, height?: number): string {
-  // If dimensions are provided, use them directly (format: "WIDTHxHEIGHT")
-  if (width && height) {
-    // Round to nearest supported size or use exact dimensions
-    // For APIs that support custom sizes, use exact dimensions
-    // For APIs that only support specific sizes, map to closest supported size
-    return `${width}x${height}`;
-  }
-  
-  // Default to 1024x1024 if no dimensions provided
-  return '1024x1024';
-}

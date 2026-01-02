@@ -183,28 +183,51 @@ export async function deleteUser(db, id) {
 
     console.log('User exists, proceeding with deletion');
 
-    // Remove related records first to avoid foreign key constraints or orphaned rows.
+    // Temporarily disable foreign key constraints to avoid issues
+    try {
+      await db.prepare('PRAGMA foreign_keys = OFF').run();
+      console.log('Disabled foreign key constraints');
+    } catch (pragmaErr) {
+      console.warn('Could not disable foreign keys (continuing):', pragmaErr);
+    }
+
     try {
       console.log('Cleaning up related records...');
-      const imagesResult = await db.prepare('DELETE FROM images WHERE user_id = ?').bind(id).run();
-      console.log('Deleted images:', imagesResult?.meta?.changes || 0);
+
+      // Delete in reverse order of dependencies
+      const analyticsResult = await db.prepare('DELETE FROM analytics WHERE user_id = ?').bind(id).run();
+      console.log('Deleted analytics:', analyticsResult?.meta?.changes || 0);
 
       const paymentsResult = await db.prepare('DELETE FROM payments WHERE user_id = ?').bind(id).run();
       console.log('Deleted payments:', paymentsResult?.meta?.changes || 0);
 
-      const analyticsResult = await db.prepare('DELETE FROM analytics WHERE user_id = ?').bind(id).run();
-      console.log('Deleted analytics:', analyticsResult?.meta?.changes || 0);
+      const imagesResult = await db.prepare('DELETE FROM images WHERE user_id = ?').bind(id).run();
+      console.log('Deleted images:', imagesResult?.meta?.changes || 0);
 
       console.log('Related records cleanup completed');
     } catch (cleanupErr) {
-      console.warn('Cleanup of related records failed (continuing):', cleanupErr);
-      // continue to attempt user deletion even if cleanup had issues
+      console.warn('Cleanup of related records failed:', cleanupErr);
+      // Re-enable foreign keys and re-throw
+      try {
+        await db.prepare('PRAGMA foreign_keys = ON').run();
+      } catch (pragmaErr) {
+        console.warn('Could not re-enable foreign keys:', pragmaErr);
+      }
+      throw cleanupErr;
     }
 
     const result = await db.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
     console.log('Database delete result:', result);
     console.log('Result meta:', result?.meta);
     console.log('Changes:', result?.meta?.changes);
+
+    // Re-enable foreign key constraints
+    try {
+      await db.prepare('PRAGMA foreign_keys = ON').run();
+      console.log('Re-enabled foreign key constraints');
+    } catch (pragmaErr) {
+      console.warn('Could not re-enable foreign keys (non-critical):', pragmaErr);
+    }
 
     // D1 returns changes count in meta.changes
     const changes = result?.meta?.changes;

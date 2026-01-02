@@ -20,6 +20,34 @@ const API_BASE_URL = (() => {
 // Temporary mock mode for testing when API is unavailable
 const USE_MOCK_AUTH = false;
 
+// Secure token storage - using memory storage for better security
+// Token will be lost on page refresh, requiring re-authentication
+class SecureTokenStorage {
+  private static instance: SecureTokenStorage;
+  private token: string | null = null;
+
+  static getInstance(): SecureTokenStorage {
+    if (!SecureTokenStorage.instance) {
+      SecureTokenStorage.instance = new SecureTokenStorage();
+    }
+    return SecureTokenStorage.instance;
+  }
+
+  setToken(token: string): void {
+    this.token = token;
+  }
+
+  getToken(): string | null {
+    return this.token;
+  }
+
+  clearToken(): void {
+    this.token = null;
+  }
+}
+
+const tokenStorage = SecureTokenStorage.getInstance();
+
 // Debug information
 if (import.meta.env.DEV) console.log('API_BASE_URL:', API_BASE_URL);
 if (import.meta.env.DEV) console.log('VITE_API_URL env:', import.meta.env.VITE_API_URL);
@@ -40,7 +68,8 @@ type AuthAction =
   | { type: 'AUTH_FAILURE'; payload: string }
   | { type: 'AUTH_LOGOUT' }
   | { type: 'AUTH_CHECKED' }
-  | { type: 'CLEAR_ERROR' };
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'SYNC_SUCCESS'; payload: User };
 
 // Reducer
 function authReducer(state: AuthState, action: AuthAction): AuthState {
@@ -52,6 +81,12 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         isLoading: false,
         isAuthenticated: true,
+        user: action.payload,
+        error: null,
+      };
+    case 'SYNC_SUCCESS':
+      return {
+        ...state,
         user: action.payload,
         error: null,
       };
@@ -88,10 +123,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Check local storage for login status
+  // Check secure storage for login status
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = localStorage.getItem('token');
+      const token = tokenStorage.getToken();
       const storedUser = localStorage.getItem('user');
       
       if (token && storedUser) {
@@ -124,6 +159,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           },
           signal: controller.signal,
         });
+
+        // Store token in secure storage if verification succeeds
+        if (response.ok) {
+          tokenStorage.setToken(token);
+        }
 
           clearTimeout(timeoutId); // 清除超时
 
@@ -293,15 +333,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Allow login if user is either verified OR is an admin
       if (isVerified || isAdmin) {
-        // Persist token + user and mark authenticated
-        localStorage.setItem('token', tempToken);
+        // Store token securely and user data, mark authenticated
+        tokenStorage.setToken(tempToken);
         localStorage.setItem('user', JSON.stringify(finalUser));
         dispatch({ type: 'AUTH_SUCCESS', payload: finalUser });
         return finalUser;
       } else {
-        // Do NOT persist token/user. Trigger logout state so UI knows not authenticated.
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // User is not verified but we should still allow them to access verification flow
+        // Store token securely for verification purposes, but don't mark as authenticated
+        tokenStorage.setToken(tempToken);
+        localStorage.setItem('user', JSON.stringify(finalUser));
+        // Mark that the user must verify before accessing protected pages
+        try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+        // Dispatch logout to indicate not authenticated, but token remains for verification
         dispatch({ type: 'AUTH_LOGOUT' });
         return finalUser;
       }
@@ -375,12 +419,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    tokenStorage.clearToken();
     dispatch({ type: 'AUTH_LOGOUT' });
   };
 
   const updateProfile = async (data: UpdateProfileData) => {
-    const token = localStorage.getItem('token');
+    const token = tokenStorage.getToken();
     if (!token) {
       throw new Error('No authentication token found');
     }
@@ -423,11 +467,70 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateUser = (userData: Partial<User>) => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      const user = JSON.parse(storedUser);
-      const updatedUser = { ...user, ...userData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+      try {
+        const user = JSON.parse(storedUser);
+        const updatedUser = { ...user, ...userData };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+      } catch (error) {
+        if (import.meta.env.DEV) console.error('Error updating user data:', error);
+        // If localStorage is corrupted, clear it and logout
+        localStorage.removeItem('user');
+        tokenStorage.clearToken();
+        dispatch({ type: 'AUTH_LOGOUT' });
+      }
     }
+  };
+
+  // Enhanced state synchronization with server
+  const syncVerificationStatus = async (): Promise<boolean> => {
+    const token = tokenStorage.getToken();
+    const storedUser = localStorage.getItem('user');
+
+    if (!token || !storedUser) {
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const serverUser = data.user;
+
+        if (serverUser) {
+          // Normalize verification flags
+          const normalizedServerUser = {
+            ...serverUser,
+            isVerified: (serverUser.isVerified === true) || (serverUser.is_verified === 1),
+            isAdmin: (serverUser.isAdmin === true) || (serverUser.is_admin === 1)
+          };
+
+          // Update local storage with server data
+          localStorage.setItem('user', JSON.stringify(normalizedServerUser));
+
+          // Update context state
+          dispatch({ type: 'AUTH_SUCCESS', payload: normalizedServerUser });
+
+          if (import.meta.env.DEV) console.log('Verification status synced with server');
+          return true;
+        }
+      } else if (response.status === 401) {
+        // Token is invalid, logout
+        if (import.meta.env.DEV) console.warn('Token invalid during sync, logging out');
+        logout();
+        return false;
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('Error syncing verification status:', error);
+    }
+
+    return false;
   };
 
   const value: AuthContextType = {
@@ -438,6 +541,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updateProfile,
     clearError,
     updateUser,
+    syncVerificationStatus,
   };
 
   // Ensure there's a way for UI to reset a stuck loading state
@@ -455,6 +559,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
   return <AuthContext.Provider value={extendedValue}>{children}</AuthContext.Provider>;
 };
+
+// Export secure token storage for use in other files
+export { tokenStorage };
 
 // Hook
 export const useAuth = () => {

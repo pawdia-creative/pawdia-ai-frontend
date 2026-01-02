@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import * as Lucide from "lucide-react";
+import { tokenStorage } from "@/contexts/AuthContext";
 
 // Compatibility mapping: some TypeScript setups have trouble with named exports from lucide-react.
 // Map the icons we use to local constants (fallback to a noop component if missing).
@@ -593,7 +594,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Authorization': `Bearer ${tokenStorage.getToken() || ''}`
         },
         body: JSON.stringify({ amount: 1 })
       });
@@ -627,7 +628,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Authorization': `Bearer ${tokenStorage.getToken() || ''}`
         },
         body: JSON.stringify({ amount: 1 })
       });
