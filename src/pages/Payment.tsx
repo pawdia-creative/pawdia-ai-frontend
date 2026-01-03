@@ -1,19 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
 
 const Payment = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { state: cartState, clearCart } = useCart();
-  const { user } = useAuth();
-  
-  const [paypalOrderId, setPaypalOrderId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paypalError, setPaypalError] = useState<string>('');
 
@@ -42,7 +37,6 @@ const Payment = () => {
       };
 
       const orderId = await PaymentService.createOrder(orderData);
-      setPaypalOrderId(orderId);
       return orderId;
     } finally {
       setIsProcessing(false);
@@ -79,21 +73,22 @@ const Payment = () => {
   // Payment error handling
   const onError = (error: unknown) => {
     if (import.meta.env.DEV) console.error('[PAYMENT] PayPal SDK error:', error);
-    
+
     let errorMessage = 'An error occurred during payment. Please try again.';
-    
-    if (error && typeof error === 'object') {
-      if (error.message) {
-        if (error.message.includes('400') || error.message.includes('Bad Request')) {
+
+    if (error && typeof error === 'object' && error !== null) {
+      const errorObj = error as any;
+      if (errorObj.message) {
+        if (errorObj.message.includes('400') || errorObj.message.includes('Bad Request')) {
           errorMessage = 'PayPal Client ID is invalid or misconfigured. Please check: 1) Client ID value, 2) environment (Sandbox vs Live), 3) that your domain is authorized in the PayPal app.';
-        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        } else if (errorObj.message.includes('401') || errorObj.message.includes('Unauthorized')) {
           errorMessage = 'PayPal Client ID is not authorized. Please check your PayPal app settings.';
-        } else if (error.message.includes('client-id') || error.message.includes('MISSING_CLIENT_ID')) {
+        } else if (errorObj.message.includes('client-id') || errorObj.message.includes('MISSING_CLIENT_ID')) {
           errorMessage = 'PayPal is not properly configured. Please contact support.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        } else if (errorObj.message.includes('network') || errorObj.message.includes('fetch')) {
           errorMessage = 'Network error connecting to PayPal. Please check your internet connection and try again.';
         } else {
-          errorMessage = `PayPal error: ${error.message}`;
+          errorMessage = `PayPal error: ${errorObj.message}`;
         }
       }
     }
@@ -187,12 +182,23 @@ const Payment = () => {
                   </div>
                 </div>
               ) : (
-                <PayPalScriptProvider 
-                  options={{ 
+                <PayPalScriptProvider
+                  options={{
                     clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
                     currency: 'USD',
                     intent: 'capture',
-                    components: 'buttons'
+                    components: 'buttons',
+                    // Add environment-specific options
+                    ...(import.meta.env.DEV && {
+                      'enable-funding': 'venmo',
+                      'disable-funding': 'paylater,card'
+                    }),
+                    // Add client metadata for better error handling
+                    'data-client-metadata-id': 'pawdia-payment-' + Date.now()
+                  }}
+                  deferLoading={false}
+                  onError={(error: unknown) => {
+                    if (import.meta.env.DEV) console.error('[PAYMENT] PayPal Script Provider error:', error);
                   }}
                 >
                   <PayPalButtons

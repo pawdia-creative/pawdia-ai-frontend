@@ -124,6 +124,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   // Check secure storage for login status
+  // Periodic consistency check to ensure local data matches server state
+  useEffect(() => {
+    const consistencyCheck = async () => {
+      const token = tokenStorage.getToken();
+      const storedUserStr = localStorage.getItem('user');
+
+      if (token && storedUserStr) {
+        try {
+          const storedUser = JSON.parse(storedUserStr);
+          // Quick server check to ensure data consistency
+          const response = await fetch(`${API_BASE_URL}/auth/me`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: AbortSignal.timeout(5000) // 5 second timeout for consistency check
+          });
+
+          if (response.ok) {
+            const serverData = await response.json();
+            const serverUser = serverData.user;
+
+            // Check if local data matches server data
+            const localVerified = (storedUser?.isVerified === true || storedUser?.is_verified === 1);
+            const serverVerified = (serverUser?.isVerified === true || serverUser?.is_verified === 1);
+
+            if (localVerified !== serverVerified) {
+              console.warn('[AUTH] Data inconsistency detected, updating local state', {
+                localVerified,
+                serverVerified,
+                userId: storedUser.id
+              });
+
+              // Update local storage with correct server data
+              localStorage.setItem('user', JSON.stringify(serverUser));
+
+              // Update auth state if verification status changed
+              if (serverVerified) {
+                dispatch({ type: 'AUTH_SUCCESS', payload: serverUser });
+              } else {
+                dispatch({ type: 'AUTH_LOGOUT' });
+                try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+              }
+            }
+          }
+        } catch (error) {
+          // Ignore consistency check errors to avoid disrupting user experience
+          if (import.meta.env.DEV) console.debug('[AUTH] Consistency check failed:', error);
+        }
+      }
+    };
+
+    // Run consistency check every 30 seconds
+    const intervalId = setInterval(consistencyCheck, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   useEffect(() => {
     const checkAuthStatus = async () => {
       const token = tokenStorage.getToken();
@@ -189,10 +245,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // Store latest user info but only consider authenticated if verified
             localStorage.setItem('user', JSON.stringify(normalizedUser));
             if (normalizedUser.isVerified) {
+              console.log('[AUTH] User verified, allowing authentication', {
+                userId: normalizedUser.id,
+                userEmail: normalizedUser.email,
+                isVerified: normalizedUser.isVerified
+              });
               dispatch({ type: 'AUTH_SUCCESS', payload: normalizedUser });
             } else {
               // Keep token for resend flows but do not mark as authenticated
-              if (import.meta.env.DEV) console.warn('[AUTH] User not verified, marking as not authenticated');
+              console.warn('[AUTH] BLOCKING AUTH: User not verified, marking as not authenticated', {
+                userId: normalizedUser.id,
+                userEmail: normalizedUser.email,
+                isVerified: normalizedUser.isVerified,
+                isAdmin: normalizedUser.isAdmin
+              });
               dispatch({ type: 'AUTH_LOGOUT' });
             }
           } else if (response.status === 401) {

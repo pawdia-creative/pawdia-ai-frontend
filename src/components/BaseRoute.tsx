@@ -124,6 +124,48 @@ const BaseRoute = ({
     );
   }
 
+  // GLOBAL SECURITY CHECK: Always verify user status before allowing access
+  // This prevents any bypass of email verification
+  const token = tokenStorage.getToken();
+  const storedUserStr = localStorage.getItem('user');
+  const mustVerifyFlag = localStorage.getItem('must_verify');
+
+  if (token && storedUserStr) {
+    try {
+      const storedUser = JSON.parse(storedUserStr);
+      const isAdmin = (storedUser?.isAdmin === true) || (storedUser?.is_admin === 1);
+      const isVerified = (storedUser?.isVerified === true || storedUser?.is_verified === 1);
+
+      // CRITICAL: If must_verify flag is set, force verification regardless of stored data
+      if (mustVerifyFlag === '1') {
+        console.warn('[BaseRoute] GLOBAL BLOCK: must_verify flag active, forcing verification');
+        return <EmailVerificationRequired />;
+      }
+
+      // If user has token but is not verified and not admin, block access
+      if (!isVerified && !isAdmin) {
+        console.warn('[BaseRoute] GLOBAL BLOCK: User has token but not verified, forcing verification', {
+          userId: storedUser.id,
+          userEmail: storedUser.email,
+          isVerified,
+          isAdmin,
+          hasToken: !!token,
+          storedUserData: storedUser
+        });
+        return <EmailVerificationRequired />;
+      }
+    } catch (error) {
+      console.error('[BaseRoute] Error parsing stored user for global check:', error);
+      // If we can't parse stored user data, clear it to prevent issues
+      try {
+        localStorage.removeItem('user');
+        tokenStorage.clearToken();
+      } catch (clearError) {
+        console.error('[BaseRoute] Error clearing corrupted data:', clearError);
+      }
+    }
+  }
+
   // PRIORITY: Check if email verification is required BEFORE any other logic
   // This ensures that even if user is "authenticated", we still enforce verification
   if (requireEmailVerification) {
@@ -158,15 +200,22 @@ const BaseRoute = ({
 
     // FORCE verification check: if user exists but is not verified and not admin, show verification page
     if (currentUser && !isVerified && !isAdmin) {
-      if (import.meta.env.DEV) console.log('[BaseRoute] PRIORITY: User not verified, forcing EmailVerificationRequired');
+      console.warn('[BaseRoute] BLOCKING ACCESS: User not verified, showing EmailVerificationRequired', {
+        userId: currentUser.id,
+        userEmail: currentUser.email,
+        isVerified,
+        isAdmin,
+        userData: currentUser
+      });
       return <EmailVerificationRequired />;
     }
-  }
-  // If a MUST_VERIFY flag is present (explicit requirement), force verification UI regardless
-  const mustVerifyFlag = localStorage.getItem('must_verify');
-  if (mustVerifyFlag === '1') {
-    if (import.meta.env.DEV) console.log('[BaseRoute] must_verify flag present, forcing EmailVerificationRequired');
-    return <EmailVerificationRequired />;
+
+    // If a MUST_VERIFY flag is present (explicit requirement), force verification UI regardless
+    const mustVerifyFlag = localStorage.getItem('must_verify');
+    if (mustVerifyFlag === '1') {
+      console.warn('[BaseRoute] BLOCKING ACCESS: must_verify flag present, forcing EmailVerificationRequired');
+      return <EmailVerificationRequired />;
+    }
   }
 
   // Check if admin access is required

@@ -20,14 +20,52 @@ const EmailVerificationRequired: React.FC = () => {
   const navigate = useNavigate();
   const [isResending, setIsResending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [redirectAttempts] = useState(0);
+
+  // Debug info
+  const storedUserStr = localStorage.getItem('user');
+  const storedUser = storedUserStr ? JSON.parse(storedUserStr) : null;
+  const hasToken = !!tokenStorage.getToken();
+
+  console.log('[EmailVerificationRequired] Debug info:', {
+    authUser: user,
+    storedUser,
+    hasToken,
+    mustVerifyFlag: localStorage.getItem('must_verify'),
+    redirectAttempts
+  });
 
 
   const handleResendEmail = async () => {
+    // Prevent multiple simultaneous requests
+    if (isResending) return;
+
     setIsResending(true);
     try {
       const token = tokenStorage.getToken();
       if (!token) {
         toast.error('请先登录才能重新发送验证邮件');
+        logout(); // Clear any stale state
+        navigate('/login');
+        return;
+      }
+
+      // Validate token before making request
+      try {
+        const meCheck = await fetch(`${API_BASE_URL}/auth/me`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!meCheck.ok) {
+          console.warn('[EmailVerificationRequired] Token invalid, redirecting to login');
+          logout();
+          navigate('/login');
+          return;
+        }
+      } catch (tokenError) {
+        console.error('[EmailVerificationRequired] Token validation failed:', tokenError);
+        logout();
         navigate('/login');
         return;
       }
@@ -40,17 +78,20 @@ const EmailVerificationRequired: React.FC = () => {
         },
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setEmailSent(true);
-        toast.success('验证邮件已重新发送，请检查您的邮箱');
-      } else {
-        toast.error(data.message || '发送验证邮件失败，请稍后重试');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to resend verification email');
       }
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Resend verification error:', error);
-      toast.error('网络错误，请稍后重试');
+
+      await response.json(); // Ensure response is consumed
+      setEmailSent(true);
+      toast.success('验证邮件已重新发送，请检查您的邮箱');
+
+      // Reset email sent state after 5 seconds
+      setTimeout(() => setEmailSent(false), 5000);
+    } catch (error: any) {
+      console.error('Resend email error:', error);
+      toast.error(error.message || '重新发送验证邮件失败，请稍后重试');
     } finally {
       setIsResending(false);
     }
