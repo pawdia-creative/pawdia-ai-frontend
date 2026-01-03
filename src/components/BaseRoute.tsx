@@ -124,43 +124,43 @@ const BaseRoute = ({
     );
   }
 
-  // Check if email verification is required
-  // Only allow access when `isVerified` is explicitly true (or is_verified === 1).
-  // If `isVerified` is false or undefined, enforce verification UI to prevent bypass.
-  // However, allow admin users to bypass email verification
-
-  // Get user info - either from auth context or localStorage (for verification flow)
-  let currentUser = user;
-  if (!currentUser) {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        currentUser = JSON.parse(storedUser);
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('[BaseRoute] Error parsing stored user:', error);
+  // PRIORITY: Check if email verification is required BEFORE any other logic
+  // This ensures that even if user is "authenticated", we still enforce verification
+  if (requireEmailVerification) {
+    // Get user info - either from auth context or localStorage (for verification flow)
+    let currentUser = user;
+    if (!currentUser) {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          currentUser = JSON.parse(storedUser);
+        } catch (error) {
+          if (import.meta.env.DEV) console.error('[BaseRoute] Error parsing stored user:', error);
+        }
       }
     }
-  }
 
-  const isAdmin = (currentUser?.isAdmin === true) || (currentUser?.is_admin === 1);
-  const isVerified = (currentUser?.isVerified === true || currentUser?.is_verified === 1);
-  if (import.meta.env.DEV) {
+    const isAdmin = (currentUser?.isAdmin === true) || (currentUser?.is_admin === 1);
+    const isVerified = (currentUser?.isVerified === true || currentUser?.is_verified === 1);
+
     if (import.meta.env.DEV) {
-      console.log('[BaseRoute] Verification check:', {
+      console.log('[BaseRoute] PRIORITY verification check:', {
         requireEmailVerification,
         hasCurrentUser: !!currentUser,
         isVerified,
         isAdmin,
         currentUserId: currentUser?.id,
         currentUserEmail: currentUser?.email,
-        willShowVerificationRequired: (requireEmailVerification && currentUser && !isVerified && !isAdmin)
+        isAuthenticated,
+        willShowVerificationRequired: (currentUser && !isVerified && !isAdmin)
       });
     }
-  }
 
-  if (requireEmailVerification && currentUser && !isVerified && !isAdmin) {
-    if (import.meta.env.DEV) console.log('[BaseRoute] User not verified, showing EmailVerificationRequired');
-    return <EmailVerificationRequired />;
+    // FORCE verification check: if user exists but is not verified and not admin, show verification page
+    if (currentUser && !isVerified && !isAdmin) {
+      if (import.meta.env.DEV) console.log('[BaseRoute] PRIORITY: User not verified, forcing EmailVerificationRequired');
+      return <EmailVerificationRequired />;
+    }
   }
   // If a MUST_VERIFY flag is present (explicit requirement), force verification UI regardless
   const mustVerifyFlag = localStorage.getItem('must_verify');

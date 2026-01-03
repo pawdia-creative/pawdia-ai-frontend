@@ -26,6 +26,11 @@ export interface RegisterCredentials {
   confirmPassword: string;
 }
 
+export interface LoginResult extends User {
+  token: string;
+  isFirstLogin?: boolean;
+}
+
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -40,7 +45,7 @@ export interface UpdateProfileData {
 }
 
 export interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<User>;
+  login: (credentials: LoginCredentials) => Promise<LoginResult>;
   register: (credentials: RegisterCredentials) => Promise<any>;
   logout: () => void;
   clearError: () => void;

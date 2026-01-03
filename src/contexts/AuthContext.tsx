@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData } from '@/types/auth';
+import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult } from '@/types/auth';
 
 // API base URL - Use environment variable or Workers API
 const API_BASE_URL = (() => {
@@ -146,7 +146,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (USE_MOCK_AUTH) {
           if (import.meta.env.DEV) console.log('[AUTH] Mock auth check - using stored user data');
           const parsedUser = JSON.parse(storedUser);
-          dispatch({ type: 'AUTH_SUCCESS', payload: parsedUser });
+          // Even in mock mode, enforce email verification
+          const isVerified = (parsedUser.isVerified === true) || (parsedUser.is_verified === 1);
+          const isAdmin = (parsedUser.isAdmin === true) || (parsedUser.is_admin === 1);
+
+          if (isVerified || isAdmin) {
+            dispatch({ type: 'AUTH_SUCCESS', payload: parsedUser });
+          } else {
+            if (import.meta.env.DEV) console.warn('[AUTH] Mock user not verified, marking as not authenticated');
+            try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+            dispatch({ type: 'AUTH_LOGOUT' });
+          }
           dispatch({ type: 'AUTH_CHECKED' });
           return;
         }
@@ -261,7 +271,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const login = async (credentials: LoginCredentials): Promise<User> => {
+  const login = async (credentials: LoginCredentials): Promise<LoginResult> => {
     dispatch({ type: 'AUTH_START' });
 
     // Mock login for testing when API is unavailable
@@ -286,7 +296,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       dispatch({ type: 'AUTH_SUCCESS', payload: mockUser });
 
       if (import.meta.env.DEV) console.log('[AUTH] Mock login successful for:', credentials.email);
-      return mockUser;
+      return { ...mockUser, token: mockToken };
     }
 
     try {
@@ -304,51 +314,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Received token from login, but DO NOT persist it yet.
+      // 只获取token和基本用户信息，不在这里做验证检查
+      // 验证检查由Login组件负责，以确保每次登录都明确检测邮箱验证状态
       const tempToken = data.token;
-      let finalUser = { ...data.user };
+      const loginUser = { ...data.user };
 
-      // Use token (in-memory) to fetch /auth/me and confirm verification status
-      try {
-        const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${tempToken}`,
-          },
-        });
+      if (import.meta.env.DEV) console.log('[AUTH] Login successful, returning user data for verification check');
 
-        if (meResponse.ok) {
-          const meData = await meResponse.json();
-          finalUser = meData.user || finalUser;
-        } else {
-          if (import.meta.env.DEV) console.warn('[AUTH] /auth/me returned non-OK during login verification:', meResponse.status);
-        }
-      } catch (meErr) {
-        if (import.meta.env.DEV) console.warn('[AUTH] Error calling /auth/me after login:', meErr);
-      }
+      // Store token temporarily for verification check in Login component
+      tokenStorage.setToken(tempToken);
+      localStorage.setItem('user', JSON.stringify(loginUser));
 
-      // Normalize verification flag and admin status
-      const isVerified = (finalUser.isVerified === true) || (finalUser.is_verified === 1);
-      const isAdmin = (finalUser.isAdmin === true) || (finalUser.is_admin === 1);
+      // Return user data with token for Login component to handle verification check
+      return { ...loginUser, token: tempToken, isFirstLogin: data.isFirstLogin };
 
-      // Allow login if user is either verified OR is an admin
-      if (isVerified || isAdmin) {
-        // Store token securely and user data, mark authenticated
-        tokenStorage.setToken(tempToken);
-        localStorage.setItem('user', JSON.stringify(finalUser));
-        dispatch({ type: 'AUTH_SUCCESS', payload: finalUser });
-        return finalUser;
-      } else {
-        // User is not verified but we should still allow them to access verification flow
-        // Store token securely for verification purposes, but don't mark as authenticated
-        tokenStorage.setToken(tempToken);
-        localStorage.setItem('user', JSON.stringify(finalUser));
-        // Mark that the user must verify before accessing protected pages
-        try { localStorage.setItem('must_verify', '1'); } catch (e) {}
-        // Dispatch logout to indicate not authenticated, but token remains for verification
-        dispatch({ type: 'AUTH_LOGOUT' });
-        return finalUser;
-      }
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
       throw error;
