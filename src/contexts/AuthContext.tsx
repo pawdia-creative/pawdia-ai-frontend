@@ -372,7 +372,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const mockToken = 'mock-jwt-token-' + Date.now();
 
-      localStorage.setItem('token', mockToken);
+      // Persist verified mock session
+      tokenStorage.setToken(mockToken);
       localStorage.setItem('user', JSON.stringify(mockUser));
       safeAuthSuccess(mockUser);
 
@@ -392,23 +393,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const data = await response.json();
 
       if (!response.ok) {
+        dispatch({ type: 'AUTH_FAILURE', payload: data?.message || 'Login failed' });
         throw new Error(data.message || 'Login failed');
       }
 
-      // 只获取token和基本用户信息，不在这里做验证检查
-      // 验证检查由Login组件负责，以确保每次登录都明确检测邮箱验证状态
       const tempToken = data.token;
-      const loginUser = { ...data.user };
+      const claimedUser = data.user || {};
 
-      if (import.meta.env.DEV) console.log('[AUTH] Login successful, returning user data for verification check');
+      if (import.meta.env.DEV) console.log('[AUTH] Login successful, validating token and fetching user data...');
 
-      // Store token temporarily for verification check in Login component
+      // Persist token so verification/resend flows can work even for unverified users.
       tokenStorage.setToken(tempToken);
-      localStorage.setItem('user', JSON.stringify(loginUser));
 
-      // Return user data with token for Login component to handle verification check
-      return { ...loginUser, token: tempToken, isFirstLogin: data.isFirstLogin };
+      // Call /auth/me immediately to obtain canonical user info and verification status
+      try {
+        const meResp = await fetch(`${API_BASE_URL}/auth/me`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${tempToken}` },
+        });
 
+        if (!meResp.ok) {
+          // Token rejected — clear any stored token and fail
+          if (meResp.status === 401) {
+            tokenStorage.clearToken();
+            localStorage.removeItem('user');
+            dispatch({ type: 'AUTH_FAILURE', payload: 'Invalid credentials or expired token' });
+            throw new Error('Invalid credentials or expired token');
+          }
+          // For other errors, do not authenticate; keep token for possible resend flows but block access
+          dispatch({ type: 'AUTH_FAILURE', payload: 'Unable to validate login' });
+          try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) {}
+          try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+          dispatch({ type: 'AUTH_LOGOUT' });
+          return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
+        }
+
+        const meData = await meResp.json();
+        const serverUser = meData.user || claimedUser;
+        const normalizedUser = {
+          ...serverUser,
+          isVerified: (serverUser.isVerified !== undefined) ? serverUser.isVerified : (serverUser.is_verified === 1)
+        };
+
+        // Store canonical user representation
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+
+        const isVerified = normalizedUser.isVerified === true || (normalizedUser as any).is_verified === 1;
+        const isAdmin = normalizedUser.isAdmin === true || (normalizedUser as any).is_admin === 1;
+
+        if (isVerified || isAdmin) {
+          // Persist token and mark authenticated
+          tokenStorage.setToken(tempToken);
+          dispatch({ type: 'AUTH_SUCCESS', payload: normalizedUser });
+          if (import.meta.env.DEV) console.log('[AUTH] User verified — authentication granted', { email: normalizedUser.email });
+          return { ...normalizedUser, token: tempToken, isVerified, isAdmin, isFirstLogin: data.isFirstLogin };
+        } else {
+          // Keep token for resend flows but do NOT mark as authenticated
+          try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+          dispatch({ type: 'AUTH_LOGOUT' });
+          if (import.meta.env.DEV) console.warn('[AUTH] User not verified — blocking authentication', { email: normalizedUser.email });
+          return { ...normalizedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
+        }
+      } catch (err) {
+        // Network or unexpected error validating /auth/me
+        if (import.meta.env.DEV) console.error('[AUTH] Error validating token after login:', err);
+        // Keep token so user can resend verification, but do not authenticate
+        try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) {}
+        try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+        dispatch({ type: 'AUTH_LOGOUT' });
+        return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
+      }
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
       throw error;
