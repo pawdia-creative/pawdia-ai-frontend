@@ -125,14 +125,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   // Helper to safely mark user as authenticated only if verified or admin.
   const safeAuthSuccess = (user: User) => {
-    const isVerified = (user?.isVerified === true) || ((user as any)?.is_verified === 1);
-    const isAdmin = (user?.isAdmin === true) || ((user as any)?.is_admin === 1);
+    const isVerified = (user?.isVerified === true) || ((user as unknown as { is_verified?: number })?.is_verified === 1);
+    const isAdmin = (user?.isAdmin === true) || ((user as unknown as { is_admin?: number })?.is_admin === 1);
 
     if (isVerified || isAdmin) {
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
     } else {
       // Ensure we keep token for verification flows but do not mark as authenticated.
-      try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+      try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
       if (import.meta.env.DEV) console.warn('[AUTH] safeAuthSuccess blocked non-verified user', { userId: user?.id, email: user?.email });
       dispatch({ type: 'AUTH_LOGOUT' });
     }
@@ -178,7 +178,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 safeAuthSuccess(serverUser);
               } else {
                 dispatch({ type: 'AUTH_LOGOUT' });
-                try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+                try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
               }
             }
           }
@@ -225,7 +225,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             safeAuthSuccess(parsedUser);
           } else {
             if (import.meta.env.DEV) console.warn('[AUTH] Mock user not verified, marking as not authenticated');
-            try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+            try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
             dispatch({ type: 'AUTH_LOGOUT' });
           }
           dispatch({ type: 'AUTH_CHECKED' });
@@ -422,8 +422,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           // For other errors, do not authenticate; keep token for possible resend flows but block access
           dispatch({ type: 'AUTH_FAILURE', payload: 'Unable to validate login' });
-          try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) {}
-          try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+          try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore localStorage errors */ }
+          try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
           dispatch({ type: 'AUTH_LOGOUT' });
           return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
         }
@@ -438,8 +438,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Store canonical user representation
         localStorage.setItem('user', JSON.stringify(normalizedUser));
 
-        const isVerified = normalizedUser.isVerified === true || (normalizedUser as any).is_verified === 1;
-        const isAdmin = normalizedUser.isAdmin === true || (normalizedUser as any).is_admin === 1;
+        const isVerified = normalizedUser.isVerified === true;
+        const isAdmin = normalizedUser.isAdmin === true;
 
         if (isVerified || isAdmin) {
           // Persist token and mark authenticated
@@ -449,7 +449,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return { ...normalizedUser, token: tempToken, isVerified, isAdmin, isFirstLogin: data.isFirstLogin };
         } else {
           // Keep token for resend flows but do NOT mark as authenticated
-          try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+          try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
           dispatch({ type: 'AUTH_LOGOUT' });
           if (import.meta.env.DEV) console.warn('[AUTH] User not verified — blocking authentication', { email: normalizedUser.email });
           return { ...normalizedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
@@ -458,8 +458,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Network or unexpected error validating /auth/me
         if (import.meta.env.DEV) console.error('[AUTH] Error validating token after login:', err);
         // Keep token so user can resend verification, but do not authenticate
-        try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) {}
-        try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+        try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore localStorage errors */ }
+        try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
         dispatch({ type: 'AUTH_LOGOUT' });
         return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
       }

@@ -1,0 +1,19 @@
+
+ ⛅️ wrangler 4.54.0
+───────────────────
+Successfully created tail, expires at 2026-01-04T11:58:19Z
+Connected to pawdia-ai-api, waiting for logs...
+POST https://pawdia-ai-api.pawdia-creative.workers.dev/api/auth/resend-verification - Ok @ 1/4/2026, 4:20:03 PM
+  (log) [resend-verification] Starting token validation with JWT parsing
+  (log) [resend-verification] JWT payload: {
+  sub: '9c275873-0ea7-479c-a517-761f89c99e2f',
+  iat: 1767514765,
+  exp: 1768119565
+}
+  (log) [resend-verification] Looking up user by ID from JWT: 9c275873-0ea7-479c-a517-761f89c99e2f
+  (log) [resend-verification] Database lookup result: {
+  id: '9c275873-0ea7-479c-a517-761f89c99e2f',
+  email: 'tms1997tmq+e2edemo1@gmail.com'
+}
+  (log) [resend-verification] User found successfully via JWT parsing
+GET https://pawdia-ai-api.pawdia-creative.workers.dev/api - Ok @ 1/4/2026, 4:29:03 PM

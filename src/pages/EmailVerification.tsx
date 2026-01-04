@@ -62,7 +62,7 @@ const EmailVerification = () => {
           try {
             await syncVerificationStatus();
                   // Clear must_verify flag when verification succeeds
-                  try { localStorage.removeItem('must_verify'); } catch (e) {}
+                  try { localStorage.removeItem('must_verify'); } catch (e) { /* Ignore localStorage errors */ }
           } catch (syncError) {
             if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Error syncing verification status:', syncError);
             }
@@ -76,7 +76,7 @@ const EmailVerification = () => {
           setStatus('error');
           setMessage(data.message || 'Email verification failed. Please try again.');
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Email verification error:', error);
 
         // Better error handling for different error types
@@ -94,7 +94,7 @@ const EmailVerification = () => {
     };
 
     verifyEmail();
-  }, [searchParams, updateUser]);
+  }, [searchParams, updateUser, syncVerificationStatus, navigate]);
 
   const getStatusIcon = () => {
     switch (status) {

@@ -6,13 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
 import { toast } from 'sonner';
 import { tokenStorage } from '@/contexts/AuthContext';
-import * as Lucide from 'lucide-react';
-
-// Map icons with safe fallbacks in case named exports differ between environments
-const Globe = (Lucide as any).Globe ?? (() => null);
-const Activity = (Lucide as any).Activity ?? (() => null);
-const Users = (Lucide as any).Users ?? (() => null);
-const TrendingUp = (Lucide as any).TrendingUp ?? (() => null);
+import { Globe, Activity, Users, TrendingUp } from 'lucide-react';
 
 // Analytics data interfaces
 interface ApiEndpointStat {
@@ -384,12 +378,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   >
                     <LineChart data={analytics.dailyStats}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      {(XAxis as any)({ dataKey: "period", tick: { fontSize: 10 } })}
-                      {(YAxis as any)({})}
-                      {(ChartTooltip as any)({ content: <ChartTooltipContent /> })}
-                      {(Legend as any)({})}
-                      {(Line as any)({ type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false })}
-                      {(Line as any)({ type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })}
+                      <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Legend />
+                      <Line type="monotone" dataKey="page_views" stroke="hsl(var(--primary))" dot={false} />
+                      <Line type="monotone" dataKey="api_calls" stroke="hsl(var(--secondary))" dot={false} />
                     </LineChart>
                   </ChartContainer>
                 ) : (
@@ -410,12 +404,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   >
                     <LineChart data={analytics.monthlyStats}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      {(XAxis as any)({ dataKey: "period", tick: { fontSize: 10 } })}
-                      {(YAxis as any)({})}
-                      {(ChartTooltip as any)({ content: <ChartTooltipContent /> })}
-                      {(Legend as any)({})}
-                      {(Line as any)({ type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false })}
-                      {(Line as any)({ type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })}
+                      <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Legend />
+                      <Line type="monotone" dataKey="page_views" stroke="hsl(var(--primary))" dot={false} />
+                      <Line type="monotone" dataKey="api_calls" stroke="hsl(var(--secondary))" dot={false} />
                     </LineChart>
                   </ChartContainer>
                 ) : (
@@ -436,12 +430,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   >
                     <LineChart data={analytics.yearlyStats}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      {(XAxis as any)({ dataKey: "period", tick: { fontSize: 10 } })}
-                      {(YAxis as any)({})}
-                      {(ChartTooltip as any)({ content: <ChartTooltipContent /> })}
-                      {(Legend as any)({})}
-                      {(Line as any)({ type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false })}
-                      {(Line as any)({ type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })}
+                      <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Legend />
+                      <Line type="monotone" dataKey="page_views" stroke="hsl(var(--primary))" dot={false} />
+                      <Line type="monotone" dataKey="api_calls" stroke="hsl(var(--secondary))" dot={false} />
                     </LineChart>
                   </ChartContainer>
                 ) : (

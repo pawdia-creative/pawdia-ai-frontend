@@ -44,9 +44,16 @@ export interface UpdateProfileData {
   email?: string;
 }
 
+export interface RegisterResult {
+  message: string;
+  user: User;
+  emailSent?: boolean;
+  emailError?: string | null;
+}
+
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
-  register: (credentials: RegisterCredentials) => Promise<any>;
+  register: (credentials: RegisterCredentials) => Promise<RegisterResult>;
   logout: () => void;
   clearError: () => void;
   updateProfile: (data: UpdateProfileData) => Promise<void>;

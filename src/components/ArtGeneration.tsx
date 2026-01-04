@@ -1,20 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import * as Lucide from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  RefreshCw,
+  AlertCircle,
+  Settings,
+  Coins,
+  AlertTriangle,
+  MoveHorizontal,
+  Wand2 as Wand
+} from "lucide-react";
 import { tokenStorage } from "@/contexts/AuthContext";
-
-// Compatibility mapping: some TypeScript setups have trouble with named exports from lucide-react.
-// Map the icons we use to local constants (fallback to a noop component if missing).
-const ArrowLeft = (Lucide as any).ArrowLeft ?? (() => null);
-const Download = (Lucide as any).Download ?? (() => null);
-const RefreshCw = (Lucide as any).RefreshCw ?? (() => null);
-const AlertCircle = (Lucide as any).AlertCircle ?? (() => null);
-const Settings = (Lucide as any).Settings ?? (() => null);
-const Coins = (Lucide as any).Coins ?? (() => null);
-const AlertTriangle = (Lucide as any).AlertTriangle ?? (() => null);
-const MoveHorizontal = (Lucide as any).MoveHorizontal ?? (() => null);
-const Wand = (Lucide as any).Wand ?? (() => null);
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -84,7 +82,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   ];
 
   // Plan-based constraints
-  const planConfig: Record<PlanKey, {
+  const planConfig = useMemo((): Record<PlanKey, {
     dpiOptions: number[];
     resolutionOptions: { value: string; label: string }[];
     qualityOptions: string[];
@@ -92,7 +90,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     defaultResolution: string;
     defaultQuality: string;
     maxSize: number;
-  }> = {
+  }> => ({
     free: {
       dpiOptions: [72],
       resolutionOptions: [
@@ -129,7 +127,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       defaultQuality: 'ultra',
       maxSize: 2160,
     }
-  } as const;
+  } as const), []);
 
   const currentConfig = planConfig[plan as PlanKey] || planConfig.free;
   
@@ -562,12 +560,12 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   // Update DPI, resolution, and quality when subscription plan changes
   useEffect(() => {
     const newConfig = planConfig[plan] || planConfig.free;
-    
+
     // Always update to plan defaults when plan changes
     setDpi(newConfig.defaultDpi);
     setResolution(newConfig.defaultResolution);
     setQuality(newConfig.defaultQuality);
-  }, [plan]);
+  }, [plan, planConfig]);
   
   // Check if user has sufficient credits
   const checkCredits = async () => {

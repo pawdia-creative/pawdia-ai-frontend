@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import * as Lucide from "lucide-react";
-const ArrowLeft = (Lucide as any).ArrowLeft ?? (() => null);
-const Upload = (Lucide as any).Upload ?? (() => null);
-const Wand = (Lucide as any).Wand ?? (() => null);
-const Download = (Lucide as any).Download ?? (() => null);
-const MoveHorizontal = (Lucide as any).MoveHorizontal ?? (() => null);
+import { ArrowLeft, Upload, Wand2 as Wand, Download, MoveHorizontal } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ImageUpload } from "../components/ImageUpload";
 import { StyleSelection } from "../components/StyleSelection";

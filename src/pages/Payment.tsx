@@ -77,7 +77,7 @@ const Payment = () => {
     let errorMessage = 'An error occurred during payment. Please try again.';
 
     if (error && typeof error === 'object' && error !== null) {
-      const errorObj = error as any;
+      const errorObj = error as { message?: string };
       if (errorObj.message) {
         if (errorObj.message.includes('400') || errorObj.message.includes('Bad Request')) {
           errorMessage = 'PayPal Client ID is invalid or misconfigured. Please check: 1) Client ID value, 2) environment (Sandbox vs Live), 3) that your domain is authorized in the PayPal app.';

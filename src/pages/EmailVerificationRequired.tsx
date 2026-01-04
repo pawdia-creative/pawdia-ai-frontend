@@ -73,8 +73,10 @@ const EmailVerificationRequired: React.FC = () => {
       // Some backends expect the email in the POST body; include it when available.
       const storedUserStr = localStorage.getItem('user');
       const storedUser = storedUserStr ? JSON.parse(storedUserStr) : null;
-      const bodyPayload: any = {};
-      if (storedUser && storedUser.email) bodyPayload.email = storedUser.email;
+      const bodyPayload: { email?: string } = {};
+      if (storedUser && typeof storedUser === 'object' && 'email' in storedUser && typeof storedUser.email === 'string') {
+        bodyPayload.email = storedUser.email;
+      }
 
       const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
         method: 'POST',
@@ -86,7 +88,7 @@ const EmailVerificationRequired: React.FC = () => {
       });
 
       // Parse response body if available and present helpful message
-      let responseBody: any = {};
+      let responseBody: { message?: string; error?: string } = {};
       try { responseBody = await response.json(); } catch (e) { responseBody = {}; }
 
       // Check the actual response message to determine success/failure
@@ -118,9 +120,10 @@ const EmailVerificationRequired: React.FC = () => {
 
       // Reset email sent state after 5 seconds
       setTimeout(() => setEmailSent(false), 5000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Resend email error:', error);
-      toast.error(error.message || '重新发送验证邮件失败，请稍后重试');
+      const errorMessage = error instanceof Error ? error.message : '重新发送验证邮件失败，请稍后重试';
+      toast.error(errorMessage);
     } finally {
       setIsResending(false);
     }

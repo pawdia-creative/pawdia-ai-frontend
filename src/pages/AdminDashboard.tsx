@@ -1,31 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
 import UserManagement from '@/components/admin/UserManagement';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
-import * as Lucide from 'lucide-react';
+import { Users, BarChart3, Mail } from 'lucide-react';
 
-// Map icons with safe fallbacks in case named exports differ between environments
-const Users = (Lucide as any).Users ?? (() => null);
-const BarChart3 = (Lucide as any).BarChart3 ?? (() => null);
-const Mail = (Lucide as any).Mail ?? (() => null);
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  credits: number;
+  isVerified: boolean;
+  isAdmin: boolean;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+interface EmailStats {
+  totalUsers: number;
+  verifiedUsers: number;
+  unverifiedUsers: number;
+  verificationRate: number;
+}
 
 const AdminDashboard = () => {
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(50);
   const [total, setTotal] = useState<number>(0);
   const [activeTab, setActiveTab] = useState('users');
-  const [emailStats, setEmailStats] = useState<any>(null);
+  const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
   const [emailStatsLoading, setEmailStatsLoading] = useState(false);
 
   // Get email statistics
-  const fetchEmailStats = async () => {
+  const fetchEmailStats = useCallback(async () => {
     try {
       setEmailStatsLoading(true);
       const token = tokenStorage.getToken();
@@ -48,10 +61,10 @@ const AdminDashboard = () => {
     } finally {
       setEmailStatsLoading(false);
     }
-  };
+  }, []);
 
   // Get user list
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const token = tokenStorage.getToken();
       const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
@@ -64,7 +77,7 @@ const AdminDashboard = () => {
       if (response.ok) {
         const data = await response.json();
         // Filter out users with null or undefined IDs
-        const validUsers = (data.users || []).filter((u: any) => u.id != null && u.id !== 'null' && u.id !== '');
+        const validUsers = (data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
         setUsers(validUsers);
         setTotal(Number(data.total || 0));
       } else {
@@ -76,22 +89,22 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, page, perPage]);
 
   useEffect(() => {
     fetchUsers();
-  }, [searchTerm]);
+  }, [searchTerm, fetchUsers]);
 
   useEffect(() => {
     if (activeTab === 'emails' && !emailStats) {
       fetchEmailStats();
     }
-  }, [activeTab]);
+  }, [activeTab, emailStats, fetchEmailStats]);
 
   useEffect(() => {
     // refetch when page or perPage changes
     fetchUsers();
-  }, [page, perPage]);
+  }, [page, perPage, fetchUsers]);
 
   if (!currentUser || !currentUser.isAdmin) {
     return (
@@ -204,7 +217,7 @@ const AdminDashboard = () => {
                   <h3 className="text-lg font-semibold">Recent Email Events</h3>
                 </div>
                 <div className="divide-y">
-                  {emailStats.recentEvents.slice(0, 20).map((event: any, index: number) => (
+                  {emailStats.recentEvents.slice(0, 20).map((event: { event_type: string; email: string; created_at: string }, index: number) => (
                     <div key={index} className="p-4 flex justify-between items-center">
               <div>
                         <span className={`inline-block px-2 py-1 text-xs rounded-full ${

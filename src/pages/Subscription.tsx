@@ -3,15 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
-import * as Lucide from 'lucide-react';
-
-// Map icons with safe fallbacks in case named exports differ between environments
-const Coins = (Lucide as any).Coins ?? (() => null);
-const Crown = (Lucide as any).Crown ?? (() => null);
-const Zap = (Lucide as any).Zap ?? (() => null);
-const Star = (Lucide as any).Star ?? (() => null);
-const Check = (Lucide as any).Check ?? (() => null);
-const ArrowLeft = (Lucide as any).ArrowLeft ?? (() => null);
+import { Coins, Crown, Zap, Star, Check, ArrowLeft } from 'lucide-react';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
 import { MetaTags } from '@/components/SEO/MetaTags';
@@ -269,7 +261,7 @@ const Subscription: React.FC = () => {
     let errorMessage = 'PayPal payment service is currently unavailable. Please try again later.';
     
     if (error && typeof error === 'object' && error !== null) {
-      const errorObj = error as any;
+      const errorObj = error as { message?: string };
       if (errorObj.message) {
         if (errorObj.message.includes('client-id') || errorObj.message.includes('MISSING_CLIENT_ID')) {
           errorMessage = 'PayPal is not properly configured. Please contact support.';

@@ -41,7 +41,7 @@ const BaseRoute = ({
         publicForGuests
       });
     }
-  }, [isAuthenticated, isLoading, checkedAuth]); // 减少依赖项，防止过度重新渲染
+  }, [isAuthenticated, isLoading, checkedAuth, user, publicForGuests, location.pathname]); // 减少依赖项，防止过度重新渲染
 
   // Only redirect to login *after* we've completed the initial auth check.
   // Simplified logic to prevent infinite loops
@@ -56,7 +56,7 @@ const BaseRoute = ({
         navigate(redirectPath, { state: { from: location }, replace: true });
       }
     }
-  }, [checkedAuth, isLoading, isAuthenticated, publicForGuests, navigate, redirectPath, location.pathname]); // 优化依赖项
+  }, [checkedAuth, isLoading, isAuthenticated, publicForGuests, navigate, redirectPath, location]); // 优化依赖项
 
   if (isLoading) {
     if (import.meta.env.DEV) console.log('[BaseRoute] Loading, showing spinner');

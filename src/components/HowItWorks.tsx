@@ -1,9 +1,4 @@
-import * as Lucide from "lucide-react";
-
-const Upload = (Lucide as any).Upload ?? (() => null);
-const Wand = (Lucide as any).Wand ?? (() => null);
-const Coins = (Lucide as any).Coins ?? (() => null);
-const Truck = (Lucide as any).Truck ?? (() => null);
+import { Upload, Wand2 as Wand, Coins, Truck } from "lucide-react";
 
 const steps = [
   {

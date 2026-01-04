@@ -130,7 +130,6 @@ function fileToBase64(file: File): Promise<string> {
 
 
 // Light sharpening filter (faster than advanced sharpening)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 
 

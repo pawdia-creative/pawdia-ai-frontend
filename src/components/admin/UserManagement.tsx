@@ -8,16 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
-import * as Lucide from 'lucide-react';
-
-// Map icons with safe fallbacks in case named exports differ between environments
-const Search = (Lucide as any).Search ?? (() => null);
-const CreditCard = (Lucide as any).CreditCard ?? (() => null);
-const Eye = (Lucide as any).Eye ?? (() => null);
-const Save = (Lucide as any).Save ?? (() => null);
-const ShieldCheck = (Lucide as any).ShieldCheck ?? (() => null);
-const KeyRound = (Lucide as any).KeyRound ?? (() => null);
-const Trash2 = (Lucide as any).Trash2 ?? (() => null);
+import { Search, CreditCard, Eye, Save, ShieldCheck, KeyRound, Trash2 } from 'lucide-react';
 
 interface User {
   id: string;
@@ -419,23 +410,19 @@ const UserManagement: React.FC<UserManagementProps> = ({
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      {/* @ts-ignore */}
                       <Badge variant="outline">{user.credits} Credits</Badge>
                     </TableCell>
                     <TableCell>
-                      {/* @ts-ignore */}
                       <Badge variant={user.isAdmin ? "default" : "secondary"}>
                         {user.isAdmin ? "Admin" : "User"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {/* @ts-ignore */}
                       <Badge variant={user.subscription?.plan ? "default" : "secondary"}>
                         {user.subscription?.plan || 'Free'}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {/* @ts-ignore */}
                       <Badge variant={
                         user.subscription?.status === 'active' ? "default" :
                         user.subscription?.status === 'expired' ? "destructive" :
@@ -526,7 +513,6 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 <div>
                   <Label className="text-sm font-medium">Subscription Plan</Label>
                   <div className="mt-1 p-2 bg-muted rounded">
-                    {/* @ts-ignore */}
                     <Badge variant={selectedUser.subscription?.plan ? "default" : "secondary"}>
                       {selectedUser.subscription?.plan || 'Free'}
                     </Badge>
@@ -535,7 +521,6 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 <div>
                   <Label className="text-sm font-medium">Subscription Status</Label>
                   <div className="mt-1 p-2 bg-muted rounded">
-                    {/* @ts-ignore */}
                     <Badge variant={
                       selectedUser.subscription?.status === 'active' ? "default" :
                       selectedUser.subscription?.status === 'expired' ? "destructive" :

@@ -31,8 +31,9 @@ const Register: React.FC = () => {
       toast.success('Registration successful! Please check your email to verify your account.');
       }
 
-      // Always redirect to email verification info page
-      navigate('/verify-email');
+      // Always redirect to verification-required page to simplify flow
+      try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
+      navigate('/verify-required');
     } catch (error) {
       // Error is handled by the context and useEffect
     }
