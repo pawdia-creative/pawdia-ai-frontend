@@ -1,0 +1,67 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  publish-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: (Optional) Upload Worker secrets to Cloudflare
+        if: ${{ secrets.JWT_SECRET || secrets.RESEND_API_KEY || secrets.SENDGRID_API_KEY || secrets.FRONTEND_URL }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          RESEND_DOMAIN: ${{ secrets.RESEND_DOMAIN }}
+        run: |
+          # Configure Wrangler auth from API token
+          wrangler login --api-token "${CF_API_TOKEN}" || true
+
+          # Only upload secrets that are present in the repo secrets
+          if [ -n "${JWT_SECRET}" ]; then
+            printf "%s" "${JWT_SECRET}" | wrangler secret put JWT_SECRET --account-id "${CF_ACCOUNT_ID}" || true
+          fi
+          if [ -n "${RESEND_API_KEY}" ]; then
+            printf "%s" "${RESEND_API_KEY}" | wrangler secret put RESEND_API_KEY --account-id "${CF_ACCOUNT_ID}" || true
+          fi
+          if [ -n "${SENDGRID_API_KEY}" ]; then
+            printf "%s" "${SENDGRID_API_KEY}" | wrangler secret put SENDGRID_API_KEY --account-id "${CF_ACCOUNT_ID}" || true
+          fi
+          if [ -n "${FRONTEND_URL}" ]; then
+            printf "%s" "${FRONTEND_URL}" | wrangler secret put FRONTEND_URL --account-id "${CF_ACCOUNT_ID}" || true
+          fi
+          if [ -n "${RESEND_FROM}" ]; then
+            printf "%s" "${RESEND_FROM}" | wrangler secret put RESEND_FROM --account-id "${CF_ACCOUNT_ID}" || true
+          fi
+          if [ -n "${RESEND_DOMAIN}" ]; then
+            printf "%s" "${RESEND_DOMAIN}" | wrangler secret put RESEND_DOMAIN --account-id "${CF_ACCOUNT_ID}" || true
+          fi
+
+      - name: Publish Worker
+        uses: cloudflare/wrangler-action@2
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          workingDirectory: ./
+          command: publish
+        env:
+          # Ensure Cloudflare account id is available to wrangler if needed
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+
+
