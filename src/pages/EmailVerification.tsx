@@ -160,9 +160,11 @@ const EmailVerification = () => {
               </Button>
             )}
             {status === 'success' && !hasToken && (
-              <Button 
+            <Button 
                 className="flex-1"
-                onClick={() => navigate('/login', { state: { preResend: true } })}
+                // If user reached here without a token (post-registration),
+                // send them straight to the verification-required UI so they cannot bypass verification.
+                onClick={() => navigate('/verify-required')}
               >
                 Log in
               </Button>

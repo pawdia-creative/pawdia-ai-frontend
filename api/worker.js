@@ -215,7 +215,7 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
       return { sent: true, provider: 'resend' };
     }
 
-    console.warn('Primary email service (Resend) failed, trying backup service...');
+    console.warn('Primary email service (Resend) failed, error:', primaryResult.error || primaryResult, 'trying backup service...');
 
     // Try backup service (SendGrid)
     const backupResult = await sendViaSendGrid(env, toEmail, toName, subject, html);
@@ -223,7 +223,7 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
       return { sent: true, provider: 'sendgrid', fallback: true };
     }
 
-    console.error('All email services failed');
+    console.error('All email services failed', { primaryError: primaryResult.error, backupError: backupResult.error });
     return {
       sent: false,
       error: 'All email services failed',
@@ -784,35 +784,38 @@ export default {
 
         if (authHeader && authHeader.startsWith('Bearer ')) {
           const token = authHeader.slice(7);
-          // Try to validate token by calling /auth/me
-        try {
-          const meResponse = await fetch(`${new URL(request.url).origin}/api/auth/me`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-            if (meResponse.ok) {
-              const meData = await meResponse.json().catch(() => ({}));
-              const currentUser = meData.user;
-              if (currentUser && currentUser.email) {
-                user = await getUserByEmail(env.DB, currentUser.email);
-                actingViaAuth = true;
-                // ensure match
-                if (user && user.id !== currentUser.id) {
-                  return new Response(JSON.stringify({ message: 'Authentication mismatch' }), { status: 403, headers: corsHeaders });
-                }
-              } else {
-            return new Response(JSON.stringify({ message: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
-          }
-            } else {
-              // token invalid or expired
-              if (import.meta.env && ((env.ENVIRONMENT || '').toLowerCase() === 'development')) {
-                console.warn('[resend-verification] /auth/me returned non-OK:', meResponse.status);
-              }
-              // allow fallback to email-based resend if body.email provided
+          console.log('[resend-verification] Starting token validation with JWT parsing');
+
+          // Parse JWT token directly instead of calling /auth/me (avoiding potential recursion)
+          try {
+            // Decode JWT payload
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+              console.log('[resend-verification] Invalid JWT format');
+              return new Response(JSON.stringify({ message: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
             }
-        } catch (authError) {
-          console.error('Token verification failed:', authError);
-            // allow fallback to email-based resend if body.email provided
+
+            const payload = JSON.parse(atob(parts[1]));
+            console.log('[resend-verification] JWT payload:', { sub: payload.sub, iat: payload.iat, exp: payload.exp });
+
+            if (payload.sub) {
+              console.log('[resend-verification] Looking up user by ID from JWT:', payload.sub);
+              user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(payload.sub).first();
+              console.log('[resend-verification] Database lookup result:', user ? { id: user.id, email: user.email } : 'null');
+
+              if (user) {
+                actingViaAuth = true;
+                console.log('[resend-verification] User found successfully via JWT parsing');
+              } else {
+                console.log('[resend-verification] User not found in database for ID:', payload.sub);
+              }
+            } else {
+              console.log('[resend-verification] No user ID in JWT payload');
+              return new Response(JSON.stringify({ message: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
+            }
+          } catch (jwtError) {
+            console.error('[resend-verification] JWT parsing failed:', jwtError);
+            return new Response(JSON.stringify({ message: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
           }
         }
 
@@ -871,12 +874,7 @@ export default {
         if (!sendResult.sent) {
           // Log failure and return a helpful message without exposing internal errors
           console.warn('Verification email not sent:', sendResult.error || sendResult.link);
-          // Update last_verification_sent to prevent retry storms only if email attempt was made
-          try {
-            await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(user.id).run();
-          } catch (e) {
-            console.warn('Failed to update last_verification_sent after failed send:', e);
-          }
+          // Do NOT update last_verification_sent on failure so users can retry after transient provider errors.
           return new Response(JSON.stringify({ message: 'Unable to send verification email at this time. Please try again later.' }), { status: 200, headers: corsHeaders });
         }
 
@@ -968,11 +966,13 @@ export default {
             }
           }
 
-          // update last_verification_sent regardless to prevent immediate retries
-          try {
-            await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(userId).run();
-          } catch (e) {
-            console.warn('Failed to update last_verification_sent on registration:', e);
+          // Only update last_verification_sent when email was actually sent successfully.
+          if (emailSent) {
+            try {
+              await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(userId).run();
+            } catch (e) {
+              console.warn('Failed to update last_verification_sent on registration:', e);
+            }
           }
         } catch (err) {
           console.error('Post-registration verification error:', err);

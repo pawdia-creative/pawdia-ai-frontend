@@ -189,8 +189,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    // Run consistency check every 30 seconds
-    const intervalId = setInterval(consistencyCheck, 30000);
+    // Run consistency check every 2 minutes to reduce API calls and prevent loops
+    const intervalId = setInterval(consistencyCheck, 120000);
 
     return () => clearInterval(intervalId);
   }, []);

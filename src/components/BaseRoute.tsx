@@ -24,54 +24,39 @@ const BaseRoute = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 添加调试日志
+  // 添加调试日志 - 只在开发模式下且关键状态变化时输出
   useEffect(() => {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && (isAuthenticated || checkedAuth || isLoading)) {
       const token = tokenStorage.getToken();
       const storedUser = localStorage.getItem('user');
-      if (import.meta.env.DEV) {
-        console.log('[BaseRoute] Auth state:', {
-          isAuthenticated,
-          isLoading,
-          checkedAuth,
-          hasUser: !!user,
-          userVerified: user?.isVerified || user?.is_verified,
-          hasToken: !!token,
-          hasStoredUser: !!storedUser,
-          path: location.pathname,
-          publicForGuests
-        });
-      }
+      console.log('[BaseRoute] Auth state:', {
+        isAuthenticated,
+        isLoading,
+        checkedAuth,
+        hasUser: !!user,
+        userVerified: user?.isVerified || user?.is_verified,
+        hasToken: !!token,
+        hasStoredUser: !!storedUser,
+        path: location.pathname,
+        publicForGuests
+      });
     }
-  }, [isAuthenticated, isLoading, checkedAuth, user, location.pathname, publicForGuests]);
+  }, [isAuthenticated, isLoading, checkedAuth]); // 减少依赖项，防止过度重新渲染
 
   // Only redirect to login *after* we've completed the initial auth check.
-  // But allow access to verification flow even if not authenticated (for email verification)
-  // And allow public access for guests if publicForGuests is true
+  // Simplified logic to prevent infinite loops
   useEffect(() => {
-    if (!isLoading && checkedAuth && !isAuthenticated) {
-      // Check if user has a token (might be in verification flow)
+    if (checkedAuth && !isLoading && !isAuthenticated && !publicForGuests) {
       const token = tokenStorage.getToken();
       const storedUser = localStorage.getItem('user');
-      const hasStoredCredentials = !!(token && storedUser);
 
-      if (hasStoredCredentials) {
-        // User has token but not authenticated - might be in verification flow
-        // Don't redirect to login, let the verification check below handle it
-        if (import.meta.env.DEV) console.log('[BaseRoute] User has token but not authenticated - checking verification status');
-        return;
+      // Only redirect if user has no stored credentials
+      if (!token || !storedUser) {
+        if (import.meta.env.DEV) console.log('[BaseRoute] No credentials, redirecting to login from:', location.pathname);
+        navigate(redirectPath, { state: { from: location }, replace: true });
       }
-
-      // No stored credentials - check if public access is allowed
-      if (publicForGuests) {
-        if (import.meta.env.DEV) console.log('[BaseRoute] Public access allowed for guests, not redirecting');
-        return;
-      }
-
-      if (import.meta.env.DEV) console.log('[BaseRoute] Not authenticated and no token, navigating to login from:', location.pathname);
-      navigate(redirectPath, { state: { from: location }, replace: true });
     }
-  }, [isAuthenticated, isLoading, checkedAuth, navigate, redirectPath, location, publicForGuests]);
+  }, [checkedAuth, isLoading, isAuthenticated, publicForGuests, navigate, redirectPath, location.pathname]); // 优化依赖项
 
   if (isLoading) {
     if (import.meta.env.DEV) console.log('[BaseRoute] Loading, showing spinner');
@@ -82,139 +67,35 @@ const BaseRoute = ({
     );
   }
 
-  // If auth check is complete but still not authenticated, check if we should show verification
-  if (checkedAuth && !isAuthenticated) {
+  // Simplified verification logic - avoid complex parsing during render
+  if (checkedAuth && !isAuthenticated && requireEmailVerification) {
     const token = tokenStorage.getToken();
     const storedUserStr = localStorage.getItem('user');
+    const mustVerifyFlag = localStorage.getItem('must_verify');
+
+    // Check must_verify flag first
+    if (mustVerifyFlag === '1') {
+      if (import.meta.env.DEV) console.warn('[BaseRoute] must_verify flag active, showing verification page');
+      return <EmailVerificationRequired />;
+    }
+
+    // Check if user has credentials but is not verified
     if (token && storedUserStr) {
       try {
         const storedUser = JSON.parse(storedUserStr);
+        const isAdmin = (storedUser?.isAdmin === true) || (storedUser?.is_admin === 1);
         const isVerified = (storedUser?.isVerified === true || storedUser?.is_verified === 1);
-        const isAdmin = (storedUser?.isAdmin === true || storedUser?.is_admin === 1);
 
-        if (import.meta.env.DEV) {
-          if (import.meta.env.DEV) {
-            console.log('[BaseRoute] Auth check complete, user has token but not authenticated:', {
-              isVerified,
-              isAdmin,
-              requireEmailVerification,
-              willShowVerification: (requireEmailVerification && !isVerified && !isAdmin)
-            });
-          }
-        }
-
-        if (requireEmailVerification && !isVerified && !isAdmin) {
+        if (!isVerified && !isAdmin) {
+          if (import.meta.env.DEV) console.warn('[BaseRoute] User not verified, showing verification page');
           return <EmailVerificationRequired />;
         }
       } catch (error) {
-        if (import.meta.env.DEV) console.error('[BaseRoute] Error parsing stored user for verification check:', error);
-      }
-    }
-  }
-
-  // Special handling for users with tokens but not authenticated (verification flow)
-  const hasStoredCredentials = !!tokenStorage.getToken() && !!localStorage.getItem('user');
-
-  if (!isAuthenticated && (!checkedAuth || isLoading) && !hasStoredCredentials) {
-    // Still checking auth status and no stored credentials, show spinner
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  // GLOBAL SECURITY CHECK: Always verify user status before allowing access
-  // This prevents any bypass of email verification
-  const token = tokenStorage.getToken();
-  const storedUserStr = localStorage.getItem('user');
-  const mustVerifyFlag = localStorage.getItem('must_verify');
-
-  if (token && storedUserStr) {
-    try {
-      const storedUser = JSON.parse(storedUserStr);
-      const isAdmin = (storedUser?.isAdmin === true) || (storedUser?.is_admin === 1);
-      const isVerified = (storedUser?.isVerified === true || storedUser?.is_verified === 1);
-
-      // CRITICAL: If must_verify flag is set, force verification regardless of stored data
-      if (mustVerifyFlag === '1') {
-        console.warn('[BaseRoute] GLOBAL BLOCK: must_verify flag active, forcing verification');
-        return <EmailVerificationRequired />;
-      }
-
-      // If user has token but is not verified and not admin, block access
-      if (!isVerified && !isAdmin) {
-        console.warn('[BaseRoute] GLOBAL BLOCK: User has token but not verified, forcing verification', {
-          userId: storedUser.id,
-          userEmail: storedUser.email,
-          isVerified,
-          isAdmin,
-          hasToken: !!token,
-          storedUserData: storedUser
-        });
-        return <EmailVerificationRequired />;
-      }
-    } catch (error) {
-      console.error('[BaseRoute] Error parsing stored user for global check:', error);
-      // If we can't parse stored user data, clear it to prevent issues
-      try {
+        if (import.meta.env.DEV) console.error('[BaseRoute] Error parsing stored user:', error);
+        // Clear corrupted data
         localStorage.removeItem('user');
         tokenStorage.clearToken();
-      } catch (clearError) {
-        console.error('[BaseRoute] Error clearing corrupted data:', clearError);
       }
-    }
-  }
-
-  // PRIORITY: Check if email verification is required BEFORE any other logic
-  // This ensures that even if user is "authenticated", we still enforce verification
-  if (requireEmailVerification) {
-    // Get user info - either from auth context or localStorage (for verification flow)
-    let currentUser = user;
-    if (!currentUser) {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        try {
-          currentUser = JSON.parse(storedUser);
-        } catch (error) {
-          if (import.meta.env.DEV) console.error('[BaseRoute] Error parsing stored user:', error);
-        }
-      }
-    }
-
-    const isAdmin = (currentUser?.isAdmin === true) || (currentUser?.is_admin === 1);
-    const isVerified = (currentUser?.isVerified === true || currentUser?.is_verified === 1);
-
-    if (import.meta.env.DEV) {
-      console.log('[BaseRoute] PRIORITY verification check:', {
-        requireEmailVerification,
-        hasCurrentUser: !!currentUser,
-        isVerified,
-        isAdmin,
-        currentUserId: currentUser?.id,
-        currentUserEmail: currentUser?.email,
-        isAuthenticated,
-        willShowVerificationRequired: (currentUser && !isVerified && !isAdmin)
-      });
-    }
-
-    // FORCE verification check: if user exists but is not verified and not admin, show verification page
-    if (currentUser && !isVerified && !isAdmin) {
-      console.warn('[BaseRoute] BLOCKING ACCESS: User not verified, showing EmailVerificationRequired', {
-        userId: currentUser.id,
-        userEmail: currentUser.email,
-        isVerified,
-        isAdmin,
-        userData: currentUser
-      });
-      return <EmailVerificationRequired />;
-    }
-
-    // If a MUST_VERIFY flag is present (explicit requirement), force verification UI regardless
-    const mustVerifyFlag = localStorage.getItem('must_verify');
-    if (mustVerifyFlag === '1') {
-      console.warn('[BaseRoute] BLOCKING ACCESS: must_verify flag present, forcing EmailVerificationRequired');
-      return <EmailVerificationRequired />;
     }
   }
 

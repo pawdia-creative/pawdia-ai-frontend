@@ -85,6 +85,40 @@ const PageViewTracker = () => {
   return null;
 };
 
+// Verification enforcer component
+const VerificationEnforcer = () => {
+  const { user, checkedAuth } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!checkedAuth) return; // wait until auth state is known
+    if (!user) return; // not logged in
+
+    const unguardedPaths = new Set([
+      '/verify-email',
+      '/verify-required',
+      '/verify',
+      '/verify-success',
+      '/login',
+      '/register',
+      '/privacy',
+      '/terms',
+      '/about',
+      '/contact',
+      '/examples',
+      '/blog'
+    ]);
+
+    if (!user.isVerified && !unguardedPaths.has(location.pathname)) {
+      // force to verification-required page
+      navigate('/verify-required', { replace: true });
+    }
+  }, [user, checkedAuth, location.pathname, navigate]);
+
+  return null;
+};
+
 const AppContent = () => (
             <BrowserRouter
             future={{
@@ -92,6 +126,10 @@ const AppContent = () => (
               v7_relativeSplatPath: true,
             }}
           >
+            {/* Enforce email verification: if a logged-in user is not verified,
+                force navigation to the verification-required page and prevent access
+                to other protected parts of the app until verification completes. */}
+            <VerificationEnforcer />
     <PageViewTracker />
             <div className="min-h-screen">
               <React.Suspense fallback={<LoadingSpinner />}>

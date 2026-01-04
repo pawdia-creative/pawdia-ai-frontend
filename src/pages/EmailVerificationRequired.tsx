@@ -89,14 +89,32 @@ const EmailVerificationRequired: React.FC = () => {
       let responseBody: any = {};
       try { responseBody = await response.json(); } catch (e) { responseBody = {}; }
 
-      if (!response.ok) {
-        const msg = responseBody?.message || responseBody?.error || 'Failed to resend verification email';
-        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] Resend response error:', response.status, responseBody);
-        throw new Error(msg);
-      }
+      // Check the actual response message to determine success/failure
+      const responseMessage = responseBody?.message || '';
 
-      setEmailSent(true);
-      toast.success(responseBody?.message || '验证邮件已重新发送，请检查您的邮箱');
+      if (responseMessage.includes('Verification email sent')) {
+        // Success case
+        setEmailSent(true);
+        toast.success('验证邮件已重新发送，请检查您的邮箱');
+      } else if (responseMessage.includes('Unable to send')) {
+        // Email service failure
+        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] Email service failed:', responseMessage);
+        throw new Error('邮件服务暂时不可用，请稍后再试');
+      } else if (responseMessage.includes('If that account exists')) {
+        // User not found or token issues
+        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] User lookup failed:', responseMessage);
+        throw new Error('用户验证失败，请重新登录后再试');
+      } else if (!response.ok) {
+        // HTTP error
+        const msg = responseBody?.message || responseBody?.error || '发送失败';
+        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] HTTP error:', response.status, responseBody);
+        throw new Error(msg);
+      } else {
+        // Unknown response
+        if (import.meta.env.DEV) console.warn('[EmailVerificationRequired] Unknown response:', responseMessage);
+        setEmailSent(true);
+        toast.success('邮件发送请求已提交，请检查邮箱');
+      }
 
       // Reset email sent state after 5 seconds
       setTimeout(() => setEmailSent(false), 5000);
