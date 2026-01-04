@@ -773,67 +773,71 @@ export default {
 
     if (url.pathname === '/api/auth/resend-verification' && request.method === 'POST') {
       try {
-        // Require authentication for security - user must have a valid token
+        // Support two modes:
+        // 1) Authenticated request with Authorization: Bearer <token>
+        // 2) Unauthenticated request that provides { email } in the POST body (for passwordless resend)
         const authHeader = request.headers.get('authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
-        }
+        const body = await request.json().catch(() => ({}));
 
-        const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-        let currentUser = null;
+        let user = null;
+        let actingViaAuth = false;
 
-        // Verify the token is valid and get user info
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const token = authHeader.slice(7);
+          // Try to validate token by calling /auth/me
         try {
           const meResponse = await fetch(`${new URL(request.url).origin}/api/auth/me`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
           });
-
-          if (!meResponse.ok) {
+            if (meResponse.ok) {
+              const meData = await meResponse.json().catch(() => ({}));
+              const currentUser = meData.user;
+              if (currentUser && currentUser.email) {
+                user = await getUserByEmail(env.DB, currentUser.email);
+                actingViaAuth = true;
+                // ensure match
+                if (user && user.id !== currentUser.id) {
+                  return new Response(JSON.stringify({ message: 'Authentication mismatch' }), { status: 403, headers: corsHeaders });
+                }
+              } else {
             return new Response(JSON.stringify({ message: 'Invalid authentication token' }), { status: 401, headers: corsHeaders });
           }
-
-          const meData = await meResponse.json();
-          currentUser = meData.user;
+            } else {
+              // token invalid or expired
+              if (import.meta.env && ((env.ENVIRONMENT || '').toLowerCase() === 'development')) {
+                console.warn('[resend-verification] /auth/me returned non-OK:', meResponse.status);
+              }
+              // allow fallback to email-based resend if body.email provided
+            }
         } catch (authError) {
           console.error('Token verification failed:', authError);
-          return new Response(JSON.stringify({ message: 'Authentication verification failed' }), { status: 401, headers: corsHeaders });
+            // allow fallback to email-based resend if body.email provided
+          }
         }
 
-        if (!currentUser || !currentUser.email) {
-          return new Response(JSON.stringify({ message: 'User authentication required' }), { status: 401, headers: corsHeaders });
+        // If we don't have a user from token, try using the provided email
+        if (!user && body && body.email) {
+          try {
+            const byEmail = await getUserByEmail(env.DB, String(body.email).trim().toLowerCase());
+            if (byEmail) user = byEmail;
+          } catch (e) {
+            console.error('Error looking up user by email for resend:', e);
+          }
         }
-
-        // Use the authenticated user's email instead of request body email
-        const email = currentUser.email;
-        const user = await getUserByEmail(env.DB, email);
 
         if (!user) {
-          return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+          // Don't reveal whether an email exists; respond with generic message for security.
+          return new Response(JSON.stringify({ message: 'If that account exists, a verification email will be sent.' }), { headers: corsHeaders });
         }
 
-        // Ensure the authenticated user matches the database user
-        if (user.id !== currentUser.id) {
-          return new Response(JSON.stringify({ message: 'Authentication mismatch' }), { status: 403, headers: corsHeaders });
-        }
-        const verificationToken = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
-        try {
-          await env.DB.prepare('UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?').bind(verificationToken, expiresAt, user.id).run();
-        } catch (e) {
-          console.error('Failed to set verification token via DB update:', e);
-        }
-
-        // Rate limit: check users.last_verification_sent (more reliable than analytics table)
+        // Rate limit check (fail-open on DB errors)
         try {
           const row = await env.DB.prepare('SELECT last_verification_sent FROM users WHERE id = ?').bind(user.id).first();
           if (row && row.last_verification_sent) {
-            // Compare timestamps: if last_verification_sent within 5 minutes, reject
             const last = new Date(row.last_verification_sent);
             const now = new Date();
             const diffMs = now - last;
-            // Allow configuring the resend interval via env var:
-            // RESEND_VERIFICATION_INTERVAL_MINUTES (number of minutes, default 5)
             const intervalEnv = env.RESEND_VERIFICATION_INTERVAL_MINUTES || env.RESEND_INTERVAL_MINUTES;
             const intervalMinutes = intervalEnv ? parseInt(String(intervalEnv), 10) : 5;
             const MIN_INTERVAL_MS = (!isNaN(intervalMinutes) && intervalMinutes > 0) ? intervalMinutes * 60 * 1000 : 5 * 60 * 1000;
@@ -842,30 +846,59 @@ export default {
             }
           }
         } catch (e) {
-          console.warn('Failed to check last_verification_sent:', e);
-          // fail-open
+          console.warn('Failed to check last_verification_sent (continuing):', e);
         }
 
-        const sendResult = await sendVerificationEmail(env, user.email, user.name || '', token);
+        // Generate a new verification token and persist (best-effort)
+        let verificationToken = null;
+        try {
+          verificationToken = crypto.randomUUID();
+          const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+          await env.DB.prepare('UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?').bind(verificationToken, expiresAt, user.id).run();
+        } catch (e) {
+          console.warn('Failed to set verification token via DB update (continuing):', e);
+        }
+
+        // Attempt to send verification email; don't fail the whole request on provider errors
+        let sendResult = { sent: false, error: 'Unknown' };
+        try {
+          sendResult = await sendVerificationEmail(env, user.email, user.name || '', verificationToken || '');
+        } catch (sendErr) {
+          console.error('sendVerificationEmail threw exception:', sendErr);
+          sendResult = { sent: false, error: String(sendErr) };
+        }
+
         if (!sendResult.sent) {
+          // Log failure and return a helpful message without exposing internal errors
           console.warn('Verification email not sent:', sendResult.error || sendResult.link);
-        } else {
+          // Update last_verification_sent to prevent retry storms only if email attempt was made
+          try {
+            await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(user.id).run();
+          } catch (e) {
+            console.warn('Failed to update last_verification_sent after failed send:', e);
+          }
+          return new Response(JSON.stringify({ message: 'Unable to send verification email at this time. Please try again later.' }), { status: 200, headers: corsHeaders });
+        }
+
+        // Success path: log event and update timestamp
           try {
             await logAnalyticsEvent(env.DB, 'verification_sent', user.id, { email: user.email }, request);
           } catch (e) {
             console.warn('Failed to log verification_sent event:', e);
           }
-          // update last_verification_sent timestamp on user
           try {
             await env.DB.prepare('UPDATE users SET last_verification_sent = CURRENT_TIMESTAMP WHERE id = ?').bind(user.id).run();
           } catch (e) {
             console.warn('Failed to update last_verification_sent:', e);
-          }
         }
 
         return new Response(JSON.stringify({ message: 'Verification email sent' }), { headers: corsHeaders });
       } catch (err) {
-        console.error('Resend verification error:', err);
+        console.error('Resend verification error (unexpected):', err && err.stack ? err.stack : err);
+        // In development, include error detail to help debugging
+        if ((env.ENVIRONMENT || '').toLowerCase() === 'development') {
+          return new Response(JSON.stringify({ message: 'Server error', detail: String(err) }), { status: 500, headers: corsHeaders });
+        }
         return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
       }
     }

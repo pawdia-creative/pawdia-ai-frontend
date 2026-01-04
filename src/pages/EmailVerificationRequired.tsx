@@ -70,22 +70,33 @@ const EmailVerificationRequired: React.FC = () => {
         return;
       }
 
+      // Some backends expect the email in the POST body; include it when available.
+      const storedUserStr = localStorage.getItem('user');
+      const storedUser = storedUserStr ? JSON.parse(storedUserStr) : null;
+      const bodyPayload: any = {};
+      if (storedUser && storedUser.email) bodyPayload.email = storedUser.email;
+
       const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(bodyPayload),
       });
 
+      // Parse response body if available and present helpful message
+      let responseBody: any = {};
+      try { responseBody = await response.json(); } catch (e) { responseBody = {}; }
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to resend verification email');
+        const msg = responseBody?.message || responseBody?.error || 'Failed to resend verification email';
+        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] Resend response error:', response.status, responseBody);
+        throw new Error(msg);
       }
 
-      await response.json(); // Ensure response is consumed
       setEmailSent(true);
-      toast.success('验证邮件已重新发送，请检查您的邮箱');
+      toast.success(responseBody?.message || '验证邮件已重新发送，请检查您的邮箱');
 
       // Reset email sent state after 5 seconds
       setTimeout(() => setEmailSent(false), 5000);
@@ -165,17 +176,26 @@ const EmailVerificationRequired: React.FC = () => {
                     // Check if user is now verified
                     const token = tokenStorage.getToken();
                     if (token) {
+                      try {
                       const meResp = await fetch(`${API_BASE_URL}/auth/me`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                       });
                       if (meResp.ok) {
-                        const meData = await meResp.json();
-                        const meUser = meData.user;
-                        if (meUser && (meUser.isVerified === true || meUser.is_verified === 1)) {
+                          const meData = await meResp.json().catch(() => ({}));
+                          const meUser = meData?.user;
+                          const isVerified = meUser && (meUser.isVerified === true || meUser.is_verified === 1);
+                          if (isVerified) {
                           toast.success('验证成功，跳转到首页');
-                          navigate('/');
+                            navigate('/', { replace: true });
                           return;
+                          }
+                        } else {
+                          // If /auth/me returned an error, show a helpful message
+                          const errBody = await meResp.json().catch(() => ({}));
+                          if (import.meta.env.DEV) console.error('[EmailVerificationRequired] /auth/me after sync returned non-OK:', meResp.status, errBody);
                         }
+                      } catch (meErr) {
+                        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] Error fetching /auth/me after sync:', meErr);
                       }
                     }
                     toast.error('验证状态已同步，但尚未完成验证');

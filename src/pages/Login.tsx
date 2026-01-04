@@ -65,21 +65,21 @@ const Login = () => {
 
       if (import.meta.env.DEV) console.log('[Login] login() completed, result:', { isVerified, isAdmin, isFirstLogin });
 
-      if (!isVerified && !isAdmin) {
+        if (!isVerified && !isAdmin) {
         // AuthContext.login is responsible for setting must_verify and token storage.
-        toast.success('登录成功！请先验证邮箱。');
-        if (isFirstLogin) {
-          navigate('/verify-email', { replace: true });
-        } else {
-          navigate('/verify-required', { replace: true });
+          toast.success('登录成功！请先验证邮箱。');
+          if (isFirstLogin) {
+            navigate('/verify-email', { replace: true });
+          } else {
+            navigate('/verify-required', { replace: true });
+          }
+          return;
         }
-        return;
-      }
 
       // Verified users allowed through
-      toast.success('登录成功！');
+        toast.success('登录成功！');
       if (import.meta.env.DEV) console.log('[Login] User verified, redirecting to:', from);
-      navigate(from, { replace: true });
+        navigate(from, { replace: true });
     } catch (error) {
       if (import.meta.env.DEV) console.error('[Login] Login process failed:', error);
       // Context handles and surfaces errors via state; also show generic message
