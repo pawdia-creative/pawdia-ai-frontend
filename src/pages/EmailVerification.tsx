@@ -79,16 +79,19 @@ const EmailVerification = () => {
       } catch (error: unknown) {
         if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Email verification error:', error);
 
+        // Narrow unknown error for safe property access
+        const err = error as { name?: string; message?: string };
+
         // Better error handling for different error types
-        if (error.name === 'AbortError') {
+        if (err.name === 'AbortError') {
           setStatus('error');
           setMessage('Request timed out. This might be due to a local proxy interfering with the connection. Please try disabling any VPN or proxy, or contact support.');
-        } else if (error.message && error.message.includes('fetch')) {
+        } else if (err.message && err.message.includes('fetch')) {
           setStatus('error');
           setMessage('Network connection failed. Please check your internet connection and try again. If the problem persists, try disabling any VPN or proxy.');
         } else {
           setStatus('error');
-          setMessage(`Verification failed: ${error.message || 'Unknown error'}. Please try again or contact support.`);
+          setMessage(`Verification failed: ${err.message || 'Unknown error'}. Please try again or contact support.`);
         }
       }
     };
@@ -147,7 +150,8 @@ const EmailVerification = () => {
             <Button 
               variant="outline" 
               className="flex-1"
-              onClick={() => navigate('/')}
+              // Prevent bypassing the verification-required flow: route back to the centralized verification UI.
+              onClick={() => navigate('/verify-required')}
             >
               Back to Home
             </Button>

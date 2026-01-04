@@ -42,7 +42,7 @@ const Navbar: React.FC = () => {
           if (isVerified) {
             navigate('/');
             return;
-          } else {
+            } else {
             try {
               await fetch(`${apiBase}/auth/resend-verification`, {
                 method: 'POST',
@@ -52,7 +52,8 @@ const Navbar: React.FC = () => {
             } catch (err) {
               if (import.meta.env.DEV) console.warn('Resend verification failed:', err);
             }
-            navigate('/verify-email');
+            // Route unverified users to the centralized verification-required page.
+            navigate('/verify-required');
             return;
           }
         } else {

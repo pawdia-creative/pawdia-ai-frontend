@@ -66,13 +66,10 @@ const Login = () => {
       if (import.meta.env.DEV) console.log('[Login] login() completed, result:', { isVerified, isAdmin, isFirstLogin });
 
         if (!isVerified && !isAdmin) {
-        // AuthContext.login is responsible for setting must_verify and token storage.
+          // AuthContext.login is responsible for setting must_verify and token storage.
           toast.success('登录成功！请先验证邮箱。');
-          if (isFirstLogin) {
-            navigate('/verify-email', { replace: true });
-          } else {
-            navigate('/verify-required', { replace: true });
-          }
+          // Always route unverified users to the centralized verification-required page.
+          navigate('/verify-required', { replace: true });
           return;
         }
 
