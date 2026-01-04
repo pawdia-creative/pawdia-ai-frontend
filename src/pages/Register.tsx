@@ -18,17 +18,17 @@ const Register: React.FC = () => {
   const handleSubmit = async (data: { email: string; password: string; name?: string; confirmPassword?: string }) => {
     try {
       const result = await register({
-        name: data.name || '',
-        email: data.email,
-        password: data.password,
-        confirmPassword: data.confirmPassword || ''
+        name: data.name || '', 
+        email: data.email, 
+        password: data.password, 
+        confirmPassword: data.confirmPassword || '' 
       });
 
       if (result && !result.emailSent) {
         // Email sending failed, show warning but still allow user to proceed
         toast.warning('Registration successful, but verification email could not be sent. Please try logging in and resending the verification email.');
       } else {
-        toast.success('Registration successful! Please check your email to verify your account.');
+      toast.success('Registration successful! Please check your email to verify your account.');
       }
 
       // Always redirect to email verification info page

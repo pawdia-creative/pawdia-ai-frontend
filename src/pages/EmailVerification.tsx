@@ -51,21 +51,21 @@ const EmailVerification = () => {
         if (response.ok) {
           setStatus('success');
           setMessage(data.message || 'Email verified successfully!');
-
+          
           // 更新用户状态
           if (data.user && updateUser) {
             if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Updating user status to verified');
             updateUser({ isVerified: true });
           }
-
+          
           // 同步验证状态并清除相关标记
           try {
             await syncVerificationStatus();
-            // Clear must_verify flag when verification succeeds
-            try { localStorage.removeItem('must_verify'); } catch (e) {}
+                  // Clear must_verify flag when verification succeeds
+                  try { localStorage.removeItem('must_verify'); } catch (e) {}
           } catch (syncError) {
             if (import.meta.env.DEV) console.error('[VERIFY FRONTEND] Error syncing verification status:', syncError);
-          }
+            }
 
           // 验证成功后自动跳转到首页
           setTimeout(() => {

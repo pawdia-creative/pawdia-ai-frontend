@@ -245,46 +245,46 @@ async function sendViaResend(env, toEmail, toName, subject, html) {
       return { sent: false, error: 'Resend API key not configured' };
     }
 
-    // sanitize RESEND_FROM and optionally enforce expected verified domain
-    let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
-    const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
-    try {
-      const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
-      if (expectedDomain && fromDomain !== expectedDomain) {
-        console.warn('RESEND_FROM domain mismatch, falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
-        fromAddress = `no-reply@${expectedDomain}`;
+      // sanitize RESEND_FROM and optionally enforce expected verified domain
+      let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
+      const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
+      try {
+        const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
+        if (expectedDomain && fromDomain !== expectedDomain) {
+          console.warn('RESEND_FROM domain mismatch, falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
+          fromAddress = `no-reply@${expectedDomain}`;
+        }
+      } catch (e) {
+        console.warn('Failed to parse RESEND_FROM, using default', e);
+        fromAddress = 'no-reply@pawdia-ai.com';
       }
-    } catch (e) {
-      console.warn('Failed to parse RESEND_FROM, using default', e);
-      fromAddress = 'no-reply@pawdia-ai.com';
-    }
 
     const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
+        method: 'POST',
+        headers: {
         'Authorization': `Bearer ${resendKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: fromAddress,
-        to: toEmail,
-        subject,
-        html
-      })
-    });
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            from: fromAddress,
+            to: toEmail,
+            subject,
+            html
+        })
+      });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Resend send error:', response.status, errorText);
       return { sent: false, error: `Resend API error: ${response.status} - ${errorText}` };
-    }
+        }
 
-    return { sent: true };
-  } catch (e) {
-    console.error('Resend send exception:', e);
+        return { sent: true };
+      } catch (e) {
+        console.error('Resend send exception:', e);
     return { sent: false, error: `Resend exception: ${String(e)}` };
-  }
-}
+      }
+    }
 
 // Send email via SendGrid (backup service)
 async function sendViaSendGrid(env, toEmail, toName, subject, html) {

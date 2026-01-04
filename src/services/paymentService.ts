@@ -182,15 +182,15 @@ class PaymentService {
    * Handle payment success logic
    */
   static handlePaymentSuccess(
-    orderId: string,
-    captureId: string,
+    orderId: string, 
+    captureId: string, 
     totalAmount: number,
     onSuccess?: () => void
   ): void;
   static handlePaymentSuccess(message: string): void;
   static handlePaymentSuccess(
-    arg1: string,
-    arg2?: string,
+    arg1: string, 
+    arg2?: string, 
     _arg3?: number,
     arg4?: () => void
   ): void {

@@ -60,7 +60,7 @@ const AdminDashboard = () => {
           'Authorization': `Bearer ${token}`,
         },
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         // Filter out users with null or undefined IDs
@@ -97,8 +97,8 @@ const AdminDashboard = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-          <p className="text-gray-600">You do not have permission to access this page.</p>
+            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+            <p className="text-gray-600">You do not have permission to access this page.</p>
         </div>
       </div>
     );
@@ -152,15 +152,15 @@ const AdminDashboard = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Email Statistics</h2>
-              <Button
+                              <Button 
                 variant="outline"
-                size="sm"
+                                size="sm" 
                 onClick={fetchEmailStats}
                 disabled={emailStatsLoading}
-              >
+                              >
                 {emailStatsLoading ? 'Loading...' : 'Refresh Stats'}
-              </Button>
-            </div>
+                              </Button>
+                          </div>
 
             {emailStats ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -206,7 +206,7 @@ const AdminDashboard = () => {
                 <div className="divide-y">
                   {emailStats.recentEvents.slice(0, 20).map((event: any, index: number) => (
                     <div key={index} className="p-4 flex justify-between items-center">
-                      <div>
+              <div>
                         <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                           event.event_type === 'verification_sent' ? 'bg-blue-100 text-blue-800' :
                           event.event_type === 'verification_success' ? 'bg-green-100 text-green-800' :
@@ -223,9 +223,9 @@ const AdminDashboard = () => {
                       </span>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
+                    </div>
+                  </div>
+                )}
           </div>
         </TabsContent>
       </Tabs>

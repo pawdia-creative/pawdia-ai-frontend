@@ -95,10 +95,10 @@ const AppContent = () => (
     <PageViewTracker />
             <div className="min-h-screen">
               <React.Suspense fallback={<LoadingSpinner />}>
-                <Navbar />
+              <Navbar />
               </React.Suspense>
               <React.Suspense fallback={<LoadingSpinner />}>
-                <Routes>
+              <Routes>
                 {/* Homepage — requires email verification */}
                 <Route path="/" element={
                   <BaseRoute requireEmailVerification={true}>

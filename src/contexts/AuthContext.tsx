@@ -122,6 +122,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Provider component
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  
+  // Helper to safely mark user as authenticated only if verified or admin.
+  const safeAuthSuccess = (user: User) => {
+    const isVerified = (user?.isVerified === true) || ((user as any)?.is_verified === 1);
+    const isAdmin = (user?.isAdmin === true) || ((user as any)?.is_admin === 1);
+
+    if (isVerified || isAdmin) {
+      dispatch({ type: 'AUTH_SUCCESS', payload: user });
+    } else {
+      // Ensure we keep token for verification flows but do not mark as authenticated.
+      try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+      if (import.meta.env.DEV) console.warn('[AUTH] safeAuthSuccess blocked non-verified user', { userId: user?.id, email: user?.email });
+      dispatch({ type: 'AUTH_LOGOUT' });
+    }
+  };
 
   // Check secure storage for login status
   // Periodic consistency check to ensure local data matches server state
@@ -160,7 +175,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
               // Update auth state if verification status changed
               if (serverVerified) {
-                dispatch({ type: 'AUTH_SUCCESS', payload: serverUser });
+                safeAuthSuccess(serverUser);
               } else {
                 dispatch({ type: 'AUTH_LOGOUT' });
                 try { localStorage.setItem('must_verify', '1'); } catch (e) {}
@@ -207,7 +222,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const isAdmin = (parsedUser.isAdmin === true) || (parsedUser.is_admin === 1);
 
           if (isVerified || isAdmin) {
-            dispatch({ type: 'AUTH_SUCCESS', payload: parsedUser });
+            safeAuthSuccess(parsedUser);
           } else {
             if (import.meta.env.DEV) console.warn('[AUTH] Mock user not verified, marking as not authenticated');
             try { localStorage.setItem('must_verify', '1'); } catch (e) {}
@@ -250,7 +265,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 userEmail: normalizedUser.email,
                 isVerified: normalizedUser.isVerified
               });
-              dispatch({ type: 'AUTH_SUCCESS', payload: normalizedUser });
+              safeAuthSuccess(normalizedUser);
             } else {
               // Keep token for resend flows but do not mark as authenticated
               console.warn('[AUTH] BLOCKING AUTH: User not verified, marking as not authenticated', {
@@ -322,7 +337,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (event.key === 'user' && event.newValue) {
         try {
           const updatedUser = JSON.parse(event.newValue);
-          dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+          safeAuthSuccess(updatedUser);
         } catch (error) {
           if (import.meta.env.DEV) console.error('Error parsing updated user data:', error);
         }
@@ -359,7 +374,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       localStorage.setItem('token', mockToken);
       localStorage.setItem('user', JSON.stringify(mockUser));
-      dispatch({ type: 'AUTH_SUCCESS', payload: mockUser });
+      safeAuthSuccess(mockUser);
 
       if (import.meta.env.DEV) console.log('[AUTH] Mock login successful for:', credentials.email);
       return { ...mockUser, token: mockToken };
@@ -496,7 +511,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const user = JSON.parse(storedUser);
         const updatedUser = { ...user, ...data };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+        safeAuthSuccess(updatedUser);
       }
 
     } catch (error) {
@@ -516,7 +531,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const user = JSON.parse(storedUser);
         const updatedUser = { ...user, ...userData };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+        safeAuthSuccess(updatedUser);
       } catch (error) {
         if (import.meta.env.DEV) console.error('Error updating user data:', error);
         // If localStorage is corrupted, clear it and logout
@@ -560,7 +575,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.setItem('user', JSON.stringify(normalizedServerUser));
 
           // Update context state
-          dispatch({ type: 'AUTH_SUCCESS', payload: normalizedServerUser });
+          safeAuthSuccess(normalizedServerUser);
 
           if (import.meta.env.DEV) console.log('Verification status synced with server');
           return true;

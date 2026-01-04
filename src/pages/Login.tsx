@@ -73,59 +73,76 @@ const Login = () => {
         return;
       }
 
-      // 强制调用 /auth/me 来检测邮箱验证状态
-      const meResp = await fetch(`${apiUrl}/auth/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // 强制调用 /auth/me 来检测邮箱验证状态（更严格的错误处理）
+      try {
+        const meResp = await fetch(`${apiUrl}/auth/me`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-      if (!meResp.ok) {
-        if (import.meta.env.DEV) console.warn('[Login] /auth/me failed, token may be invalid');
-        // Token invalid, redirect to login
-        tokenStorage.clearToken();
-        localStorage.removeItem('user');
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      const meData = await meResp.json();
-      const meUser = meData.user || {};
-      const isVerified = meUser.isVerified === true || meUser.is_verified === 1;
-      const isAdmin = meUser.isAdmin === true || meUser.is_admin === 1;
-
-      // 更新本地用户数据
-      localStorage.setItem('user', JSON.stringify(meUser));
-
-      if (import.meta.env.DEV) console.log('[Login] Verification check result:', {
-        isVerified,
-        isAdmin,
-        email: meUser.email,
-        isFirstLogin
-      });
-
-      // Step 3: 根据验证状态决定跳转行为
-      if (!isVerified && !isAdmin) {
-        toast.success('登录成功！请先验证邮箱。');
-
-        // 未验证用户：清除认证状态，设置验证标志，跳转到验证页面
-        try { localStorage.setItem('must_verify', '1'); } catch (e) {}
-
-        if (isFirstLogin) {
-          // 首次登录，显示验证邮件已发送页面
-          navigate('/verify-email', { replace: true });
-        } else {
-          // 非首次登录，显示重新发送验证邮件页面
-          navigate('/verify-required', { replace: true });
+        // 明确处理非 OK 响应
+        if (!meResp.ok) {
+          if (meResp.status === 401) {
+            // Token 无效或过期 — 要求重新登录
+            if (import.meta.env.DEV) console.warn('[Login] /auth/me returned 401 — token invalid');
+            tokenStorage.clearToken();
+            localStorage.removeItem('user');
+            toast.error('Session expired. Please sign in again.');
+            navigate('/login', { replace: true });
+            return;
+          } else {
+            // 其它服务器错误或配置问题 — 阻止放行并引导至验证/帮助页面
+            if (import.meta.env.DEV) console.warn('[Login] /auth/me returned non-OK:', meResp.status);
+            toast.error('Unable to verify email status right now. Please try again or contact support.');
+            // 为安全起见，跳转到验证要求页面，避免放行未验证用户
+            navigate('/verify-required', { replace: true });
+            return;
+          }
         }
+
+        // 成功返回，检查用户是否已验证
+        const meData = await meResp.json();
+        const meUser = meData.user || {};
+        const isVerified = meUser.isVerified === true || meUser.is_verified === 1;
+        const isAdmin = meUser.isAdmin === true || meUser.is_admin === 1;
+
+        // 更新本地用户数据（保持一致）
+        localStorage.setItem('user', JSON.stringify(meUser));
+
+        if (import.meta.env.DEV) console.log('[Login] Verification check result:', {
+          isVerified,
+          isAdmin,
+          email: meUser.email,
+          isFirstLogin
+        });
+
+        if (!isVerified && !isAdmin) {
+          toast.success('登录成功！请先验证邮箱。');
+          // 未验证用户：设置验证标志并跳转到验证页面
+          try { localStorage.setItem('must_verify', '1'); } catch (e) {}
+
+          if (isFirstLogin) {
+            navigate('/verify-email', { replace: true });
+          } else {
+            navigate('/verify-required', { replace: true });
+          }
+          return;
+        }
+
+        // 已验证用户或管理员，跳转到来源页面
+        toast.success('登录成功！');
+        if (import.meta.env.DEV) console.log('[Login] User verified, redirecting to home:', from);
+        navigate(from, { replace: true });
+
+      } catch (err) {
+        // 网络或其他异常 —— 不应放行用户
+        if (import.meta.env.DEV) console.error('[Login] post-login verification failed:', err);
+        toast.error('Unable to confirm verification status — please try again or contact support.');
+        navigate('/verify-required', { replace: true });
         return;
       }
-
-      // Step 4: 已验证用户或管理员，跳转到首页
-      toast.success('登录成功！');
-      if (import.meta.env.DEV) console.log('[Login] User verified, redirecting to home:', from);
-      navigate(from, { replace: true });
 
     } catch (error) {
       if (import.meta.env.DEV) console.error('[Login] Login process failed:', error);
