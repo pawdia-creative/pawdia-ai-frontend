@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import AuthForm from '@/components/AuthForm';
 
 const Login = () => {
-  const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user } = useAuth();
+  const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -14,37 +14,59 @@ const Login = () => {
   // 如果已经登录且邮箱已验证，重定向到首页或来源页面
   useEffect(() => {
     if (isAuthenticated) {
-      try {
-        // Prefer context user, fall back to localStorage user
-        const localUserStr = localStorage.getItem('user');
-        const localUser = localUserStr ? JSON.parse(localUserStr) : null;
-        const isVerified =
-          (user && (user.isVerified === true || user.is_verified === 1)) ||
-          (localUser && (localUser.isVerified === true || localUser.is_verified === 1));
+      const checkAndRedirect = async () => {
+        try {
+          // Prefer context user, fall back to localStorage user
+          const localUserStr = localStorage.getItem('user');
+          const localUser = localUserStr ? JSON.parse(localUserStr) : null;
+          const isVerifiedLocal =
+            (user && (user.isVerified === true || (user as any).is_verified === 1)) ||
+            (localUser && (localUser.isVerified === true || localUser.is_verified === 1));
 
-        // If a must_verify flag is present, force the verification-required UI
-        const mustVerify = localStorage.getItem('must_verify') === '1';
-        if (mustVerify) {
-          if (import.meta.env.DEV) console.log('[Login] must_verify present, redirecting to verification required page');
+          // If a must_verify flag is present, force the verification-required UI
+          const mustVerify = localStorage.getItem('must_verify') === '1';
+          if (mustVerify) {
+            if (import.meta.env.DEV) console.log('[Login] must_verify present, redirecting to verification required page');
+            navigate('/verify-required', { replace: true });
+            return;
+          }
+
+          if (isVerifiedLocal) {
+            if (import.meta.env.DEV) console.log('[Login] User authenticated and verified, redirecting to:', from);
+            navigate(from, { replace: true });
+            return;
+          }
+
+          // If not verified locally, attempt to sync with server
+          if (syncVerificationStatus) {
+            const synced = await syncVerificationStatus();
+            if (synced) {
+              // syncVerificationStatus will update context; effect will re-run
+              return;
+            } else {
+              // If sync failed or user still not verified, force verification flow
+              if (import.meta.env.DEV) console.log('[Login] Verification sync failed or user unverified, redirecting to verify-required');
+              navigate('/verify-required', { replace: true });
+              return;
+            }
+          } else {
+            // No sync function available, default to forcing verification UI
+            navigate('/verify-required', { replace: true });
+            return;
+          }
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn('[Login] Error while checking verification state before redirect:', e);
           navigate('/verify-required', { replace: true });
-          return;
         }
+      };
 
-        if (isVerified) {
-          if (import.meta.env.DEV) console.log('[Login] User authenticated and verified, redirecting to:', from);
-          navigate(from, { replace: true });
-        } else {
-          if (import.meta.env.DEV) console.log('[Login] User authenticated but not verified — staying on login to enforce verify flow');
-        }
-      } catch (e) {
-        if (import.meta.env.DEV) console.warn('[Login] Error while checking verification state before redirect:', e);
-      }
+      checkAndRedirect();
     }
     // If loading is stuck for some reason (navigated from verification page), reset it.
     if (ensureIdle) {
       ensureIdle();
     }
-  }, [isAuthenticated, navigate, from, ensureIdle, user]);
+  }, [isAuthenticated, navigate, from, ensureIdle, user, syncVerificationStatus]);
 
   useEffect(() => {
     if (error) {

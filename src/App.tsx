@@ -110,8 +110,13 @@ const VerificationEnforcer = () => {
       '/blog'
     ]);
 
-    if (!user.isVerified && !unguardedPaths.has(location.pathname)) {
+    // Also honor a persistent must_verify flag in localStorage so clients that
+    // haven't yet updated context still get routed to verification.
+    const mustVerifyFlag = localStorage.getItem('must_verify') === '1';
+
+    if ((!user.isVerified || mustVerifyFlag) && !unguardedPaths.has(location.pathname)) {
       // force to verification-required page
+      if (import.meta.env.DEV) console.log('[VerificationEnforcer] Redirecting to /verify-required (mustVerifyFlag:', mustVerifyFlag, ')');
       navigate('/verify-required', { replace: true });
     }
   }, [user, checkedAuth, location.pathname, navigate]);
