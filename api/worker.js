@@ -44,6 +44,147 @@ import {
 } from './database.js';
 import { ensureSchema } from './database.js';
 
+// PayPal SDK configuration
+const PAYPAL_BASE_URL = (mode) => {
+  return mode === 'live'
+    ? 'https://api-m.sandbox.paypal.com'
+    : 'https://api-m.paypal.com';
+};
+
+// PayPal API helper functions
+// Accepts either an env object (env.PAYPAL_CLIENT_ID, env.PAYPAL_CLIENT_SECRET, env.PAYPAL_MODE)
+// or explicit parameters (clientId, clientSecret, mode).
+async function getPayPalAccessToken(envOrClientId, maybeClientSecret, maybeMode) {
+  let clientId;
+  let clientSecret;
+  let mode;
+
+  if (typeof envOrClientId === 'object' && envOrClientId !== null) {
+    clientId = envOrClientId.PAYPAL_CLIENT_ID;
+    clientSecret = envOrClientId.PAYPAL_CLIENT_SECRET;
+    mode = envOrClientId.PAYPAL_MODE || 'live';
+  } else {
+    clientId = envOrClientId;
+    clientSecret = maybeClientSecret;
+    mode = maybeMode || 'live';
+  }
+
+  if (!clientId || !clientSecret) {
+    throw new Error('PayPal credentials not configured');
+  }
+
+  const auth = btoa(`${clientId}:${clientSecret}`);
+  const response = await fetch(`${PAYPAL_BASE_URL(mode)}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials'
+  });
+
+  if (!response.ok) {
+    // If live auth failed, attempt sandbox auth as a fallback (useful when credentials are sandbox-only)
+    if (mode === 'live') {
+      try {
+        const altResponse = await fetch(`${PAYPAL_BASE_URL('sandbox')}/v1/oauth2/token`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: 'grant_type=client_credentials'
+        });
+        if (altResponse.ok) {
+          const altData = await altResponse.json();
+          return altData.access_token;
+        }
+      } catch (err) {
+        // ignore and fallback to throwing original error below
+      }
+    }
+    throw new Error(`PayPal auth failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  // Debug logging (do not log full token in production logs)
+  try {
+    console.log('[PAYPAL] access token obtained, length:', (data.access_token || '').length);
+    if (data.access_token && typeof data.access_token === 'string') {
+      console.log('[PAYPAL] access token preview:', data.access_token.slice(0, 8));
+    }
+  } catch (e) {
+    // ignore logging errors
+  }
+  return data.access_token;
+}
+
+async function createPayPalOrder(accessToken, orderData, mode) {
+  // Compute item total to satisfy PayPal's validation requirements
+  const currency = orderData.currency || 'USD';
+  const itemTotal = orderData.items.reduce((sum, item) => {
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.price) || 0;
+    return sum + (qty * price);
+  }, 0);
+
+  const response = await fetch(`${PAYPAL_BASE_URL(mode)}/v2/checkout/orders`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [{
+        amount: {
+          currency_code: currency,
+          value: Number(orderData.totalAmount || itemTotal).toFixed(2),
+          breakdown: {
+            item_total: {
+              currency_code: currency,
+              value: itemTotal.toFixed(2)
+            }
+          }
+        },
+        items: orderData.items.map(item => ({
+          name: item.name,
+          description: item.description,
+          quantity: (item.quantity || 0).toString(),
+          unit_amount: {
+            currency_code: currency,
+            value: Number(item.price || 0).toFixed(2)
+          }
+        }))
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`PayPal order creation failed: ${error}`);
+  }
+
+  return await response.json();
+}
+
+async function capturePayPalOrder(accessToken, orderId, mode) {
+  const response = await fetch(`${PAYPAL_BASE_URL(mode)}/v2/checkout/orders/${orderId}/capture`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`PayPal capture failed: ${error}`);
+  }
+
+  return await response.json();
+}
+
 // Simple test function
 function testFunction() {
   return 'test';
@@ -1094,21 +1235,29 @@ export default {
           }
         }
 
-        // For paid plans: just set plan/status for now (integration with payments omitted)
+        // For paid plans: handle subscription with credits allocation
         try {
+          // Determine credits based on plan
+          let creditsToAdd = 0;
+          if (plan === 'basic') creditsToAdd = 30;
+          else if (plan === 'premium') creditsToAdd = 60;
+
+          // Update user subscription and add credits
           await env.DB.prepare(
-            'UPDATE users SET subscription_plan = ?, subscription_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-          ).bind(plan, 'active', userId).run();
-          const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status FROM users WHERE id = ?').bind(userId).first();
+            'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + ?, subscription_expires = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          ).bind(plan, 'active', creditsToAdd, userId).run();
+
+          const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status, subscription_expires FROM users WHERE id = ?').bind(userId).first();
           return new Response(JSON.stringify({
             success: true,
-            message: 'Subscription created successfully',
+            message: `${plan} subscription activated successfully. ${creditsToAdd} credits added.`,
             credits: row.credits,
             subscription_plan: row.subscription_plan,
-            subscription_status: row.subscription_status
+            subscription_status: row.subscription_status,
+            subscription_expires: row.subscription_expires
           }), { headers: corsHeaders });
         } catch (err) {
-          console.error('Subscribe error:', err);
+          console.error('Subscribe paid plan error:', err);
           return new Response(JSON.stringify({ message: 'Failed to create subscription' }), { status: 500, headers: corsHeaders });
         }
       } catch (error) {
@@ -1209,6 +1358,245 @@ export default {
         console.error('Use credits error:', error);
         return new Response(JSON.stringify({
           message: 'Server error'
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    // PayPal Payment endpoints
+    if (url.pathname === '/api/payments/create-order' && request.method === 'POST') {
+      try {
+        // Require verified user authentication
+        const authHeader = request.headers.get('authorization');
+        const vCheck = await requireVerifiedFromHeader(authHeader, env);
+        if (vCheck.errorResponse) return vCheck.errorResponse;
+        const userId = vCheck.user.id;
+
+        const body = await request.json();
+        const { items, totalAmount, currency } = body;
+
+        // Validate required fields
+        if (!items || !Array.isArray(items) || !totalAmount || !currency) {
+          return new Response(JSON.stringify({
+            error: 'Missing required fields: items, totalAmount, currency'
+          }), {
+            status: 400,
+            headers: corsHeaders
+          });
+        }
+
+        // Get PayPal configuration
+        const paypalMode = env.PAYPAL_MODE || 'live';
+        const clientId = env.PAYPAL_CLIENT_ID;
+        const clientSecret = env.PAYPAL_CLIENT_SECRET;
+
+        if (!clientId || !clientSecret) {
+          console.error('PayPal credentials not configured');
+          return new Response(JSON.stringify({
+            error: 'Payment service not configured'
+          }), {
+            status: 500,
+            headers: corsHeaders
+          });
+        }
+
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken(clientId, clientSecret, paypalMode);
+
+        // Create PayPal order
+        const orderData = {
+          items,
+          totalAmount,
+          currency
+        };
+
+        const orderResult = await createPayPalOrder(accessToken, orderData, paypalMode);
+
+        // Store payment record in database
+        const paymentId = crypto.randomUUID();
+        await env.DB.prepare(
+          'INSERT INTO payments (id, user_id, paypal_order_id, amount, currency, status) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(paymentId, userId, orderResult.id, totalAmount, currency, 'pending').run();
+
+        return new Response(JSON.stringify({
+          orderId: orderResult.id,
+          status: 'CREATED'
+        }), {
+          headers: corsHeaders
+        });
+
+      } catch (error) {
+        console.error('Create PayPal order error:', error);
+        return new Response(JSON.stringify({
+          error: error.message || 'Failed to create payment order'
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    if (url.pathname.startsWith('/api/payments/capture-order/') && request.method === 'POST') {
+      try {
+        // Require verified user authentication
+        const authHeader = request.headers.get('authorization');
+        const vCheck = await requireVerifiedFromHeader(authHeader, env);
+        if (vCheck.errorResponse) return vCheck.errorResponse;
+        const userId = vCheck.user.id;
+
+        // Extract order ID from URL
+        const orderId = url.pathname.split('/api/payments/capture-order/')[1];
+        if (!orderId) {
+          return new Response(JSON.stringify({
+            error: 'Order ID required'
+          }), {
+            status: 400,
+            headers: corsHeaders
+          });
+        }
+
+        // Get PayPal configuration
+        const paypalMode = env.PAYPAL_MODE || 'live';
+        const clientId = env.PAYPAL_CLIENT_ID;
+        const clientSecret = env.PAYPAL_CLIENT_SECRET;
+
+        if (!clientId || !clientSecret) {
+          console.error('PayPal credentials not configured');
+          return new Response(JSON.stringify({
+            error: 'Payment service not configured'
+          }), {
+            status: 500,
+            headers: corsHeaders
+          });
+        }
+
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken(clientId, clientSecret, paypalMode);
+
+        // Capture PayPal payment
+        const captureResult = await capturePayPalPayment(accessToken, orderId, paypalMode);
+
+        // Update payment record in database
+        await env.DB.prepare(
+          'UPDATE payments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE paypal_order_id = ? AND user_id = ?'
+        ).bind('completed', orderId, userId).run();
+
+        // Process credits based on payment (this is a simple implementation)
+        // In a real app, you'd parse the order details to determine credits
+        const paymentRecord = await env.DB.prepare(
+          'SELECT * FROM payments WHERE paypal_order_id = ? AND user_id = ?'
+        ).bind(orderId, userId).first();
+
+        if (paymentRecord && paymentRecord.credits_purchased) {
+          // Add credits to user account
+          const currentUser = await getUserById(env.DB, userId);
+          const newCredits = (currentUser.credits || 0) + paymentRecord.credits_purchased;
+          await updateUserCredits(env.DB, userId, newCredits);
+        }
+
+        return new Response(JSON.stringify({
+          orderId,
+          captureId: captureResult.id,
+          status: captureResult.status
+        }), {
+          headers: corsHeaders
+        });
+
+      } catch (error) {
+        console.error('Capture PayPal payment error:', error);
+        return new Response(JSON.stringify({
+          error: error.message || 'Failed to capture payment'
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    if (url.pathname === '/api/payments/user-orders' && request.method === 'GET') {
+      try {
+        // Require verified user authentication
+        const authHeader = request.headers.get('authorization');
+        const vCheck = await requireVerifiedFromHeader(authHeader, env);
+        if (vCheck.errorResponse) return vCheck.errorResponse;
+        const userId = vCheck.user.id;
+
+        // Get user payment history
+        const payments = await env.DB.prepare(
+          'SELECT id, paypal_order_id, amount, currency, status, created_at FROM payments WHERE user_id = ? ORDER BY created_at DESC'
+        ).bind(userId).all();
+
+        const orders = payments.results.map(payment => ({
+          id: payment.id,
+          paypalOrderId: payment.paypal_order_id,
+          status: payment.status,
+          amount: payment.amount,
+          currency: payment.currency,
+          createdAt: payment.created_at
+        }));
+
+        return new Response(JSON.stringify({
+          orders
+        }), {
+          headers: corsHeaders
+        });
+
+      } catch (error) {
+        console.error('Get user orders error:', error);
+        return new Response(JSON.stringify({
+          error: 'Failed to get user orders'
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
+      }
+    }
+
+    // Process credit purchase after PayPal payment
+    if (url.pathname === '/api/payments/process-credits' && request.method === 'POST') {
+      try {
+        // Require verified user authentication
+        const authHeader = request.headers.get('authorization');
+        const vCheck = await requireVerifiedFromHeader(authHeader, env);
+        if (vCheck.errorResponse) return vCheck.errorResponse;
+        const userId = vCheck.user.id;
+
+        const body = await request.json();
+        const { orderId, captureId, credits } = body;
+
+        if (!orderId || !captureId || !credits) {
+          return new Response(JSON.stringify({
+            error: 'Missing required fields: orderId, captureId, credits'
+          }), {
+            status: 400,
+            headers: corsHeaders
+          });
+        }
+
+        // Update payment record with credits purchased
+        await env.DB.prepare(
+          'UPDATE payments SET credits_purchased = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE paypal_order_id = ? AND user_id = ?'
+        ).bind(credits, 'completed', orderId, userId).run();
+
+        // Add credits to user account
+        const currentUser = await getUserById(env.DB, userId);
+        const newCredits = (currentUser.credits || 0) + credits;
+        await updateUserCredits(env.DB, userId, newCredits);
+
+        return new Response(JSON.stringify({
+          success: true,
+          credits: newCredits,
+          message: `${credits} credits added to your account`
+        }), {
+          headers: corsHeaders
+        });
+
+      } catch (error) {
+        console.error('Process credits error:', error);
+        return new Response(JSON.stringify({
+          error: 'Failed to process credit purchase'
         }), {
           status: 500,
           headers: corsHeaders

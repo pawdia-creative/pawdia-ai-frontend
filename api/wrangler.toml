@@ -8,11 +8,15 @@ binding = "DB"
 database_name = "pawdia-ai-db"
 database_id = "e64c0539-0e91-42fb-a73b-df2803f31e82"
 
+# Environment variables
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://www.pawdia-ai.com,https://pawdia-ai.com,https://pawdia-ai-frontend.pages.dev,https://25001b6c.pawdia-ai-frontend.pages.dev,http://localhost:5173"
+ALLOWED_ORIGINS = "https://www.pawdia-ai.com,https://pawdia-ai.com,https://pawdia-ai-frontend.pages.dev,https://25001b6c.pawdia-ai-frontend.pages.dev,https://production.pawdia-ai-frontend.pages.dev,https://2c35d87a.pawdia-ai-frontend.pages.dev,http://localhost:5173"
 # Email service configuration
 RESEND_FROM = "no-reply@pawdia-ai.com"
 RESEND_DOMAIN = "pawdia-ai.com"
 SENDGRID_FROM = "no-reply@pawdia-ai.com"
 FRONTEND_URL = "https://pawdia-ai-frontend.pages.dev"
+
+# PayPal payment configuration
+PAYPAL_MODE = "live"  # Use "sandbox" for testing, "live" for production

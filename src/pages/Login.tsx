@@ -19,9 +19,13 @@ const Login = () => {
           // Prefer context user, fall back to localStorage user
           const localUserStr = localStorage.getItem('user');
           const localUser = localUserStr ? JSON.parse(localUserStr) : null;
+          // Check verification status, handling both frontend and database field names
+          const isUserVerified = (u: any) =>
+            u?.isVerified === true || u?.is_verified === 1;
+
           const isVerifiedLocal =
-            (user && (user.isVerified === true || (user as any).is_verified === 1)) ||
-            (localUser && (localUser.isVerified === true || localUser.is_verified === 1));
+            (user && isUserVerified(user)) ||
+            (localUser && isUserVerified(localUser));
 
           // If a must_verify flag is present, force the verification-required UI
           const mustVerify = localStorage.getItem('must_verify') === '1';
