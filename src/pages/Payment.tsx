@@ -19,6 +19,32 @@ const Payment = () => {
     }
   }, [cartState.items.length, navigate]);
 
+  // #region agent log - hypothesis A,B
+  useEffect(() => {
+    try {
+      const rawClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+      const maskedClientId = rawClientId ? `***${String(rawClientId).slice(-6)}` : null;
+      // Hypothesis A: runtime env value is old (Pages env not updated)
+      // Hypothesis B: build-time value embedded in bundle / CDN caching
+      fetch('http://127.0.0.1:7242/ingest/839228e4-043b-434f-be81-06d17b3bc7f2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'A',
+          location: 'Payment.tsx:useEffect(mount)',
+          message: 'PayPal env value at component mount (masked)',
+          data: { maskedClientId, hasClientId: !!rawClientId },
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+    } catch (e) {
+      /* swallow errors during logging */
+    }
+  }, []);
+  // #endregion agent log
+
   // Create PayPal order
   const createOrder = async (): Promise<string> => {
     try {

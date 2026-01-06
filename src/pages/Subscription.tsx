@@ -116,6 +116,32 @@ const Subscription: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  // #region agent log - hypothesis A,B
+  useEffect(() => {
+    try {
+      const rawClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+      const maskedClientId = rawClientId ? `***${String(rawClientId).slice(-6)}` : null;
+      // Hypothesis A: Pages env still set to sandbox client ID
+      // Hypothesis B: CDN/build serving old bundle with sandbox ID
+      fetch('http://127.0.0.1:7242/ingest/839228e4-043b-434f-be81-06d17b3bc7f2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'B',
+          location: 'Subscription.tsx:useEffect(mount)',
+          message: 'PayPal env value at subscription mount (masked)',
+          data: { maskedClientId, hasClientId: !!rawClientId },
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+    } catch (e) {
+      /* ignore logging errors */
+    }
+  }, []);
+  // #endregion agent log
+
   // Sync userCredits with user.credits from AuthContext
   useEffect(() => {
     if (user?.credits !== undefined) {
