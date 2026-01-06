@@ -686,6 +686,20 @@ export default {
           });
     }
 
+    // Runtime configuration endpoint - return public PayPal client id and mode
+    if (url.pathname === '/api/config' && request.method === 'GET') {
+      try {
+        const body = {
+          paypalClientId: env.PAYPAL_CLIENT_ID || null,
+          paypalMode: env.PAYPAL_MODE || 'live'
+        };
+        return new Response(JSON.stringify(body), { status: 200, headers: corsHeaders });
+      } catch (err) {
+        console.error('Config endpoint error:', err);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // Development-only: issue a debug JWT for a given user id (ONLY WHEN ENV=development)
     if (url.pathname === '/api/debug/issue-token' && request.method === 'POST') {
       // Only allow in development environment

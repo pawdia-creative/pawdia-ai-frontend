@@ -58,6 +58,8 @@ const Subscription: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [userCredits, setUserCredits] = useState(user?.credits || 0);
   const [paypalError, setPaypalError] = useState<string>('');
+  const [runtimePayPalClientId, setRuntimePayPalClientId] = useState<string | null>(null);
+  const [runtimeClientFetchDone, setRuntimeClientFetchDone] = useState(false);
   const [paymentType, setPaymentType] = useState<'subscription' | 'credits'>('subscription');
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentCredits, setPaymentCredits] = useState<number>(0);
@@ -146,6 +148,36 @@ const Subscription: React.FC = () => {
     }
   }, []);
   // #endregion agent log
+
+  // Runtime PayPal client id: check injected global or fetch from backend config endpoint
+  useEffect(() => {
+    let cancelled = false;
+
+    if ((window as any).__PAYPAL_CLIENT_ID__) {
+      setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
+      setRuntimeClientFetchDone(true);
+      return;
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    if (apiBase) {
+      fetch(`${apiBase.replace(/\/$/, '')}/api/config`)
+        .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
+        .then((data) => {
+          if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
+        })
+        .catch(() => {
+          // ignore - fallback to build-time env later
+        })
+        .finally(() => {
+          if (!cancelled) setRuntimeClientFetchDone(true);
+        });
+    } else {
+      setRuntimeClientFetchDone(true);
+    }
+
+    return () => { cancelled = true; };
+  }, []);
 
   // Sync userCredits with user.credits from AuthContext
   useEffect(() => {
@@ -640,7 +672,7 @@ const Subscription: React.FC = () => {
                 selectedCreditPackage,
                 paymentAmount,
                 paymentType,
-                hasPayPalClientId: !!import.meta.env.VITE_PAYPAL_CLIENT_ID
+                hasPayPalClientId: !!(runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID)
               });
             }
             return shouldShow;
@@ -656,8 +688,15 @@ const Subscription: React.FC = () => {
                     }
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {!import.meta.env.VITE_PAYPAL_CLIENT_ID || import.meta.env.VITE_PAYPAL_CLIENT_ID === 'MISSING_CLIENT_ID' ? (
+            <CardContent className="space-y-4">
+                  {!runtimeClientFetchDone ? (
+                    <div className="text-center space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-blue-800 text-sm font-semibold mb-2">Initializing payment service…</p>
+                        <p className="text-muted-foreground text-xs">Connecting to payment provider. Please wait a moment and try again if this message persists.</p>
+                      </div>
+                    </div>
+                  ) : !((runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID)) || (runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID) === 'MISSING_CLIENT_ID' ? (
                     <div className="text-center space-y-4">
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                       <p className="text-red-800 text-sm font-semibold mb-2">PayPal not configured</p>
@@ -723,7 +762,7 @@ const Subscription: React.FC = () => {
                   ) : (
                     <PayPalScriptProvider
                       options={{
-                        clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
+                        clientId: runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID,
                         currency: 'USD',
                         intent: 'capture',
                         components: 'buttons',

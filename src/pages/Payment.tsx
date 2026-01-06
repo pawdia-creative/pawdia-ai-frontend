@@ -11,6 +11,8 @@ const Payment = () => {
   const { state: cartState, clearCart } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paypalError, setPaypalError] = useState<string>('');
+  const [runtimePayPalClientId, setRuntimePayPalClientId] = useState<string | null>(null);
+  const [runtimeClientFetchDone, setRuntimeClientFetchDone] = useState(false);
 
   // Check if cart is empty
   useEffect(() => {
@@ -44,6 +46,39 @@ const Payment = () => {
     }
   }, []);
   // #endregion agent log
+
+  // Runtime PayPal client id: check injected global or fetch from backend config endpoint
+  useEffect(() => {
+    let cancelled = false;
+
+    // 1) check global injected var (optional: Worker can inject into page)
+    if ((window as any).__PAYPAL_CLIENT_ID__) {
+      setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
+      setRuntimeClientFetchDone(true);
+      return;
+    }
+
+    // 2) fetch from backend runtime endpoint (public client id is safe to expose)
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    if (apiBase) {
+      fetch(`${apiBase.replace(/\/$/, '')}/api/config`)
+        .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
+        .then((data) => {
+          if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
+        })
+        .catch(() => {
+          // ignore - we'll fallback to build-time value after fetch completes
+        })
+        .finally(() => {
+          if (!cancelled) setRuntimeClientFetchDone(true);
+        });
+    } else {
+      // No api base configured - consider fetch done so UI can fallback
+      setRuntimeClientFetchDone(true);
+    }
+
+    return () => { cancelled = true; };
+  }, []);
 
   // Create PayPal order
   const createOrder = async (): Promise<string> => {
@@ -123,6 +158,8 @@ const Payment = () => {
     PaymentService.handlePaymentError(error);
   };
 
+  const clientIdToUse = runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID;
+
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -172,7 +209,14 @@ const Payment = () => {
               <CardDescription>Pay securely with PayPal</CardDescription>
             </CardHeader>
             <CardContent>
-              {!import.meta.env.VITE_PAYPAL_CLIENT_ID || import.meta.env.VITE_PAYPAL_CLIENT_ID === 'MISSING_CLIENT_ID' ? (
+            {!runtimeClientFetchDone ? (
+                <div className="text-center space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-800 text-sm font-semibold mb-2">Initializing payment service…</p>
+                    <p className="text-muted-foreground text-xs">Connecting to payment provider. Please wait a moment and try again if this message persists.</p>
+                  </div>
+                </div>
+              ) : !clientIdToUse || clientIdToUse === 'MISSING_CLIENT_ID' ? (
                 <div className="text-center space-y-4">
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <p className="text-red-800 text-sm font-semibold mb-2">PayPal not configured</p>
@@ -210,7 +254,7 @@ const Payment = () => {
               ) : (
                 <PayPalScriptProvider
                   options={{
-                    clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
+                    clientId: clientIdToUse,
                     currency: 'USD',
                     intent: 'capture',
                     components: 'buttons',
