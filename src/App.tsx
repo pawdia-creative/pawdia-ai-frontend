@@ -155,9 +155,9 @@ const AppContent = () => (
               </React.Suspense>
               <React.Suspense fallback={<LoadingSpinner />}>
               <Routes>
-                {/* Homepage — requires email verification */}
+                {/* Homepage — publicly accessible */}
                 <Route path="/" element={
-                  <BaseRoute requireEmailVerification={true}>
+                  <BaseRoute publicForGuests={true}>
                     <Index />
                   </BaseRoute>
                 } />

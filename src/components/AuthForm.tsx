@@ -1,4 +1,4 @@
-// React import removed - not needed in React 17+
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
