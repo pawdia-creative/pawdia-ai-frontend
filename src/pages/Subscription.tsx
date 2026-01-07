@@ -688,7 +688,7 @@ const Subscription: React.FC = () => {
                     }
                   </CardDescription>
                 </CardHeader>
-            <CardContent className="space-y-4">
+                <CardContent className="space-y-4">
                   {!runtimeClientFetchDone ? (
                     <div className="text-center space-y-4">
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -746,8 +746,8 @@ const Subscription: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => {
                           setPaypalError('');
                           setSelectedPlan('');
@@ -759,7 +759,7 @@ const Subscription: React.FC = () => {
                         Close
                       </Button>
                     </div>
-                  ) : (
+                  ) : runtimeClientFetchDone && (runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID) && (runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID) !== 'MISSING_CLIENT_ID' ? (
                     <PayPalScriptProvider
                       options={{
                         clientId: runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID,
@@ -781,7 +781,7 @@ const Subscription: React.FC = () => {
                       }}
                     >
                       <PayPalButtons
-                        style={{ 
+                        style={{
                           layout: 'vertical',
                           color: 'blue',
                           shape: 'rect',
@@ -794,6 +794,13 @@ const Subscription: React.FC = () => {
                         disabled={isProcessing}
                       />
                     </PayPalScriptProvider>
+                  ) : (
+                    <div className="text-center space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-blue-800 text-sm font-semibold mb-2">Loading PayPal...</p>
+                        <p className="text-muted-foreground text-xs">Initializing payment service. Please wait a moment and try again if this message persists.</p>
+                      </div>
+                    </div>
                   )}
                   
                   {isProcessing && (

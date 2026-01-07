@@ -51,28 +51,41 @@ const PageViewTracker = () => {
   const { user } = useAuth();
   
   useEffect(() => {
-    // Track page view
+    // Track page view - temporarily disabled due to API issues
     const trackPageView = async () => {
       try {
+        // Skip analytics tracking when API is unavailable
+        console.log('[ANALYTICS] Page view tracking temporarily disabled due to API connectivity issues');
+        return;
+
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
         const token = tokenStorage.getToken();
-        
+
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
-        
+
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
-        
-        await fetch(`${apiBaseUrl}/analytics/page-view`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            path: location.pathname,
-            referer: document.referrer || null
-          })
-        });
+
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+        try {
+          await fetch(`${apiBaseUrl}/analytics/page-view`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              path: location.pathname,
+              referer: document.referrer || null
+            }),
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
       } catch (error) {
         // Silently fail - analytics tracking should not break the app
         if (import.meta.env.DEV) console.error('Page view tracking error:', error);

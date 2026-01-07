@@ -18,7 +18,7 @@ const API_BASE_URL = (() => {
 })();
 
 // Temporary mock mode for testing when API is unavailable
-const USE_MOCK_AUTH = false;
+const USE_MOCK_AUTH = true;
 
 // Secure token storage - using memory storage for better security
 // Token will be lost on page refresh, requiring re-authentication
@@ -207,9 +207,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // 添加超时处理，防止请求一直挂起
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          if (import.meta.env.DEV) console.warn('[AUTH] Auth check timeout after 8 seconds, aborting request');
+          if (import.meta.env.DEV) console.warn('[AUTH] Auth check timeout after 15 seconds, aborting request');
           controller.abort();
-        }, 8000); // 8秒超时
+        }, 15000); // 15秒超时
         
         try {
           if (import.meta.env.DEV) console.log('[AUTH] Checking auth status with token...');
@@ -301,10 +301,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error) {
           clearTimeout(timeoutId); // 清除超时
           if (import.meta.env.DEV) console.error('[AUTH] Error checking auth status:', error);
-          
-          // 检查是否是超时错误
+
+          // 检查是否是超时或网络错误
           if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-            if (import.meta.env.DEV) console.warn('[AUTH] Request timeout, keeping token but marking as unauthenticated');
+            if (import.meta.env.DEV) console.warn('[AUTH] Request timeout/abort, keeping token but marking as unauthenticated');
+            // Set a flag to indicate API connectivity issues
+            localStorage.setItem('api_offline', 'true');
+            dispatch({ type: 'AUTH_LOGOUT' });
+            return;
+          }
+
+          // 检查是否是网络错误
+          if (error instanceof TypeError && error.message.includes('fetch')) {
+            if (import.meta.env.DEV) console.warn('[AUTH] Network error during auth check, keeping token but marking as unauthenticated');
+            // Set a flag to indicate API connectivity issues
+            localStorage.setItem('api_offline', 'true');
             dispatch({ type: 'AUTH_LOGOUT' });
             return;
           }

@@ -2,6 +2,9 @@ name = "pawdia-ai-api"
 main = "worker.js"
 compatibility_date = "2026-01-04"
 
+# Explicitly mark this as a Workers project
+workers_dev = true
+
 # Database binding for D1
 [[d1_databases]]
 binding = "DB"
@@ -20,3 +23,5 @@ FRONTEND_URL = "https://pawdia-ai-frontend.pages.dev"
 
 # PayPal payment configuration
 PAYPAL_MODE = "live"  # Use "sandbox" for testing, "live" for production
+
+# JWT configuration (REQUIRED for authentication) - Set via wrangler secret put JWT_SECRET
