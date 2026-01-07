@@ -45,10 +45,12 @@ import {
 import { ensureSchema } from './database.js';
 
 // PayPal SDK configuration
+// mode === 'live' -> production API host
+// mode === 'sandbox' -> sandbox API host
 const PAYPAL_BASE_URL = (mode) => {
   return mode === 'live'
-    ? 'https://api-m.sandbox.paypal.com'
-    : 'https://api-m.paypal.com';
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com';
 };
 
 // PayPal API helper functions
@@ -84,25 +86,7 @@ async function getPayPalAccessToken(envOrClientId, maybeClientSecret, maybeMode)
   });
 
   if (!response.ok) {
-    // If live auth failed, attempt sandbox auth as a fallback (useful when credentials are sandbox-only)
-    if (mode === 'live') {
-      try {
-        const altResponse = await fetch(`${PAYPAL_BASE_URL('sandbox')}/v1/oauth2/token`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: 'grant_type=client_credentials'
-        });
-        if (altResponse.ok) {
-          const altData = await altResponse.json();
-          return altData.access_token;
-        }
-      } catch (err) {
-        // ignore and fallback to throwing original error below
-      }
-    }
+    // No fallback: if auth fails for the requested mode, surface the error.
     throw new Error(`PayPal auth failed: ${response.status}`);
   }
 
