@@ -104,7 +104,7 @@ const Navbar: React.FC = () => {
                 {user?.isAdmin && (
                   <NavLink
                     to="/admin"
-                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                    className="block px-3 py-2 rounded-md text-base font-medium text-white hover:text-blue-200 hover:bg-white/10"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <span className="inline-block mr-2">🛡️</span>
@@ -189,7 +189,7 @@ const Navbar: React.FC = () => {
                   {user?.isAdmin && (
                     <NavLink
                       to="/admin"
-                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                      className="block px-3 py-2 rounded-md text-base font-medium text-white hover:text-blue-200 hover:bg-white/10"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       <span className="inline-block mr-2">🛡️</span>

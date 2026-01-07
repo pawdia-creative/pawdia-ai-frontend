@@ -7,8 +7,8 @@ export default defineConfig(({ mode }) => ({
   // Disable env file loading to avoid permission issues
   envFile: false,
   server: {
-    host: "::",
-    port: 3000,
+    host: "localhost",
+    port: 3001,
   },
   plugins: [react()],
   resolve: {
