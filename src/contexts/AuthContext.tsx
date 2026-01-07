@@ -3,11 +3,11 @@ import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials
 import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
 import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
 
-// Secure token storage - using memory storage for better security
-// Token will be lost on page refresh, requiring re-authentication
+// Secure token storage - using localStorage for persistence
+// Token persists across page refreshes for better user experience
 class SecureTokenStorage {
   private static instance: SecureTokenStorage;
-  private token: string | null = null;
+  private readonly TOKEN_KEY = 'auth_token';
 
   static getInstance(): SecureTokenStorage {
     if (!SecureTokenStorage.instance) {
@@ -17,15 +17,28 @@ class SecureTokenStorage {
   }
 
   setToken(token: string): void {
-    this.token = token;
+    try {
+      localStorage.setItem(this.TOKEN_KEY, token);
+    } catch (error) {
+      console.warn('Failed to store token in localStorage:', error);
+    }
   }
 
   getToken(): string | null {
-    return this.token;
+    try {
+      return localStorage.getItem(this.TOKEN_KEY);
+    } catch (error) {
+      console.warn('Failed to retrieve token from localStorage:', error);
+      return null;
+    }
   }
 
   clearToken(): void {
-    this.token = null;
+    try {
+      localStorage.removeItem(this.TOKEN_KEY);
+    } catch (error) {
+      console.warn('Failed to clear token from localStorage:', error);
+    }
   }
 }
 
@@ -240,7 +253,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const result = await response.json();
             if (import.meta.env.DEV) console.log('[AUTH] Token valid, received user data', result.user);
             // Normalize user data using the data transformer
-            const apiUser = result.user || JSON.parse(storedUser);
+            const apiUser = result.user || parsedUser;
             const normalizedUser = normalizeUser(apiUser);
             if (normalizedUser) {
               // Store latest user info but only consider authenticated if verified

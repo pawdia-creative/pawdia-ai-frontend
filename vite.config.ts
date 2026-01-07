@@ -4,8 +4,8 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Disable env file loading to avoid permission issues
-  envFile: false,
+  // Skip env file loading due to permission issues in sandbox
+  envDir: false,
   server: {
     host: "localhost",
     port: 3001,
