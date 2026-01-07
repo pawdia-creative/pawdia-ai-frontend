@@ -30,6 +30,20 @@ function makeCorsHeaders(origin, env) {
   return headers;
 }
 
+// Helper to produce HTML responses with conservative caching for HTML pages.
+// Use this when the Worker returns HTML to browsers to prevent stale HTML
+// from being served by caches (Cloudflare, browsers). Static hashed assets
+// should still be served with long cache lifetimes (handled elsewhere).
+function makeHtmlResponse(html, status = 200) {
+  return new Response(html, {
+    status,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
 // Import database functions
 import {
   getUserByEmail,
