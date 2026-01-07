@@ -160,20 +160,28 @@ const Subscription: React.FC = () => {
     }
 
     const apiBase = import.meta.env.VITE_API_URL || '';
-    if (apiBase) {
-      fetch(`${apiBase.replace(/\/$/, '')}/api/config`)
+    const defaultApi = 'https://pawdia-ai-api.pawdia-creative.workers.dev';
+    const tryFetchConfig = (base: string) =>
+      fetch(`${base.replace(/\/$/, '')}/api/config`)
         .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
         .then((data) => {
           if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
         })
         .catch(() => {
-          // ignore - fallback to build-time env later
-        })
+          // ignore - we'll try fallback or set done below
+        });
+
+    if (apiBase) {
+      tryFetchConfig(apiBase)
         .finally(() => {
           if (!cancelled) setRuntimeClientFetchDone(true);
         });
     } else {
-      setRuntimeClientFetchDone(true);
+      // Try known public worker URL as a fallback when VITE_API_URL is not set
+      tryFetchConfig(defaultApi)
+        .finally(() => {
+          if (!cancelled) setRuntimeClientFetchDone(true);
+        });
     }
 
     return () => { cancelled = true; };
@@ -672,7 +680,7 @@ const Subscription: React.FC = () => {
                 selectedCreditPackage,
                 paymentAmount,
                 paymentType,
-                hasPayPalClientId: !!(runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID)
+                hasPayPalClientId: !!runtimePayPalClientId
               });
             }
             return shouldShow;
@@ -696,7 +704,7 @@ const Subscription: React.FC = () => {
                         <p className="text-muted-foreground text-xs">Connecting to payment provider. Please wait a moment and try again if this message persists.</p>
                       </div>
                     </div>
-                  ) : !((runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID)) || (runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID) === 'MISSING_CLIENT_ID' ? (
+                  ) : !runtimePayPalClientId || runtimePayPalClientId === 'MISSING_CLIENT_ID' ? (
                     <div className="text-center space-y-4">
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                       <p className="text-red-800 text-sm font-semibold mb-2">PayPal not configured</p>
@@ -759,10 +767,10 @@ const Subscription: React.FC = () => {
                         Close
                       </Button>
                     </div>
-                  ) : runtimeClientFetchDone && (runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID) && (runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID) !== 'MISSING_CLIENT_ID' ? (
+                  ) : runtimeClientFetchDone && runtimePayPalClientId && runtimePayPalClientId !== 'MISSING_CLIENT_ID' ? (
                     <PayPalScriptProvider
                       options={{
-                        clientId: runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID,
+                        clientId: runtimePayPalClientId,
                         currency: 'USD',
                         intent: 'capture',
                         components: 'buttons',

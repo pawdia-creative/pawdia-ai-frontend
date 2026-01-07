@@ -60,25 +60,43 @@ const Payment = () => {
 
     // 2) fetch from backend runtime endpoint (public client id is safe to expose)
     const apiBase = import.meta.env.VITE_API_URL || '';
-    if (apiBase) {
-      fetch(`${apiBase.replace(/\/$/, '')}/api/config`)
+    const defaultApi = 'https://pawdia-ai-api.pawdia-creative.workers.dev';
+    const tryFetchConfig = (base: string) =>
+      fetch(`${base.replace(/\/$/, '')}/api/config`)
         .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
         .then((data) => {
           if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
         })
         .catch(() => {
-          // ignore - we'll fallback to build-time value after fetch completes
-        })
+          // ignore - we'll fallback to other options
+        });
+
+    if (apiBase) {
+      tryFetchConfig(apiBase)
         .finally(() => {
           if (!cancelled) setRuntimeClientFetchDone(true);
         });
     } else {
-      // No api base configured - consider fetch done so UI can fallback
-      setRuntimeClientFetchDone(true);
+      // Try known public worker URL as a fallback when VITE_API_URL is not set
+      tryFetchConfig(defaultApi)
+        .finally(() => {
+          if (!cancelled) setRuntimeClientFetchDone(true);
+        });
     }
 
     return () => { cancelled = true; };
   }, []);
+
+  // DEV: log a short preview of the resolved PayPal client id for debugging
+  useEffect(() => {
+    if (import.meta.env.DEV && runtimeClientFetchDone) {
+      const preview = runtimePayPalClientId ? String(runtimePayPalClientId).slice(0, 6) : 'NONE';
+      const isSandbox = !!(runtimePayPalClientId && (String(runtimePayPalClientId).startsWith('EPeFX') || String(runtimePayPalClientId).toLowerCase().includes('sandbox')));
+      // Print where the client id came from (window injection) and a short preview
+      // eslint-disable-next-line no-console
+      console.log('[PAYPAL] clientIdPreview:', preview, 'isSandbox:', isSandbox, 'windowInjected:', !!(window as any).__PAYPAL_CLIENT_ID__);
+    }
+  }, [runtimeClientFetchDone, runtimePayPalClientId]);
 
   // Create PayPal order
   const createOrder = async (): Promise<string> => {
@@ -158,7 +176,7 @@ const Payment = () => {
     PaymentService.handlePaymentError(error);
   };
 
-  const clientIdToUse = runtimePayPalClientId ?? import.meta.env.VITE_PAYPAL_CLIENT_ID;
+  
 
   return (
     <div className="min-h-screen bg-background py-8">
