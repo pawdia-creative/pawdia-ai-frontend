@@ -55,7 +55,7 @@ const PageViewTracker = () => {
     const trackPageView = async () => {
       try {
         // Skip analytics tracking when API is unavailable
-        console.log('[ANALYTICS] Page view tracking temporarily disabled due to API connectivity issues');
+        if (import.meta.env.DEV) console.log('[ANALYTICS] Page view tracking temporarily disabled due to API connectivity issues');
         return;
 
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';

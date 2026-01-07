@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Upload, Wand2 as Wand, Download, MoveHorizontal } from "lucide-react";
@@ -12,7 +12,7 @@ import { SEO_CONFIG } from "@/config/seo";
 
 type CreationStep = 'upload' | 'style' | 'generate';
 
-export const ArtCreation = () => {
+export const ArtCreation = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentStep, setCurrentStep] = useState<CreationStep>('upload');
@@ -28,11 +28,11 @@ export const ArtCreation = () => {
   const [comparisonPosition, setComparisonPosition] = useState(50); // slider for comparison
   const [originalImageOrientation, setOriginalImageOrientation] = useState<{ isPortrait: boolean; width: number; height: number } | null>(null);
 
-  const steps = [
+  const steps = useMemo(() => [
     { id: 'upload' as CreationStep, title: 'Upload Photo', icon: Upload },
     { id: 'style' as CreationStep, title: 'Choose Style', icon: Wand },
     { id: 'generate' as CreationStep, title: 'Generate Art', icon: Wand },
-  ];
+  ], []);
 
   const handleImageUpload = (file: File) => {
     setUploadedImage(file);
@@ -456,4 +456,6 @@ export const ArtCreation = () => {
     </div>
     </>
   );
-};
+});
+
+ArtCreation.displayName = 'ArtCreation';

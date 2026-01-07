@@ -51,6 +51,10 @@ declare global {
     type FC<P = any> = any;
     type ReactNode = any;
   }
+
+  interface Window {
+    __PAYPAL_CLIENT_ID__?: string;
+  }
 }
 
 // Provide generic-compatible signatures for common React helpers

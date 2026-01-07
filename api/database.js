@@ -88,23 +88,188 @@ export async function updateUserCredits(db, userId, credits) {
   }
 }
 
-// Get all users for admin
-export async function getAllUsers(db, searchTerm = '') {
+// Get users with pagination for admin
+export async function getUsersPaginated(db, page = 1, limit = 50, searchTerm = '') {
   try {
-    let query = 'SELECT id, name, email, avatar, credits, is_verified, is_admin, created_at FROM users';
-    let params = [];
+    // Ensure valid parameters
+    page = Math.max(1, parseInt(page) || 1);
+    limit = Math.min(100, Math.max(1, parseInt(limit) || 50)); // Max 100 per page
+    const offset = (page - 1) * limit;
 
-    if (searchTerm) {
-      query += ' WHERE email LIKE ? OR name LIKE ?';
-      params = [`%${searchTerm}%`, `%${searchTerm}%`];
+    let query = `
+      SELECT id, name, email, avatar, credits, is_verified, is_admin, created_at
+      FROM users
+      WHERE 1=1
+    `;
+    let params = [];
+    let countParams = [];
+
+    if (searchTerm && searchTerm.trim()) {
+      const searchPattern = `%${searchTerm.trim()}%`;
+      query += ' AND (email LIKE ? OR name LIKE ?)';
+      params.push(searchPattern, searchPattern);
+      countParams.push(searchPattern, searchPattern);
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
+    // Get paginated results
     const result = await db.prepare(query).bind(...params).all();
+
+    // Get total count for pagination
+    let countQuery = 'SELECT COUNT(*) as total FROM users WHERE 1=1';
+    if (searchTerm && searchTerm.trim()) {
+      countQuery += ' AND (email LIKE ? OR name LIKE ?)';
+    }
+    const countResult = await db.prepare(countQuery).bind(...countParams).first();
+
+    const total = countResult?.total || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      users: result.results || [],
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  } catch (error) {
+    console.error('Error getting paginated users:', error);
+    return {
+      users: [],
+      pagination: {
+        page: 1,
+        limit: 50,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      }
+    };
+  }
+}
+
+// Backward compatibility - deprecated, use getUsersPaginated instead
+export async function getAllUsers(db, searchTerm = '') {
+  const result = await getUsersPaginated(db, 1, 1000, searchTerm);
+  return result.users;
+}
+
+// Get user statistics for admin dashboard
+export async function getUserStats(db) {
+  try {
+    const queries = await Promise.all([
+      // Total users
+      db.prepare('SELECT COUNT(*) as total FROM users').first(),
+      // Verified users
+      db.prepare('SELECT COUNT(*) as verified FROM users WHERE is_verified = 1').first(),
+      // Admin users
+      db.prepare('SELECT COUNT(*) as admins FROM users WHERE is_admin = 1').first(),
+      // Recent users (last 30 days)
+      db.prepare(`
+        SELECT COUNT(*) as recent FROM users
+        WHERE created_at >= datetime('now', '-30 days')
+      `).first(),
+      // Users with credits
+      db.prepare('SELECT COUNT(*) as with_credits FROM users WHERE credits > 0').first(),
+      // Average credits per user
+      db.prepare('SELECT AVG(credits) as avg_credits FROM users').first(),
+    ]);
+
+    return {
+      total: queries[0]?.total || 0,
+      verified: queries[1]?.verified || 0,
+      admins: queries[2]?.admins || 0,
+      recent: queries[3]?.recent || 0,
+      withCredits: queries[4]?.with_credits || 0,
+      avgCredits: Math.round(queries[5]?.avg_credits || 0),
+      verificationRate: queries[0]?.total > 0
+        ? Math.round((queries[1]?.verified || 0) / queries[0]?.total * 100)
+        : 0
+    };
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    return {
+      total: 0,
+      verified: 0,
+      admins: 0,
+      recent: 0,
+      withCredits: 0,
+      avgCredits: 0,
+      verificationRate: 0
+    };
+  }
+}
+
+// Bulk update user credits (for admin operations)
+export async function bulkUpdateCredits(db, userUpdates) {
+  try {
+    const results = [];
+
+    for (const update of userUpdates) {
+      const { userId, credits, operation = 'set' } = update;
+
+      let query, params;
+      if (operation === 'add') {
+        query = 'UPDATE users SET credits = credits + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+        params = [credits, userId];
+      } else if (operation === 'subtract') {
+        query = 'UPDATE users SET credits = MAX(0, credits - ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+        params = [credits, userId];
+      } else {
+        // Default to set
+        query = 'UPDATE users SET credits = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+        params = [credits, userId];
+      }
+
+      const result = await db.prepare(query).bind(...params).run();
+      results.push({
+        userId,
+        success: result.success,
+        changes: result.meta?.changes || 0
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Error bulk updating credits:', error);
+    throw error;
+  }
+}
+
+// Get recent user activity
+export async function getRecentActivity(db, limit = 50) {
+  try {
+    const query = `
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.created_at as user_created,
+        u.last_login,
+        (
+          SELECT COUNT(*) FROM images i WHERE i.user_id = u.id
+        ) as total_images,
+        (
+          SELECT COUNT(*) FROM payments p WHERE p.user_id = u.id AND p.status = 'completed'
+        ) as total_payments,
+        (
+          SELECT SUM(amount) FROM payments p WHERE p.user_id = u.id AND p.status = 'completed'
+        ) as total_spent
+      FROM users u
+      ORDER BY u.created_at DESC
+      LIMIT ?
+    `;
+
+    const result = await db.prepare(query).bind(limit).all();
     return result.results || [];
   } catch (error) {
-    console.error('Error getting all users:', error);
+    console.error('Error getting recent activity:', error);
     return [];
   }
 }

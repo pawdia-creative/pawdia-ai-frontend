@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import AuthForm from '@/components/AuthForm';
+import { isUserVerified } from '@/lib/dataTransformers';
 
 const Login = () => {
   const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
@@ -19,9 +20,7 @@ const Login = () => {
           // Prefer context user, fall back to localStorage user
           const localUserStr = localStorage.getItem('user');
           const localUser = localUserStr ? JSON.parse(localUserStr) : null;
-          // Check verification status, handling both frontend and database field names
-          const isUserVerified = (u: any) =>
-            u?.isVerified === true || u?.is_verified === 1;
+          // Check verification status using the centralized function
 
           const isVerifiedLocal =
             (user && isUserVerified(user)) ||

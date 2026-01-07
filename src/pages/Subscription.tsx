@@ -153,7 +153,7 @@ const Subscription: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
 
-    if ((window as any).__PAYPAL_CLIENT_ID__) {
+    if (window.__PAYPAL_CLIENT_ID__) {
       setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
       setRuntimeClientFetchDone(true);
       return;

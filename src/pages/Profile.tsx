@@ -24,7 +24,7 @@ const Profile: React.FC = () => {
 
   const handleSaveProfile = async () => {
     if (!name.trim() || name.trim().length < 2 || name.trim().length > 50) {
-      alert('Name must be between 2 and 50 characters');
+      toast.error('Name must be between 2 and 50 characters');
       return;
     }
 
@@ -34,7 +34,7 @@ const Profile: React.FC = () => {
       setIsEditing(false);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      toast.error('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }

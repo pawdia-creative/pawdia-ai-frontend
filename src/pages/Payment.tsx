@@ -52,7 +52,7 @@ const Payment = () => {
     let cancelled = false;
 
     // 1) check global injected var (optional: Worker can inject into page)
-    if ((window as any).__PAYPAL_CLIENT_ID__) {
+    if (window.__PAYPAL_CLIENT_ID__) {
       setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
       setRuntimeClientFetchDone(true);
       return;
@@ -94,7 +94,7 @@ const Payment = () => {
       const isSandbox = !!(runtimePayPalClientId && (String(runtimePayPalClientId).startsWith('EPeFX') || String(runtimePayPalClientId).toLowerCase().includes('sandbox')));
       // Print where the client id came from (window injection) and a short preview
       // eslint-disable-next-line no-console
-      console.log('[PAYPAL] clientIdPreview:', preview, 'isSandbox:', isSandbox, 'windowInjected:', !!(window as any).__PAYPAL_CLIENT_ID__);
+      console.log('[PAYPAL] clientIdPreview:', preview, 'isSandbox:', isSandbox, 'windowInjected:', !!window.__PAYPAL_CLIENT_ID__);
     }
   }, [runtimeClientFetchDone, runtimePayPalClientId]);
 

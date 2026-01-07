@@ -1,10 +1,9 @@
 
-import { tokenStorage } from '@/contexts/AuthContext';
+import { apiClient, ApiError } from '@/lib/apiClient';
+import { handleError } from '@/lib/errorHandler';
 
-// API call configuration - Use backend proxy endpoint
+// API call configuration
 const API_CONFIG = {
-  baseURL: import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api',
-  apiKey: '', // Not needed when using backend proxy
   model: import.meta.env.VITE_AI_MODEL || 'gemini-2.5-flash-image'
 } as const;
 
@@ -279,44 +278,23 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     }
 
     // Call the backend proxy endpoint
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    try {
-      const token = tokenStorage.getToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-    } catch (e) {
-      // localStorage may be unavailable in some environments; ignore
-      if (import.meta.env.DEV) console.warn('Could not read token from localStorage for AI request', e);
-    }
-
-    const response = await fetch(`${API_CONFIG.baseURL}/generate`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(proxyRequestBody)
+    const response = await apiClient.post('/generate', proxyRequestBody, {
+      timeout: 60000, // 60 second timeout for AI generation
     });
 
-    const generationTime = Date.now() - startTime;
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (import.meta.env.DEV) console.error('Backend proxy error:', response.status, errorText);
-      throw new Error(`Backend proxy error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
+    const data = response.data;
     if (import.meta.env.DEV) console.log('Backend proxy response:', data);
 
     // Check if the backend returned an error
     if (data.error) {
-      throw new Error(`AI API error: ${data.error}`);
+      throw new ApiError(`AI API error: ${data.error}`, 400, 'AI_API_ERROR');
     }
 
-    // The backend should return the image URL or base64 data
-    let imageUrl: string;
+      // The backend should return the image URL or base64 data
+      let imageUrl: string;
 
-    if (data.imageUrl) {
-      imageUrl = data.imageUrl;
+      if (data.imageUrl) {
+        imageUrl = data.imageUrl;
     } else if (data.image && data.image.url) {
       imageUrl = data.image.url;
     } else if (data.image && data.image.base64) {
@@ -327,6 +305,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       throw new Error('Backend proxy returned invalid response format');
     }
 
+    const generationTime = Date.now() - startTime;
     if (import.meta.env.DEV) console.log('Image generation successful via backend proxy');
 
     return {
@@ -336,8 +315,11 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     };
 
   } catch (error) {
-    if (import.meta.env.DEV) console.error('AI API Error:', error);
-    throw new Error(`Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    handleError(error, 'ai_generation', {
+      showToast: false, // Let the calling component handle UI feedback
+      logError: true
+    });
+    throw error; // Re-throw for component-level handling
   }
 }
 

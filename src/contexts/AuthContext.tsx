@@ -1,24 +1,7 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult } from '@/types/auth';
-
-// API base URL - Use environment variable or Workers API
-const API_BASE_URL = (() => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.trim() !== '') {
-    return envUrl;
-  }
-
-  // Check if we're in development mode and use local API
-  if (import.meta.env.DEV) {
-    return 'http://localhost:8787/api';
-  }
-
-  // Default to Workers API in production
-  return 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-})();
-
-// Temporary mock mode for testing when API is unavailable
-const USE_MOCK_AUTH = true;
+import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
+import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
 
 // Secure token storage - using memory storage for better security
 // Token will be lost on page refresh, requiring re-authentication
@@ -48,9 +31,11 @@ class SecureTokenStorage {
 
 const tokenStorage = SecureTokenStorage.getInstance();
 
-// Debug information
-if (import.meta.env.DEV) console.log('API_BASE_URL:', API_BASE_URL);
-if (import.meta.env.DEV) console.log('VITE_API_URL env:', import.meta.env.VITE_API_URL);
+// Debug information (development only)
+if (import.meta.env.DEV) {
+  console.log('API_BASE_URL:', API_BASE_URL);
+  console.log('USE_MOCK_AUTH:', USE_MOCK_AUTH);
+}
 
 // Initial state
 const initialState: AuthState = {
@@ -125,8 +110,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   // Helper to safely mark user as authenticated only if verified or admin.
   const safeAuthSuccess = (user: User) => {
-    const isVerified = (user?.isVerified === true) || ((user as unknown as { is_verified?: number })?.is_verified === 1);
-    const isAdmin = (user?.isAdmin === true) || ((user as unknown as { is_admin?: number })?.is_admin === 1);
+    const isVerified = isUserVerified(user);
+    const isAdmin = isUserAdmin(user);
 
     if (isVerified || isAdmin) {
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
@@ -160,18 +145,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const serverUser = serverData.user;
 
             // Check if local data matches server data
-            const localVerified = (storedUser?.isVerified === true || storedUser?.is_verified === 1);
-            const serverVerified = (serverUser?.isVerified === true || serverUser?.is_verified === 1);
+            const localVerified = isUserVerified(storedUser);
+            const serverVerified = isUserVerified(serverUser);
 
             if (localVerified !== serverVerified) {
-              console.warn('[AUTH] Data inconsistency detected, updating local state', {
+              if (import.meta.env.DEV) console.warn('[AUTH] Data inconsistency detected, updating local state', {
                 localVerified,
                 serverVerified,
                 userId: storedUser.id
               });
 
-              // Update local storage with correct server data
-              localStorage.setItem('user', JSON.stringify(serverUser));
+              // Update local storage with correct server data (normalized)
+              const normalizedUser = normalizeUser(serverUser);
+              if (normalizedUser) {
+                localStorage.setItem('user', JSON.stringify(normalizedUser));
+              }
 
               // Update auth state if verification status changed
               if (serverVerified) {
@@ -251,28 +239,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (response.ok) {
             const result = await response.json();
             if (import.meta.env.DEV) console.log('[AUTH] Token valid, received user data', result.user);
-            // Normalize isVerified flag (API may return is_verified)
+            // Normalize user data using the data transformer
             const apiUser = result.user || JSON.parse(storedUser);
-            const normalizedUser = {
-              ...apiUser,
-              isVerified: (apiUser.isVerified !== undefined) ? apiUser.isVerified : (apiUser.is_verified === 1)
-            };
-            // Store latest user info but only consider authenticated if verified
-            localStorage.setItem('user', JSON.stringify(normalizedUser));
-            if (normalizedUser.isVerified) {
-              console.log('[AUTH] User verified, allowing authentication', {
+            const normalizedUser = normalizeUser(apiUser);
+            if (normalizedUser) {
+              // Store latest user info but only consider authenticated if verified
+              localStorage.setItem('user', JSON.stringify(normalizedUser));
+            }
+            if (isUserVerified(normalizedUser)) {
+              if (import.meta.env.DEV) console.log('[AUTH] User verified, allowing authentication', {
                 userId: normalizedUser.id,
                 userEmail: normalizedUser.email,
-                isVerified: normalizedUser.isVerified
+                isVerified: isUserVerified(normalizedUser)
               });
               safeAuthSuccess(normalizedUser);
             } else {
               // Keep token for resend flows but do not mark as authenticated
-              console.warn('[AUTH] BLOCKING AUTH: User not verified, marking as not authenticated', {
+              if (import.meta.env.DEV) console.warn('[AUTH] BLOCKING AUTH: User not verified, marking as not authenticated', {
                 userId: normalizedUser.id,
                 userEmail: normalizedUser.email,
-                isVerified: normalizedUser.isVerified,
-                isAdmin: normalizedUser.isAdmin
+                isVerified: isUserVerified(normalizedUser),
+                isAdmin: isUserAdmin(normalizedUser)
               });
               dispatch({ type: 'AUTH_LOGOUT' });
             }

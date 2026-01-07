@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 import { Users, BarChart3, Mail } from 'lucide-react';
@@ -25,7 +26,7 @@ interface EmailStats {
   verificationRate: number;
 }
 
-const AdminDashboard = () => {
+const AdminDashboard = memo(() => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,23 +42,11 @@ const AdminDashboard = () => {
   const fetchEmailStats = useCallback(async () => {
     try {
       setEmailStatsLoading(true);
-      const token = tokenStorage.getToken();
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-      const response = await fetch(`${apiBaseUrl}/admin/email-stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setEmailStats(data);
-      } else {
-        toast.error('Failed to fetch email statistics');
-      }
+      const response = await apiClient.get('/admin/email-stats');
+      setEmailStats(response.data);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching email stats:', error);
-      toast.error('Error fetching email statistics');
+      toast.error('Failed to fetch email statistics');
     } finally {
       setEmailStatsLoading(false);
     }
@@ -66,26 +55,14 @@ const AdminDashboard = () => {
   // Get user list
   const fetchUsers = useCallback(async () => {
     try {
-      const token = tokenStorage.getToken();
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-      const response = await fetch(`${apiBaseUrl}/admin/users?search=${encodeURIComponent(searchTerm)}&page=${page}&perPage=${perPage}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out users with null or undefined IDs
-        const validUsers = (data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
-        setUsers(validUsers);
-        setTotal(Number(data.total || 0));
-      } else {
-        toast.error('Failed to fetch user list');
-      }
+      const response = await apiClient.get(`/admin/users?search=${encodeURIComponent(searchTerm)}&page=${page}&perPage=${perPage}`);
+      // Filter out users with null or undefined IDs
+      const validUsers = (response.data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
+      setUsers(validUsers);
+      setTotal(Number(response.data.total || 0));
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching users:', error);
-      toast.error('Error fetching user list');
+      toast.error('Failed to fetch user list');
     } finally {
       setLoading(false);
     }
@@ -244,6 +221,8 @@ const AdminDashboard = () => {
       </Tabs>
     </div>
   );
-};
+});
+
+AdminDashboard.displayName = 'AdminDashboard';
 
 export default AdminDashboard;
