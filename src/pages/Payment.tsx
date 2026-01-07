@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { API_BASE_URL } from '@/lib/constants';
 import { useCart } from '@/contexts/CartContext';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
@@ -59,10 +60,9 @@ const Payment = () => {
     }
 
     // 2) fetch from backend runtime endpoint (public client id is safe to expose)
-    const apiBase = import.meta.env.VITE_API_URL || '';
-    const defaultApi = 'https://pawdia-ai-api.pawdia-creative.workers.dev';
+    const apiBase = API_BASE_URL;
     const tryFetchConfig = (base: string) =>
-      fetch(`${base.replace(/\/$/, '')}/api/config`)
+      fetch(`${base.replace(/\/api$/, '')}/api/config`)
         .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
         .then((data) => {
           if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);

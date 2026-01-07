@@ -756,6 +756,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswordForm({ newPassword: e.target.value })}
                 className="mt-1"
                 placeholder="At least 6 characters"
+                autoComplete="new-password"
               />
             </div>
           </div>

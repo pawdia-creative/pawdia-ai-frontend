@@ -3,12 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
-import Coins from 'lucide-react/dist/esm/icons/coins';
-import Crown from 'lucide-react/dist/esm/icons/crown';
-import Zap from 'lucide-react/dist/esm/icons/zap';
-import Star from 'lucide-react/dist/esm/icons/star';
-import Check from 'lucide-react/dist/esm/icons/check';
-import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
+import { toast } from 'sonner';
+import { API_BASE_URL } from '@/lib/constants';
+import { Coins, Crown, Zap, Star, Check, ArrowLeft } from 'lucide-react';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
 import { MetaTags } from '@/components/SEO/MetaTags';
@@ -159,10 +156,9 @@ const Subscription: React.FC = () => {
       return;
     }
 
-    const apiBase = import.meta.env.VITE_API_URL || '';
-    const defaultApi = 'https://pawdia-ai-api.pawdia-creative.workers.dev';
+    const apiBase = API_BASE_URL;
     const tryFetchConfig = (base: string) =>
-      fetch(`${base.replace(/\/$/, '')}/api/config`)
+      fetch(`${base.replace(/\/api$/, '')}/api/config`)
         .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
         .then((data) => {
           if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
@@ -241,7 +237,7 @@ const Subscription: React.FC = () => {
       
       // Step 2: Process payment and add credits via payment API
       const token = tokenStorage.getToken();
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      const baseUrl = API_BASE_URL;
       
       if (paymentType === 'subscription') {
         // Process subscription payment
@@ -382,7 +378,7 @@ const Subscription: React.FC = () => {
       setIsProcessing(true);
       try {
         const token = tokenStorage.getToken();
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/subscribe`, {
+        const response = await fetch(`${API_BASE_URL}/subscriptions/subscribe`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -400,7 +396,7 @@ const Subscription: React.FC = () => {
             if (import.meta.env.DEV) console.log('[SUBSCRIPTION FRONTEND] User already has subscription, refreshing user data...');
             // Refresh user data from /auth/me
             try {
-              const meResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/auth/me`, {
+              const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
                 headers: {
                   'Authorization': `Bearer ${token}`
                 }
@@ -518,7 +514,7 @@ const Subscription: React.FC = () => {
     setIsProcessing(true);
     try {
       const token = tokenStorage.getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api'}/subscriptions/subscribe`, {
+      const response = await fetch(`${API_BASE_URL}/subscriptions/subscribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

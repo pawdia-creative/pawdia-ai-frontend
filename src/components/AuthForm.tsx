@@ -184,6 +184,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
                 value={formData.password}
                 onChange={handleInputChange('password')}
                 required
+                autoComplete={type === 'login' ? 'current-password' : 'new-password'}
               />
             </div>
             
@@ -197,6 +198,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
                   value={formData.confirmPassword || ''}
                   onChange={handleInputChange('confirmPassword')}
                   required
+                  autoComplete="new-password"
                 />
               </div>
             )}
