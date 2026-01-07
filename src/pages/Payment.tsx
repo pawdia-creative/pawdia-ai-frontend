@@ -216,7 +216,7 @@ const Payment = () => {
                     <p className="text-muted-foreground text-xs">Connecting to payment provider. Please wait a moment and try again if this message persists.</p>
                   </div>
                 </div>
-              ) : !clientIdToUse || clientIdToUse === 'MISSING_CLIENT_ID' ? (
+              ) : !runtimeClientFetchDone || !(runtimePayPalClientId) || runtimePayPalClientId === 'MISSING_CLIENT_ID' ? (
                 <div className="text-center space-y-4">
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <p className="text-red-800 text-sm font-semibold mb-2">PayPal not configured</p>
@@ -254,7 +254,7 @@ const Payment = () => {
               ) : (
                 <PayPalScriptProvider
                   options={{
-                    clientId: clientIdToUse,
+                    clientId: runtimePayPalClientId as string,
                     currency: 'USD',
                     intent: 'capture',
                     components: 'buttons',
@@ -269,6 +269,7 @@ const Payment = () => {
                   deferLoading={false}
                   onError={(error: unknown) => {
                     if (import.meta.env.DEV) console.error('[PAYMENT] PayPal Script Provider error:', error);
+                    setPaypalError('PayPal service initialization failed. This may be due to network issues or PayPal configuration problems.');
                   }}
                 >
                   <PayPalButtons
