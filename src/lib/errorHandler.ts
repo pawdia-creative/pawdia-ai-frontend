@@ -130,7 +130,6 @@ export const getErrorMessage = (error: any, context?: string): {
 
   // Get base message
   let errorInfo = ERROR_MESSAGES[errorType];
-  const result = { type: errorType, ...errorInfo };
 
   // Customize message based on context
   if (context) {

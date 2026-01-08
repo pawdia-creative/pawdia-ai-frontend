@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import AuthStatusDebug from '@/components/AuthStatusDebug';
 
 const Profile: React.FC = () => {
@@ -82,7 +83,7 @@ const Profile: React.FC = () => {
                     <div className="space-y-2">
                       <Input
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                         placeholder="Enter your name"
                         className="w-full"
                         minLength={2}

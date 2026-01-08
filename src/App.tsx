@@ -62,7 +62,7 @@ const PageViewTracker = () => {
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
         const token = tokenStorage.getToken();
 
-        const headers: HeadersInit = {
+        const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
 

@@ -1,7 +1,5 @@
-import React from 'react';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 const AuthStatusDebug: React.FC = () => {
   const { isAuthenticated, isLoading, user, checkedAuth } = useAuth();
@@ -22,9 +20,13 @@ const AuthStatusDebug: React.FC = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           🔍 Authentication Status Debug
-          <Badge variant={isAuthenticated ? "default" : "secondary"}>
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+            isAuthenticated
+              ? "border-transparent bg-green-100 text-green-800"
+              : "border-transparent bg-gray-100 text-gray-800"
+          }`}>
             {isAuthenticated ? "Authenticated" : "Not Authenticated"}
-          </Badge>
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -32,15 +34,27 @@ const AuthStatusDebug: React.FC = () => {
           <div>
             <h3 className="font-semibold mb-2">Auth Context State</h3>
             <div className="space-y-1 text-sm">
-              <div>isAuthenticated: <Badge variant={isAuthenticated ? "default" : "destructive"}>{isAuthenticated.toString()}</Badge></div>
-              <div>isLoading: <Badge variant={isLoading ? "secondary" : "outline"}>{isLoading.toString()}</Badge></div>
-              <div>checkedAuth: <Badge variant={checkedAuth ? "default" : "secondary"}>{checkedAuth.toString()}</Badge></div>
-              <div>User exists: <Badge variant={!!user ? "default" : "destructive"}>{!!user ? "Yes" : "No"}</Badge></div>
+              <div>isAuthenticated: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                isAuthenticated ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{isAuthenticated.toString()}</span></div>
+              <div>isLoading: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                isLoading ? "border-transparent bg-blue-100 text-blue-800" : "border-transparent bg-gray-100 text-gray-800"
+              }`}>{isLoading.toString()}</span></div>
+              <div>checkedAuth: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                checkedAuth ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-blue-100 text-blue-800"
+              }`}>{checkedAuth.toString()}</span></div>
+              <div>User exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                !!user ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{!!user ? "Yes" : "No"}</span></div>
               {user && (
                 <>
                   <div>Email: {user.email}</div>
-                  <div>Verified: <Badge variant={user.isVerified ? "default" : "destructive"}>{user.isVerified?.toString()}</Badge></div>
-                  <div>Admin: <Badge variant={user.isAdmin ? "default" : "secondary"}>{user.isAdmin?.toString()}</Badge></div>
+                  <div>Verified: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                    user.isVerified ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+                  }`}>{user.isVerified?.toString()}</span></div>
+                  <div>Admin: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                    user.isAdmin ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-blue-100 text-blue-800"
+                  }`}>{user.isAdmin?.toString()}</span></div>
                 </>
               )}
             </div>
@@ -49,14 +63,24 @@ const AuthStatusDebug: React.FC = () => {
           <div>
             <h3 className="font-semibold mb-2">Local Storage</h3>
             <div className="space-y-1 text-sm">
-              <div>Token exists: <Badge variant={!!token ? "default" : "destructive"}>{!!token ? "Yes" : "No"}</Badge></div>
-              <div>User data exists: <Badge variant={!!storedUserStr ? "default" : "destructive"}>{!!storedUserStr ? "Yes" : "No"}</Badge></div>
-              <div>must_verify flag: <Badge variant={mustVerify === '1' ? "destructive" : "outline"}>{mustVerify || 'null'}</Badge></div>
+              <div>Token exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                !!token ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{!!token ? "Yes" : "No"}</span></div>
+              <div>User data exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                !!storedUserStr ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{!!storedUserStr ? "Yes" : "No"}</span></div>
+              <div>must_verify flag: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                mustVerify === '1' ? "border-transparent bg-red-100 text-red-800" : "border-transparent bg-gray-100 text-gray-800"
+              }`}>{mustVerify || 'null'}</span></div>
               {storedUser && !storedUser.error && (
                 <>
                   <div>Email: {storedUser.email}</div>
-                  <div>Verified: <Badge variant={storedUser.isVerified ? "default" : "destructive"}>{storedUser.isVerified?.toString()}</Badge></div>
-                  <div>Admin: <Badge variant={storedUser.isAdmin ? "default" : "secondary"}>{storedUser.isAdmin?.toString()}</Badge></div>
+                  <div>Verified: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                    storedUser.isVerified ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+                  }`}>{storedUser.isVerified?.toString()}</span></div>
+                  <div>Admin: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                    storedUser.isAdmin ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-blue-100 text-blue-800"
+                  }`}>{storedUser.isAdmin?.toString()}</span></div>
                 </>
               )}
               {storedUser?.error && (
