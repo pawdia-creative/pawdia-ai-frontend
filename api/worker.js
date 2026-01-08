@@ -23,6 +23,7 @@ function makeCorsHeaders(origin, env) {
   };
   if (origin && allowed.includes(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
     headers['Vary'] = 'Origin';
   } else {
     // no allow-origin header when origin not allowed
