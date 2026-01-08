@@ -360,7 +360,8 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
       try {
         const headersOut = new Headers(corsHeaders);
         // Clear cookie by setting Max-Age=0
-        headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
+        // Clear cookie; use SameSite=None for cross-site fetches and Secure for HTTPS
+        headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0');
         headersOut.set('Access-Control-Allow-Credentials', 'true');
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: headersOut });
       } catch (e) {
@@ -699,6 +700,19 @@ export default {
           });
     }
 
+    // Logout endpoint - clear auth cookie (top-level)
+    if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
+      try {
+        const headersOut = new Headers(corsHeaders);
+        headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0');
+        headersOut.set('Access-Control-Allow-Credentials', 'true');
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: headersOut });
+      } catch (e) {
+        console.error('Logout error:', e);
+        return new Response(JSON.stringify({ message: 'Logout failed' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // Runtime configuration endpoint - return public PayPal client id and mode
     if (url.pathname === '/api/config' && request.method === 'GET') {
       try {
@@ -865,7 +879,8 @@ export default {
         const respHeaders = new Headers(corsHeaders);
         // Set cookie for HttpOnly authentication; keep token in body for backward compatibility
         const maxAge = 7 * 24 * 3600; // 7 days
-        const cookie = `auth_token=${signed}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+        // Use SameSite=None so cookies are sent with cross-site fetch requests when credentials included
+        const cookie = `auth_token=${signed}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
         respHeaders.append('Set-Cookie', cookie);
         // Allow credentials for cross-origin requests from frontend
         respHeaders.set('Access-Control-Allow-Credentials', 'true');
