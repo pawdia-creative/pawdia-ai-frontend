@@ -128,6 +128,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const isAdmin = isUserAdmin(user);
 
     if (isVerified || isAdmin) {
+      // Clear any pending must_verify flag when server confirms verification
+      try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
     } else {
       // Ensure we keep token for verification flows but do not mark as authenticated.
@@ -308,6 +310,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (isVerified || isAdmin) {
           // Mark authenticated (session via cookie)
+          try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
           dispatch({ type: 'AUTH_SUCCESS', payload: normalizedUser });
           if (import.meta.env.DEV) console.log('[AUTH] User verified — authentication granted', { email: normalizedUser.email });
           return { ...normalizedUser, token: tempToken, isVerified, isAdmin, isFirstLogin: data.isFirstLogin };

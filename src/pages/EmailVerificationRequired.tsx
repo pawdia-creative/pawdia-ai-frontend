@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { apiClient } from '@/lib/apiClient';
+import type { ApiResponse } from '@/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_BASE_URL = (() => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.trim() !== '') {
-    return envUrl;
-  }
-  return 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-})();
 
 const EmailVerificationRequired: React.FC = () => {
   const { user, logout, syncVerificationStatus } = useAuth();
@@ -28,13 +23,13 @@ const EmailVerificationRequired: React.FC = () => {
   const hasToken = !!tokenStorage.getToken();
 
   if (import.meta.env.DEV) {
-    console.log('[EmailVerificationRequired] Debug info:', {
-      authUser: user,
-      storedUser,
-      hasToken,
-      mustVerifyFlag: localStorage.getItem('must_verify'),
-      redirectAttempts
-    });
+  console.log('[EmailVerificationRequired] Debug info:', {
+    authUser: user,
+    storedUser,
+    hasToken,
+    mustVerifyFlag: localStorage.getItem('must_verify'),
+    redirectAttempts
+  });
   }
 
 
@@ -44,33 +39,7 @@ const EmailVerificationRequired: React.FC = () => {
 
     setIsResending(true);
     try {
-      const token = tokenStorage.getToken();
-      if (!token) {
-        toast.error('请先登录才能重新发送验证邮件');
-        logout(); // Clear any stale state
-        navigate('/login');
-        return;
-      }
-
-      // Validate token before making request
-      try {
-        const meCheck = await fetch(`${API_BASE_URL}/auth/me`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!meCheck.ok) {
-          console.warn('[EmailVerificationRequired] Token invalid, redirecting to login');
-          logout();
-          navigate('/login');
-          return;
-        }
-      } catch (tokenError) {
-        console.error('[EmailVerificationRequired] Token validation failed:', tokenError);
-        logout();
-        navigate('/login');
-        return;
-      }
+      // Use apiClient which will include cookies for authentication
 
       // Some backends expect the email in the POST body; include it when available.
       const storedUserStr = localStorage.getItem('user');
@@ -80,44 +49,15 @@ const EmailVerificationRequired: React.FC = () => {
         bodyPayload.email = storedUser.email;
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bodyPayload),
-      });
+      const apiResp = await apiClient.post<{ message?: string }>('/auth/resend-verification', bodyPayload) as ApiResponse<{ message?: string }>;
+      const respMsg = apiResp.data?.message || apiResp.message || '';
 
-      // Parse response body if available and present helpful message
-      let responseBody: { message?: string; error?: string } = {};
-      try { responseBody = await response.json(); } catch (e) { responseBody = {}; }
-
-      // Check the actual response message to determine success/failure
-      const responseMessage = responseBody?.message || '';
-
-      if (responseMessage.includes('Verification email sent')) {
-        // Success case
+      if (respMsg.includes('Verification email sent') || apiResp.status === 200) {
         setEmailSent(true);
         toast.success('验证邮件已重新发送，请检查您的邮箱');
-      } else if (responseMessage.includes('Unable to send')) {
-        // Email service failure
-        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] Email service failed:', responseMessage);
-        throw new Error('邮件服务暂时不可用，请稍后再试');
-      } else if (responseMessage.includes('If that account exists')) {
-        // User not found or token issues
-        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] User lookup failed:', responseMessage);
-        throw new Error('用户验证失败，请重新登录后再试');
-      } else if (!response.ok) {
-        // HTTP error
-        const msg = responseBody?.message || responseBody?.error || '发送失败';
-        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] HTTP error:', response.status, responseBody);
-        throw new Error(msg);
       } else {
-        // Unknown response
-        if (import.meta.env.DEV) console.warn('[EmailVerificationRequired] Unknown response:', responseMessage);
-        setEmailSent(true);
-        toast.success('邮件发送请求已提交，请检查邮箱');
+        if (import.meta.env.DEV) console.warn('[EmailVerificationRequired] resend-verification response:', apiResp);
+        throw new Error(respMsg || '发送失败');
       }
 
       // Reset email sent state after 5 seconds
@@ -196,34 +136,10 @@ const EmailVerificationRequired: React.FC = () => {
                 try {
                   const synced = await syncVerificationStatus();
                   if (synced) {
-                    // Check if user is now verified
-                    const token = tokenStorage.getToken();
-                    if (token) {
-                      try {
-                      const meResp = await fetch(`${API_BASE_URL}/auth/me`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                      });
-                      if (meResp.ok) {
-                          const meData = await meResp.json().catch(() => ({}));
-                          const meUser = meData?.user;
-                          const isVerified = meUser && (meUser.isVerified === true || meUser.is_verified === 1);
-                          if (isVerified) {
-                          toast.success('验证成功，跳转到首页');
-                            // Clear must_verify flag so verification enforcer won't redirect back
-                            try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
-                            navigate('/', { replace: true });
-                          return;
-                          }
-                        } else {
-                          // If /auth/me returned an error, show a helpful message
-                          const errBody = await meResp.json().catch(() => ({}));
-                          if (import.meta.env.DEV) console.error('[EmailVerificationRequired] /auth/me after sync returned non-OK:', meResp.status, errBody);
-                        }
-                      } catch (meErr) {
-                        if (import.meta.env.DEV) console.error('[EmailVerificationRequired] Error fetching /auth/me after sync:', meErr);
-                      }
-                    }
-                    toast.error('验证状态已同步，但尚未完成验证');
+                    // Server confirmed verification and safeAuthSuccess cleared must_verify
+                    toast.success('验证成功，跳转到首页');
+                    navigate('/', { replace: true });
+                    return;
                   } else {
                     toast.error('无法同步验证状态，请重新登录');
                     logout();

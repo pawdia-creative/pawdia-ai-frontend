@@ -906,12 +906,12 @@ export default {
         }
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
           if (!tokenFromCookie) {
-            return new Response(JSON.stringify({
-              message: 'No token provided'
-            }), {
-              status: 401,
-              headers: corsHeaders
-            });
+          return new Response(JSON.stringify({
+            message: 'No token provided'
+          }), {
+            status: 401,
+            headers: corsHeaders
+          });
           }
         }
 
