@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './constants';
-import { tokenStorage } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 
 /**
  * Custom error class for API errors
@@ -103,7 +103,7 @@ class ApiClient {
     const requestConfig: RequestInit = {
       method,
       headers,
-      signal: config.signal,
+      signal: config.signal ?? null,
       // Ensure cookies are sent for cookie-based auth
       credentials: 'include' as RequestCredentials,
     };
@@ -186,8 +186,6 @@ class ApiClient {
   }
 }
 
-// Export singleton instance
 export const apiClient = new ApiClient();
 
-// Export types
-export type { RequestConfig, ApiResponse };
+// Export singleton instance

@@ -5,6 +5,7 @@ function parseAllowedOrigins(env) {
   // default allow production domain and Pages preview if none provided
   if (list.length === 0) {
     return [
+      'https://pawdia-ai.com',
       'https://www.pawdia-ai.com',
       'https://pawdia-ai-frontend.pages.dev',
       'https://25001b6c.pawdia-ai-frontend.pages.dev',
@@ -360,7 +361,8 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
       try {
         const headersOut = new Headers(corsHeaders);
         // Clear cookie by setting Max-Age=0
-        // Clear cookie; use SameSite=None for cross-site fetches and Secure for HTTPS
+        // For cross-origin API usage we need SameSite=None so browsers include the cookie on cross-site fetches.
+        // Keep HttpOnly and Secure for safety.
         headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0');
         headersOut.set('Access-Control-Allow-Credentials', 'true');
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: headersOut });
@@ -704,6 +706,7 @@ export default {
     if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
       try {
         const headersOut = new Headers(corsHeaders);
+        // For cross-origin API usage set SameSite=None so browsers include the cookie on cross-site fetches.
         headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0');
         headersOut.set('Access-Control-Allow-Credentials', 'true');
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: headersOut });
@@ -879,7 +882,7 @@ export default {
         const respHeaders = new Headers(corsHeaders);
         // Set cookie for HttpOnly authentication; keep token in body for backward compatibility
         const maxAge = 7 * 24 * 3600; // 7 days
-        // Use SameSite=None so cookies are sent with cross-site fetch requests when credentials included
+        // Use SameSite=None for cross-origin frontend <-> API fetches so the HttpOnly cookie is included.
         const cookie = `auth_token=${signed}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
         respHeaders.append('Set-Cookie', cookie);
         // Allow credentials for cross-origin requests from frontend

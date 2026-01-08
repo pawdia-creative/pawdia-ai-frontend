@@ -1,8 +1,8 @@
 // API Configuration Constants
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-// Default API URL for fallbacks
-export const DEFAULT_API_URL = 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+// Default API URL for fallbacks (used only when absolute URL required)
+export const DEFAULT_API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Application Constants
 export const APP_NAME = 'Pawdia AI';

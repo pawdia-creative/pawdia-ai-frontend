@@ -3,47 +3,7 @@ import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials
 import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
 import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
 import { apiClient } from '@/lib/apiClient';
-
-// Secure token storage - using localStorage for persistence
-// Token persists across page refreshes for better user experience
-class SecureTokenStorage {
-  private static instance: SecureTokenStorage;
-  private readonly TOKEN_KEY = 'auth_token';
-
-  static getInstance(): SecureTokenStorage {
-    if (!SecureTokenStorage.instance) {
-      SecureTokenStorage.instance = new SecureTokenStorage();
-    }
-    return SecureTokenStorage.instance;
-  }
-
-  setToken(token: string): void {
-    try {
-      localStorage.setItem(this.TOKEN_KEY, token);
-    } catch (error) {
-      console.warn('Failed to store token in localStorage:', error);
-    }
-  }
-
-  getToken(): string | null {
-    try {
-      return localStorage.getItem(this.TOKEN_KEY);
-    } catch (error) {
-      console.warn('Failed to retrieve token from localStorage:', error);
-      return null;
-    }
-  }
-
-  clearToken(): void {
-    try {
-      localStorage.removeItem(this.TOKEN_KEY);
-    } catch (error) {
-      console.warn('Failed to clear token from localStorage:', error);
-    }
-  }
-}
-
-const tokenStorage = SecureTokenStorage.getInstance();
+import { tokenStorage } from '@/lib/tokenStorage';
 
 // Debug information (development only)
 if (import.meta.env.DEV) {
@@ -295,6 +255,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (import.meta.env.DEV) console.log('[AUTH] Login successful, validating token and fetching user data...');
 
+      // Persist token temporarily so apiClient can use Authorization header if cookie isn't available
+      if (typeof tempToken === 'string' && tempToken.length > 0) {
+        try {
+          tokenStorage.setToken(tempToken);
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn('[AUTH] Failed to store temp token in tokenStorage:', e);
+        }
+      }
+
       // After login the server sets an HttpOnly cookie; use /auth/me via apiClient to retrieve canonical user info
       try {
         const meResp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 15000 });
@@ -507,8 +476,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return <AuthContext.Provider value={extendedValue}>{children}</AuthContext.Provider>;
 };
 
-// Export secure token storage for use in other files
-export { tokenStorage };
+// tokenStorage is exported from src/lib/tokenStorage to avoid circular imports
 
 // Hook
 export const useAuth = () => {
