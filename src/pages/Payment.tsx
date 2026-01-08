@@ -22,13 +22,13 @@ const Payment = () => {
     }
   }, [cartState.items.length, navigate]);
 
-  // #region agent log - hypothesis A,B
+  // #region dev-only agent log - hypothesis A,B
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
     try {
       const rawClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
       const maskedClientId = rawClientId ? `***${String(rawClientId).slice(-6)}` : null;
-      // Hypothesis A: runtime env value is old (Pages env not updated)
-      // Hypothesis B: build-time value embedded in bundle / CDN caching
+      // Local telemetry agent; if not running this will error — swallow silently
       fetch('http://127.0.0.1:7242/ingest/839228e4-043b-434f-be81-06d17b3bc7f2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,14 +46,14 @@ const Payment = () => {
       /* swallow errors during logging */
     }
   }, []);
-  // #endregion agent log
+  // #endregion dev-only agent log
 
   // Runtime PayPal client id: check injected global or fetch from backend config endpoint
   useEffect(() => {
     let cancelled = false;
 
     // 1) check global injected var (optional: Worker can inject into page)
-    if (window.__PAYPAL_CLIENT_ID__) {
+    if ((window as any).__PAYPAL_CLIENT_ID__) {
       setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
       setRuntimeClientFetchDone(true);
       return;
@@ -78,7 +78,7 @@ const Payment = () => {
         });
     } else {
       // Try known public worker URL as a fallback when VITE_API_URL is not set
-      tryFetchConfig(defaultApi)
+      tryFetchConfig(API_BASE_URL)
         .finally(() => {
           if (!cancelled) setRuntimeClientFetchDone(true);
         });
@@ -94,7 +94,7 @@ const Payment = () => {
       const isSandbox = !!(runtimePayPalClientId && (String(runtimePayPalClientId).startsWith('EPeFX') || String(runtimePayPalClientId).toLowerCase().includes('sandbox')));
       // Print where the client id came from (window injection) and a short preview
       // eslint-disable-next-line no-console
-      console.log('[PAYPAL] clientIdPreview:', preview, 'isSandbox:', isSandbox, 'windowInjected:', !!window.__PAYPAL_CLIENT_ID__);
+      console.log('[PAYPAL] clientIdPreview:', preview, 'isSandbox:', isSandbox, 'windowInjected:', !!(window as any).__PAYPAL_CLIENT_ID__);
     }
   }, [runtimeClientFetchDone, runtimePayPalClientId]);
 

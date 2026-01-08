@@ -172,6 +172,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 required
+                autoComplete="username"
               />
             </div>
             

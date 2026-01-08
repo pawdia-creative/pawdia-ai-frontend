@@ -126,11 +126,12 @@ const Subscription: React.FC = () => {
 
   // #region agent log - hypothesis A,B
   useEffect(() => {
+    // Development-only debug telemetry — disable in production
+    if (!import.meta.env.DEV) return;
     try {
       const rawClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
       const maskedClientId = rawClientId ? `***${String(rawClientId).slice(-6)}` : null;
-      // Hypothesis A: Pages env still set to sandbox client ID
-      // Hypothesis B: CDN/build serving old bundle with sandbox ID
+      // Local telemetry agent (may not be running); swallow any errors
       fetch('http://127.0.0.1:7242/ingest/839228e4-043b-434f-be81-06d17b3bc7f2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

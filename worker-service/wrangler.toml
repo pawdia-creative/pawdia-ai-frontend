@@ -1,0 +1,7 @@
+name = "pawdia-stripper"
+main = "strip-permissions-worker.js"
+compatibility_date = "2026-01-01"
+type = "javascript"
+account_id = "654197f681aa2182cf531bd5e6293e1d"
+
+

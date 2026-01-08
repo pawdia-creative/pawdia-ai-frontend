@@ -22,18 +22,20 @@ const EmailVerificationRequired: React.FC = () => {
   const [emailSent, setEmailSent] = useState(false);
   const [redirectAttempts] = useState(0);
 
-  // Debug info
+  // Debug info (development only)
   const storedUserStr = localStorage.getItem('user');
   const storedUser = storedUserStr ? JSON.parse(storedUserStr) : null;
   const hasToken = !!tokenStorage.getToken();
 
-  console.log('[EmailVerificationRequired] Debug info:', {
-    authUser: user,
-    storedUser,
-    hasToken,
-    mustVerifyFlag: localStorage.getItem('must_verify'),
-    redirectAttempts
-  });
+  if (import.meta.env.DEV) {
+    console.log('[EmailVerificationRequired] Debug info:', {
+      authUser: user,
+      storedUser,
+      hasToken,
+      mustVerifyFlag: localStorage.getItem('must_verify'),
+      redirectAttempts
+    });
+  }
 
 
   const handleResendEmail = async () => {
