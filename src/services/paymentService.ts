@@ -1,5 +1,6 @@
-import { apiClient, ApiError } from '@/lib/apiClient';
+import { apiClient } from '@/lib/apiClient';
 import { handleError } from '@/lib/errorHandler';
+import { toast } from 'sonner';
 
 interface OrderData {
   items: Array<{
@@ -18,7 +19,7 @@ interface OrderData {
 
 interface PaymentResult {
   orderId: string;
-  captureId?: string;
+  captureId?: string | undefined;
   status: string;
 }
 
@@ -58,7 +59,7 @@ class PaymentService {
       // Remove userId from orderData as it's now obtained from the auth token
       const { userId, ...orderDataWithoutUserId } = orderData;
 
-      const response = await apiClient.post(`${this.baseUrl}/create-order`, orderDataWithoutUserId);
+      const response = await apiClient.post<{ orderId: string }>(`${this.baseUrl}/create-order`, orderDataWithoutUserId);
       return response.data.orderId;
     } catch (error) {
       handleError(error, 'payment', {
@@ -74,7 +75,7 @@ class PaymentService {
    */
   static async capturePayment(orderId: string): Promise<PaymentResult> {
     try {
-      const response = await apiClient.post(`${this.baseUrl}/capture-order/${orderId}`);
+      const response = await apiClient.post<{ captureId?: string; status: string }>(`${this.baseUrl}/capture-order/${orderId}`);
       return {
         orderId,
         captureId: response.data.captureId,
@@ -94,7 +95,7 @@ class PaymentService {
    */
   static async getOrderDetails(orderId: string): Promise<OrderDetails> {
     try {
-      const response = await apiClient.get(`${this.baseUrl}/order/${orderId}`);
+      const response = await apiClient.get<{ order: OrderDetails }>(`${this.baseUrl}/order/${orderId}`);
       return response.data.order;
     } catch (error) {
       handleError(error, 'payment', {
@@ -110,7 +111,7 @@ class PaymentService {
    */
   static async getUserOrders(): Promise<UserOrder[]> {
     try {
-      const response = await apiClient.get(`${this.baseUrl}/user-orders`);
+      const response = await apiClient.get<{ orders: UserOrder[] }>(`${this.baseUrl}/user-orders`);
       return response.data.orders;
     } catch (error) {
       handleError(error, 'payment', {

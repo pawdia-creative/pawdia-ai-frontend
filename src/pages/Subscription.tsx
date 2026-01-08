@@ -3,9 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth, tokenStorage } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
 import { API_BASE_URL } from '@/lib/constants';
-import { Coins, Crown, Zap, Star, Check, ArrowLeft } from 'lucide-react';
+import Coins from 'lucide-react/dist/esm/icons/coins';
+import Crown from 'lucide-react/dist/esm/icons/crown';
+import Zap from 'lucide-react/dist/esm/icons/zap';
+import Star from 'lucide-react/dist/esm/icons/star';
+import Check from 'lucide-react/dist/esm/icons/check';
+import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
 import { MetaTags } from '@/components/SEO/MetaTags';
@@ -150,7 +154,7 @@ const Subscription: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
 
-    if (window.__PAYPAL_CLIENT_ID__) {
+    if ((window as any).__PAYPAL_CLIENT_ID__) {
       setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
       setRuntimeClientFetchDone(true);
       return;
@@ -174,7 +178,7 @@ const Subscription: React.FC = () => {
         });
     } else {
       // Try known public worker URL as a fallback when VITE_API_URL is not set
-      tryFetchConfig(defaultApi)
+      tryFetchConfig(API_BASE_URL)
         .finally(() => {
           if (!cancelled) setRuntimeClientFetchDone(true);
         });
