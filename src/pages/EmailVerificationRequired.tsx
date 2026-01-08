@@ -207,6 +207,8 @@ const EmailVerificationRequired: React.FC = () => {
                           const isVerified = meUser && (meUser.isVerified === true || meUser.is_verified === 1);
                           if (isVerified) {
                           toast.success('验证成功，跳转到首页');
+                            // Clear must_verify flag so verification enforcer won't redirect back
+                            try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
                             navigate('/', { replace: true });
                           return;
                           }
