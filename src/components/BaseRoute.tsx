@@ -67,35 +67,25 @@ const BaseRoute = ({
     );
   }
 
-  // Simplified verification logic - avoid complex parsing during render
+  // Handle email verification requirement for authenticated users
+  if (checkedAuth && isAuthenticated && requireEmailVerification && user) {
+    // User is authenticated but may not be verified
+    const isVerified = user.isVerified === true;
+    const isAdmin = user.isAdmin === true;
+
+    if (!isVerified && !isAdmin) {
+      if (import.meta.env.DEV) console.warn('[BaseRoute] Authenticated user not verified, showing verification page');
+      return <EmailVerificationRequired />;
+    }
+  }
+
+  // Handle must_verify flag for users who need to verify but are not yet authenticated
   if (checkedAuth && !isAuthenticated && requireEmailVerification) {
-    const token = tokenStorage.getToken();
-    const storedUserStr = localStorage.getItem('user');
     const mustVerifyFlag = localStorage.getItem('must_verify');
 
-    // Check must_verify flag first
     if (mustVerifyFlag === '1') {
       if (import.meta.env.DEV) console.warn('[BaseRoute] must_verify flag active, showing verification page');
       return <EmailVerificationRequired />;
-    }
-
-    // Check if user has credentials but is not verified
-    if (token && storedUserStr) {
-      try {
-        const storedUser = JSON.parse(storedUserStr);
-        const isAdmin = (storedUser?.isAdmin === true) || (storedUser?.is_admin === 1);
-        const isVerified = (storedUser?.isVerified === true || storedUser?.is_verified === 1);
-
-        if (!isVerified && !isAdmin) {
-          if (import.meta.env.DEV) console.warn('[BaseRoute] User not verified, showing verification page');
-          return <EmailVerificationRequired />;
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('[BaseRoute] Error parsing stored user:', error);
-        // Clear corrupted data
-        localStorage.removeItem('user');
-        tokenStorage.clearToken();
-      }
     }
   }
 

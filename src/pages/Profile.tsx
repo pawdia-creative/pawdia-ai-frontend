@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import AuthStatusDebug from '@/components/AuthStatusDebug';
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -160,6 +161,9 @@ const Profile: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Debug component - only show in development */}
+      {import.meta.env.DEV && <AuthStatusDebug />}
     </div>
   );
 };
