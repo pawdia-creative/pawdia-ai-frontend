@@ -61,6 +61,13 @@ export const denormalizeUser = (user: Partial<User>): Partial<DbUser> => {
   delete (dbUser as any).isVerified;
   delete (dbUser as any).isAdmin;
   delete (dbUser as any).createdAt;
+  // Map subscription back to DB fields if present
+  if ((user as any).subscription) {
+    const sub = (user as any).subscription;
+    dbUser.subscription_plan = sub.plan;
+    dbUser.subscription_status = sub.status;
+    dbUser.subscription_expires = sub.expiresAt;
+  }
   delete (dbUser as any).subscription;
 
   return dbUser;

@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import * as Sentry from '@sentry/react';
 import { ApiError } from './apiClient';
 
 /**
@@ -74,6 +75,8 @@ export const classifyError = (error: any): ErrorType => {
   // API Error with specific codes
   if (error instanceof ApiError) {
     switch (error.code) {
+      case 'NETWORK_ERROR':
+        return ErrorType.NETWORK;
       case 'TIMEOUT':
         return ErrorType.NETWORK;
       case 'AI_API_ERROR':
@@ -118,6 +121,7 @@ export const classifyError = (error: any): ErrorType => {
  * Get user-friendly error message
  */
 export const getErrorMessage = (error: any, context?: string): {
+  type: ErrorType;
   title: string;
   message: string;
   action: string;
@@ -126,6 +130,7 @@ export const getErrorMessage = (error: any, context?: string): {
 
   // Get base message
   let errorInfo = ERROR_MESSAGES[errorType];
+  const result = { type: errorType, ...errorInfo };
 
   // Customize message based on context
   if (context) {
@@ -157,7 +162,7 @@ export const getErrorMessage = (error: any, context?: string): {
     }
   }
 
-  return errorInfo;
+  return { type: errorType, ...errorInfo };
 };
 
 /**
@@ -177,6 +182,20 @@ export const handleError = (
   // Log error for debugging (only in development)
   if (logError && import.meta.env.DEV) {
     console.error('[ErrorHandler]', error);
+  }
+
+  // Report error to Sentry (only in production)
+  if (import.meta.env.PROD) {
+    Sentry.captureException(error, {
+      tags: {
+        context: context || 'unknown',
+        errorType: classifyError(error),
+      },
+      extra: {
+        context,
+        userFriendlyMessage: getErrorMessage(error, context),
+      },
+    });
   }
 
   // Get user-friendly message

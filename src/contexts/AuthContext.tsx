@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult } from '@/types/auth';
 import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
 import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
+import { apiClient } from '@/lib/apiClient';
 
 // Secure token storage - using localStorage for persistence
 // Token persists across page refreshes for better user experience
@@ -136,72 +137,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check secure storage for login status
-  // Periodic consistency check to ensure local data matches server state
+  // Periodic consistency check to ensure local data matches server state (uses cookie-based auth via apiClient)
   useEffect(() => {
     const consistencyCheck = async () => {
-      const token = tokenStorage.getToken();
       const storedUserStr = localStorage.getItem('user');
+      if (!storedUserStr) return;
+      let storedUser: any = null;
+      try {
+        storedUser = JSON.parse(storedUserStr);
+      } catch (e) {
+        if (import.meta.env.DEV) console.debug('[AUTH] Failed to parse stored user for consistency check', e);
+        return;
+      }
 
-      if (token && storedUserStr) {
-        try {
-          const storedUser = JSON.parse(storedUserStr);
-          // Quick server check to ensure data consistency
-          const response = await fetch(`${API_BASE_URL}/auth/me`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` },
-            signal: AbortSignal.timeout(5000) // 5 second timeout for consistency check
+      try {
+        const resp = await apiClient.get('/auth/me', { timeout: 5000 });
+        const serverUser = resp.data?.user;
+        if (!serverUser) return;
+
+        const localVerified = isUserVerified(storedUser);
+        const serverVerified = isUserVerified(serverUser);
+
+        if (localVerified !== serverVerified) {
+          if (import.meta.env.DEV) console.warn('[AUTH] Data inconsistency detected, updating local state', {
+            localVerified,
+            serverVerified,
+            userId: storedUser?.id
           });
-
-          if (response.ok) {
-            const serverData = await response.json();
-            const serverUser = serverData.user;
-
-            // Check if local data matches server data
-            const localVerified = isUserVerified(storedUser);
-            const serverVerified = isUserVerified(serverUser);
-
-            if (localVerified !== serverVerified) {
-              if (import.meta.env.DEV) console.warn('[AUTH] Data inconsistency detected, updating local state', {
-                localVerified,
-                serverVerified,
-                userId: storedUser.id
-              });
-
-              // Update local storage with correct server data (normalized)
-              const normalizedUser = normalizeUser(serverUser);
-              if (normalizedUser) {
-                localStorage.setItem('user', JSON.stringify(normalizedUser));
-              }
-
-              // Update auth state if verification status changed
-              if (serverVerified) {
-                safeAuthSuccess(serverUser);
-              } else {
-                dispatch({ type: 'AUTH_LOGOUT' });
-                try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
-              }
-            }
+          const normalizedUser = normalizeUser(serverUser);
+          if (normalizedUser) {
+            localStorage.setItem('user', JSON.stringify(normalizedUser));
           }
-        } catch (error) {
-          // Ignore consistency check errors to avoid disrupting user experience
-          if (import.meta.env.DEV) console.debug('[AUTH] Consistency check failed:', error);
+          if (serverVerified) {
+            safeAuthSuccess(serverUser);
+          } else {
+            dispatch({ type: 'AUTH_LOGOUT' });
+            try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
+          }
         }
+      } catch (error) {
+        if (import.meta.env.DEV) console.debug('[AUTH] Consistency check fetch failed:', error);
       }
     };
 
-    // Run consistency check every 2 minutes to reduce API calls and prevent loops
     const intervalId = setInterval(consistencyCheck, 120000);
-
     return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = tokenStorage.getToken();
       const storedUser = localStorage.getItem('user');
       
-      if (token && storedUser) {
+      if (true) { // always attempt to validate session via cookie-based auth
         // 设置加载状态为 true，防止在验证期间重定向
         dispatch({ type: 'AUTH_START' });
         
@@ -256,8 +243,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const apiUser = result.user || parsedUser;
             const normalizedUser = normalizeUser(apiUser);
             if (normalizedUser) {
-              // Store latest user info but only consider authenticated if verified
-              localStorage.setItem('user', JSON.stringify(normalizedUser));
+            // Store latest user info but only consider authenticated if verified
+            localStorage.setItem('user', JSON.stringify(normalizedUser));
             }
             if (isUserVerified(normalizedUser)) {
               if (import.meta.env.DEV) console.log('[AUTH] User verified, allowing authentication', {
@@ -288,7 +275,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             // 清除 token 和用户数据
             if (import.meta.env.DEV) console.warn('[AUTH] Clearing auth data. Status:', response.status, 'Error:', errorData?.message || errorData?.error || 'Unknown');
-            localStorage.removeItem('token');
+            tokenStorage.clearToken();
             localStorage.removeItem('user');
             dispatch({ type: 'AUTH_LOGOUT' });
           } else {
@@ -323,7 +310,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // 网络错误时，不要清除 token，可能是临时网络问题
           // 只有在明确知道 token 无效时才清除
           if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
-            localStorage.removeItem('token');
+            tokenStorage.clearToken();
             localStorage.removeItem('user');
           }
           // 网络错误时，保留 token，但标记为未认证
@@ -413,33 +400,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (import.meta.env.DEV) console.log('[AUTH] Login successful, validating token and fetching user data...');
 
-      // Persist token so verification/resend flows can work even for unverified users.
-      tokenStorage.setToken(tempToken);
-
-      // Call /auth/me immediately to obtain canonical user info and verification status
+      // After login the server sets an HttpOnly cookie; use /auth/me via apiClient to retrieve canonical user info
       try {
-        const meResp = await fetch(`${API_BASE_URL}/auth/me`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${tempToken}` },
-        });
-
-        if (!meResp.ok) {
-          // Token rejected — clear any stored token and fail
-          if (meResp.status === 401) {
-            tokenStorage.clearToken();
-            localStorage.removeItem('user');
-            dispatch({ type: 'AUTH_FAILURE', payload: 'Invalid credentials or expired token' });
-            throw new Error('Invalid credentials or expired token');
-          }
-          // For other errors, do not authenticate; keep token for possible resend flows but block access
-          dispatch({ type: 'AUTH_FAILURE', payload: 'Unable to validate login' });
-          try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore localStorage errors */ }
-          try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
-          dispatch({ type: 'AUTH_LOGOUT' });
-          return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
-        }
-
-        const meData = await meResp.json();
+        const meResp = await apiClient.get('/auth/me', { timeout: 15000 });
+        const meData = meResp.data;
         const serverUser = meData.user || claimedUser;
         const normalizedUser = {
           ...serverUser,
@@ -453,24 +417,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const isAdmin = normalizedUser.isAdmin === true;
 
         if (isVerified || isAdmin) {
-          // Persist token and mark authenticated
-          tokenStorage.setToken(tempToken);
+          // Mark authenticated (session via cookie)
           dispatch({ type: 'AUTH_SUCCESS', payload: normalizedUser });
           if (import.meta.env.DEV) console.log('[AUTH] User verified — authentication granted', { email: normalizedUser.email });
           return { ...normalizedUser, token: tempToken, isVerified, isAdmin, isFirstLogin: data.isFirstLogin };
         } else {
-          // Keep token for resend flows but do NOT mark as authenticated
-          try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
+          // Keep flow for resend but do NOT mark as authenticated
+          try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore */ }
           dispatch({ type: 'AUTH_LOGOUT' });
           if (import.meta.env.DEV) console.warn('[AUTH] User not verified — blocking authentication', { email: normalizedUser.email });
           return { ...normalizedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
         }
       } catch (err) {
-        // Network or unexpected error validating /auth/me
         if (import.meta.env.DEV) console.error('[AUTH] Error validating token after login:', err);
-        // Keep token so user can resend verification, but do not authenticate
-        try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore localStorage errors */ }
-        try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
+        try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore */ }
+        try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore */ }
         dispatch({ type: 'AUTH_LOGOUT' });
         return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
       }
@@ -496,7 +457,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Mock successful registration
       if (import.meta.env.DEV) console.log('[AUTH] Mock registration successful for:', credentials.email);
 
-      localStorage.removeItem('token');
+      tokenStorage.clearToken();
       localStorage.removeItem('user');
       dispatch({ type: 'AUTH_LOGOUT' });
       return;
@@ -533,7 +494,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (import.meta.env.DEV) console.log('[AUTH] Registration completed - not auto-logging in. User must verify email.');
       // Clear the loading state so UI (login/register pages) do not remain stuck showing "Signing in..."
       // Ensure any existing session data is removed so a newly registered email cannot reuse old localStorage state.
-      localStorage.removeItem('token');
+      tokenStorage.clearToken();
       localStorage.removeItem('user');
       dispatch({ type: 'AUTH_LOGOUT' });
     } catch (error) {
@@ -542,32 +503,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call backend to clear HttpOnly cookie
+      await apiClient.post('/auth/logout');
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[AUTH] Logout request failed:', e);
+    }
+    // Clear client-side state
     localStorage.removeItem('user');
     tokenStorage.clearToken();
     dispatch({ type: 'AUTH_LOGOUT' });
   };
 
   const updateProfile = async (data: UpdateProfileData) => {
-    const token = tokenStorage.getToken();
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
+      const response = await apiClient.put('/users/profile', data);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to update profile');
+      const result = response.data;
+      if (response.status !== 200) {
+        throw new Error(result?.message || 'Failed to update profile');
       }
 
       // Update local storage user information
@@ -578,7 +533,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         safeAuthSuccess(updatedUser);
       }
-
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error updating profile:', error);
       throw error;
@@ -609,52 +563,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Enhanced state synchronization with server
   const syncVerificationStatus = async (): Promise<boolean> => {
-    const token = tokenStorage.getToken();
-    const storedUser = localStorage.getItem('user');
-
-    if (!token || !storedUser) {
-      return false;
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const serverUser = data.user;
-
-        if (serverUser) {
-          // Normalize verification flags
-          const normalizedServerUser = {
-            ...serverUser,
-            isVerified: (serverUser.isVerified === true) || (serverUser.is_verified === 1),
-            isAdmin: (serverUser.isAdmin === true) || (serverUser.is_admin === 1)
-          };
-
-          // Update local storage with server data
-          localStorage.setItem('user', JSON.stringify(normalizedServerUser));
-
-          // Update context state
-          safeAuthSuccess(normalizedServerUser);
-
-          if (import.meta.env.DEV) console.log('Verification status synced with server');
-          return true;
-        }
-      } else if (response.status === 401) {
-        // Token is invalid, logout
+      const resp = await apiClient.get('/auth/me');
+      const data = resp.data;
+      const serverUser = data.user;
+      if (serverUser) {
+        const normalizedServerUser = {
+          ...serverUser,
+          isVerified: (serverUser.isVerified === true) || (serverUser.is_verified === 1),
+          isAdmin: (serverUser.isAdmin === true) || (serverUser.is_admin === 1)
+        };
+        localStorage.setItem('user', JSON.stringify(normalizedServerUser));
+        safeAuthSuccess(normalizedServerUser);
+        if (import.meta.env.DEV) console.log('Verification status synced with server');
+        return true;
+      }
+    } catch (error: any) {
+      if ((error && (error.status === 401)) || (error instanceof Error && (error as any).status === 401)) {
         if (import.meta.env.DEV) console.warn('Token invalid during sync, logging out');
-        logout();
+        await logout();
         return false;
       }
-    } catch (error) {
       if (import.meta.env.DEV) console.error('Error syncing verification status:', error);
     }
-
     return false;
   };
 

@@ -290,11 +290,11 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       throw new ApiError(`AI API error: ${data.error}`, 400, 'AI_API_ERROR');
     }
 
-      // The backend should return the image URL or base64 data
-      let imageUrl: string;
+    // The backend should return the image URL or base64 data
+    let imageUrl: string;
 
-      if (data.imageUrl) {
-        imageUrl = data.imageUrl;
+    if (data.imageUrl) {
+      imageUrl = data.imageUrl;
     } else if (data.image && data.image.url) {
       imageUrl = data.image.url;
     } else if (data.image && data.image.base64) {

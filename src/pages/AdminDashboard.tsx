@@ -56,9 +56,9 @@ const AdminDashboard = memo(() => {
   const fetchUsers = useCallback(async () => {
     try {
       const response = await apiClient.get(`/admin/users?search=${encodeURIComponent(searchTerm)}&page=${page}&perPage=${perPage}`);
-      // Filter out users with null or undefined IDs
+        // Filter out users with null or undefined IDs
       const validUsers = (response.data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
-      setUsers(validUsers);
+        setUsers(validUsers);
       setTotal(Number(response.data.total || 0));
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching users:', error);

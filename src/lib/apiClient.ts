@@ -104,6 +104,8 @@ class ApiClient {
       method,
       headers,
       signal: config.signal,
+      // Ensure cookies are sent for cookie-based auth
+      credentials: 'include' as RequestCredentials,
     };
 
     if (data && (method !== 'GET' && method !== 'HEAD')) {
@@ -121,8 +123,14 @@ class ApiClient {
     try {
       const response = await fetch(url, requestConfig);
       return await this.handleResponse<T>(response);
-    } catch (error) {
-      if (error instanceof ApiError) {
+    } catch (error: any) {
+      // If error already looks like an ApiError (has status), rethrow preserving it
+      if (error && typeof error.status === 'number') {
+        throw error;
+      }
+
+      // Handle ApiError instances more robustly
+      if (error instanceof ApiError || error?.name === 'ApiError') {
         throw error;
       }
 

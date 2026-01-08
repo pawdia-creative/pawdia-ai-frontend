@@ -354,6 +354,20 @@ async function sendVerificationEmail(env, toEmail, toName, token) {
       return { sent: true, provider: 'resend' };
     }
 
+    // Logout endpoint - clear auth cookie
+    if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
+      try {
+        const headersOut = new Headers(corsHeaders);
+        // Clear cookie by setting Max-Age=0
+        headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
+        headersOut.set('Access-Control-Allow-Credentials', 'true');
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: headersOut });
+      } catch (e) {
+        console.error('Logout error:', e);
+        return new Response(JSON.stringify({ message: 'Logout failed' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     console.warn('Primary email service (Resend) failed, error:', primaryResult.error || primaryResult, 'trying backup service...');
 
     // Try backup service (SendGrid)
@@ -846,6 +860,15 @@ export default {
         // Log login event
         await logAnalyticsEvent(env.DB, 'user_login', user.id, { email }, request);
 
+        // Build response headers and set auth cookie (HttpOnly, Secure)
+        const respHeaders = new Headers(corsHeaders);
+        // Set cookie for HttpOnly authentication; keep token in body for backward compatibility
+        const maxAge = 7 * 24 * 3600; // 7 days
+        const cookie = `auth_token=${signed}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+        respHeaders.append('Set-Cookie', cookie);
+        // Allow credentials for cross-origin requests from frontend
+        respHeaders.set('Access-Control-Allow-Credentials', 'true');
+
         return new Response(JSON.stringify({
           token: signed,
           user: {
@@ -858,7 +881,7 @@ export default {
           },
           isFirstLogin: wasFirstLogin
         }), {
-            headers: corsHeaders
+            headers: respHeaders
         });
       } catch (error) {
         console.error('Login error:', error);
@@ -874,17 +897,28 @@ export default {
     if (url.pathname === '/api/auth/me' && request.method === 'GET') {
       try {
         const authHeader = request.headers.get('authorization');
+        // If no Authorization header, try cookie-based auth (auth_token)
+        let tokenFromCookie = null;
+        if (!authHeader) {
+          const cookieHeader = request.headers.get('cookie') || '';
+          const match = cookieHeader.match(/(^|; )auth_token=([^;]+)/);
+          if (match) tokenFromCookie = match[2];
+        }
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(JSON.stringify({
-            message: 'No token provided'
-          }), {
-            status: 401,
-            headers: corsHeaders
-          });
+          if (!tokenFromCookie) {
+            return new Response(JSON.stringify({
+              message: 'No token provided'
+            }), {
+              status: 401,
+              headers: corsHeaders
+            });
+          }
         }
 
         // Verify JWT and extract payload
-        const payload = await getPayloadFromHeader(authHeader, env);
+        const payload = authHeader && authHeader.startsWith('Bearer ')
+          ? await getPayloadFromHeader(authHeader, env)
+          : await verifyJwt(tokenFromCookie, env.JWT_SECRET);
         if (!payload) {
           return new Response(JSON.stringify({ message: 'Invalid or expired token' }), { status: 401, headers: corsHeaders });
         }
