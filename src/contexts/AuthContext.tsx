@@ -151,7 +151,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       try {
-        const resp = await apiClient.get('/auth/me', { timeout: 5000 });
+        const resp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 5000 });
         const serverUser = resp.data?.user;
         if (!serverUser) return;
 
@@ -186,144 +186,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const storedUser = localStorage.getItem('user');
-      
-      if (true) { // always attempt to validate session via cookie-based auth
-        // 设置加载状态为 true，防止在验证期间重定向
-        dispatch({ type: 'AUTH_START' });
-        
-        // 添加超时处理，防止请求一直挂起
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          if (import.meta.env.DEV) console.warn('[AUTH] Auth check timeout after 15 seconds, aborting request');
-          controller.abort();
-        }, 15000); // 15秒超时
-        
-        try {
-          if (import.meta.env.DEV) console.log('[AUTH] Checking auth status with token...');
-          // Mock auth check for testing when API is unavailable
-        if (USE_MOCK_AUTH) {
-          if (import.meta.env.DEV) console.log('[AUTH] Mock auth check - using stored user data');
-          const parsedUser = JSON.parse(storedUser);
-          // Even in mock mode, enforce email verification
-          const isVerified = (parsedUser.isVerified === true) || (parsedUser.is_verified === 1);
-          const isAdmin = (parsedUser.isAdmin === true) || (parsedUser.is_admin === 1);
-
-          if (isVerified || isAdmin) {
-            safeAuthSuccess(parsedUser);
+      // Attempt to validate session using cookie-based auth via apiClient
+      dispatch({ type: 'AUTH_START' });
+      try {
+        const resp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 15000 });
+        const data = resp.data as { user?: any } | undefined;
+        const serverUser = data?.user ?? null;
+        if (serverUser) {
+          const normalized = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
+          if (normalized) {
+            localStorage.setItem('user', JSON.stringify(normalized));
+            safeAuthSuccess(normalized);
           } else {
-            if (import.meta.env.DEV) console.warn('[AUTH] Mock user not verified, marking as not authenticated');
-            try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
             dispatch({ type: 'AUTH_LOGOUT' });
           }
-          dispatch({ type: 'AUTH_CHECKED' });
-          return;
-        }
-
-        // Verify token is valid
-        const response = await fetch(`${API_BASE_URL}/auth/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          signal: controller.signal,
-        });
-
-        // Store token in secure storage if verification succeeds
-        if (response.ok) {
-          tokenStorage.setToken(token);
-        }
-
-          clearTimeout(timeoutId); // 清除超时
-
-          if (response.ok) {
-            const result = await response.json();
-            if (import.meta.env.DEV) console.log('[AUTH] Token valid, received user data', result.user);
-            // Normalize user data using the data transformer
-            const apiUser = result.user || parsedUser;
-            const normalizedUser = normalizeUser(apiUser);
-            if (normalizedUser) {
-            // Store latest user info but only consider authenticated if verified
-            localStorage.setItem('user', JSON.stringify(normalizedUser));
-            }
-            if (isUserVerified(normalizedUser)) {
-              if (import.meta.env.DEV) console.log('[AUTH] User verified, allowing authentication', {
-                userId: normalizedUser.id,
-                userEmail: normalizedUser.email,
-                isVerified: isUserVerified(normalizedUser)
-              });
-              safeAuthSuccess(normalizedUser);
-            } else {
-              // Keep token for resend flows but do not mark as authenticated
-              if (import.meta.env.DEV) console.warn('[AUTH] BLOCKING AUTH: User not verified, marking as not authenticated', {
-                userId: normalizedUser.id,
-                userEmail: normalizedUser.email,
-                isVerified: isUserVerified(normalizedUser),
-                isAdmin: isUserAdmin(normalizedUser)
-              });
-              dispatch({ type: 'AUTH_LOGOUT' });
-            }
-          } else if (response.status === 401) {
-            // 明确的认证失败，尝试获取详细错误信息
-            let errorData = null;
-            try {
-              errorData = await response.json();
-              if (import.meta.env.DEV) console.warn('[AUTH] Token invalid or expired, error details:', errorData);
-            } catch (e) {
-              if (import.meta.env.DEV) console.warn('[AUTH] Token invalid or expired, could not parse error response');
-            }
-            
-            // 清除 token 和用户数据
-            if (import.meta.env.DEV) console.warn('[AUTH] Clearing auth data. Status:', response.status, 'Error:', errorData?.message || errorData?.error || 'Unknown');
-            tokenStorage.clearToken();
-            localStorage.removeItem('user');
-            dispatch({ type: 'AUTH_LOGOUT' });
-          } else {
-            // 其他错误（如 500），可能是服务器问题，保留 token 但标记为未认证
-            if (import.meta.env.DEV) console.error('[AUTH] Server error during auth check:', response.status);
-            // 对于服务器错误，我们不清除 token，可能是临时问题
-            // 但标记为未认证，用户需要重新登录
-            dispatch({ type: 'AUTH_LOGOUT' });
-          }
-        } catch (error) {
-          clearTimeout(timeoutId); // 清除超时
-          if (import.meta.env.DEV) console.error('[AUTH] Error checking auth status:', error);
-
-          // 检查是否是超时或网络错误
-          if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-            if (import.meta.env.DEV) console.warn('[AUTH] Request timeout/abort, keeping token but marking as unauthenticated');
-            // Set a flag to indicate API connectivity issues
-            localStorage.setItem('api_offline', 'true');
-            dispatch({ type: 'AUTH_LOGOUT' });
-            return;
-          }
-
-          // 检查是否是网络错误
-          if (error instanceof TypeError && error.message.includes('fetch')) {
-            if (import.meta.env.DEV) console.warn('[AUTH] Network error during auth check, keeping token but marking as unauthenticated');
-            // Set a flag to indicate API connectivity issues
-            localStorage.setItem('api_offline', 'true');
-            dispatch({ type: 'AUTH_LOGOUT' });
-            return;
-          }
-          
-          // 网络错误时，不要清除 token，可能是临时网络问题
-          // 只有在明确知道 token 无效时才清除
-          if (error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
-            tokenStorage.clearToken();
-            localStorage.removeItem('user');
-          }
-          // 网络错误时，保留 token，但标记为未认证
-          // 这样用户在网络恢复后可以重试
+        } else {
+          // No user in response - ensure logged out state
           dispatch({ type: 'AUTH_LOGOUT' });
-        } finally {
-          // Mark that we've finished the initial auth check (success or failure)
-          dispatch({ type: 'AUTH_CHECKED' });
         }
-      } else {
-        // 没有 token 或 user，直接设置为未认证状态
-        if (import.meta.env.DEV) console.log('[AUTH] No token or user found in localStorage');
-        dispatch({ type: 'AUTH_LOGOUT' });
+      } catch (error: any) {
+        if ((error && (error.status === 401)) || (error instanceof Error && (error as any).status === 401)) {
+          if (import.meta.env.DEV) console.warn('[AUTH] No valid session (401), logging out');
+          tokenStorage.clearToken();
+          localStorage.removeItem('user');
+          dispatch({ type: 'AUTH_LOGOUT' });
+        } else {
+          if (import.meta.env.DEV) console.error('[AUTH] Error checking auth status:', error);
+          // On network/server errors, mark unauthenticated but keep local data
+          dispatch({ type: 'AUTH_LOGOUT' });
+        }
+      } finally {
         dispatch({ type: 'AUTH_CHECKED' });
       }
     };
@@ -402,19 +294,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // After login the server sets an HttpOnly cookie; use /auth/me via apiClient to retrieve canonical user info
       try {
-        const meResp = await apiClient.get('/auth/me', { timeout: 15000 });
-        const meData = meResp.data;
-        const serverUser = meData.user || claimedUser;
-        const normalizedUser = {
-          ...serverUser,
-          isVerified: (serverUser.isVerified !== undefined) ? serverUser.isVerified : (serverUser.is_verified === 1)
-        };
+        const meResp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 15000 });
+        const meData = meResp.data as { user?: any } | undefined;
+        const serverUser = meData?.user || claimedUser;
+        // Prefer normalizeUser to handle varied backend representations (numbers/strings)
+        const normalizedUser = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
 
         // Store canonical user representation
         localStorage.setItem('user', JSON.stringify(normalizedUser));
 
-        const isVerified = normalizedUser.isVerified === true;
-        const isAdmin = normalizedUser.isAdmin === true;
+        const isVerified = isUserVerified(normalizedUser);
+        const isAdmin = isUserAdmin(normalizedUser);
 
         if (isVerified || isAdmin) {
           // Mark authenticated (session via cookie)
@@ -520,7 +410,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const response = await apiClient.put('/users/profile', data);
 
-      const result = response.data;
+      const result = response.data as any;
       if (response.status !== 200) {
         throw new Error(result?.message || 'Failed to update profile');
       }
@@ -564,17 +454,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Enhanced state synchronization with server
   const syncVerificationStatus = async (): Promise<boolean> => {
     try {
-      const resp = await apiClient.get('/auth/me');
-      const data = resp.data;
-      const serverUser = data.user;
+      const resp = await apiClient.get<{ user: any }>('/auth/me');
+      const data = resp.data as { user?: any } | undefined;
+      const serverUser = data?.user;
       if (serverUser) {
-        const normalizedServerUser = {
-          ...serverUser,
-          isVerified: (serverUser.isVerified === true) || (serverUser.is_verified === 1),
-          isAdmin: (serverUser.isAdmin === true) || (serverUser.is_admin === 1)
-        };
-        localStorage.setItem('user', JSON.stringify(normalizedServerUser));
-        safeAuthSuccess(normalizedServerUser);
+        const normalized = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
+        localStorage.setItem('user', JSON.stringify(normalized));
+        safeAuthSuccess(normalized);
         if (import.meta.env.DEV) console.log('Verification status synced with server');
         return true;
       }

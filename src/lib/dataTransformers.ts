@@ -34,16 +34,33 @@ export const normalizeUser = (dbUser: DbUser | null): User | null => {
     id: dbUser.id,
     email: dbUser.email,
     name: dbUser.name,
-    avatar: dbUser.avatar,
+    ...(dbUser.avatar ? { avatar: dbUser.avatar } : {}),
     credits: dbUser.credits,
-    isVerified: Boolean(dbUser.is_verified === 1),
-    isAdmin: Boolean(dbUser.is_admin === 1),
+    // Accept multiple truthy representations from backend (number or string)
+    // Normalize various backend representations (number, string, boolean)
+    isVerified: ((): boolean => {
+      const v = (dbUser as any).is_verified;
+      if (v === undefined || v === null) return false;
+      const s = String(v).toLowerCase();
+      return s === '1' || s === 'true';
+    })(),
+    isAdmin: ((): boolean => {
+      const v = (dbUser as any).is_admin;
+      if (v === undefined || v === null) return false;
+      const s = String(v).toLowerCase();
+      return s === '1' || s === 'true';
+    })(),
     createdAt: dbUser.created_at,
-    subscription: dbUser.subscription_plan ? {
-      plan: dbUser.subscription_plan as 'free' | 'basic' | 'premium',
-      expiresAt: dbUser.subscription_expires || undefined,
-      status: (dbUser.subscription_status as 'active' | 'expired' | 'cancelled') || 'inactive',
-    } : undefined,
+    ...(dbUser.subscription_plan ? {
+      subscription: (() => {
+        const obj: { plan: 'free' | 'basic' | 'premium'; expiresAt?: string; status: 'active' | 'expired' | 'cancelled' } = {
+          plan: dbUser.subscription_plan as 'free' | 'basic' | 'premium',
+          status: (dbUser.subscription_status as 'active' | 'expired' | 'cancelled') || 'inactive',
+        };
+        if (dbUser.subscription_expires) obj.expiresAt = dbUser.subscription_expires;
+        return obj;
+      })()
+    } : {}),
   };
 };
 
@@ -99,8 +116,9 @@ export const isUserVerified = (user: User | DbUser | null | undefined): boolean 
   }
 
   // Check database format
-  if ('is_verified' in user && typeof user.is_verified === 'number') {
-    return user.is_verified === 1;
+  if ('is_verified' in user) {
+    const val = (user as any).is_verified;
+    return val === 1 || val === '1' || val === true || val === 'true';
   }
 
   return false;
@@ -118,8 +136,11 @@ export const isUserAdmin = (user: User | DbUser | null | undefined): boolean => 
   }
 
   // Check database format
-  if ('is_admin' in user && typeof user.is_admin === 'number') {
-    return user.is_admin === 1;
+  if ('is_admin' in user) {
+    const val = (user as any).is_admin;
+    if (val === undefined || val === null) return false;
+    const s = String(val).toLowerCase();
+    return s === '1' || s === 'true';
   }
 
   return false;
