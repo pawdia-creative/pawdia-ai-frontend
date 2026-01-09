@@ -666,6 +666,33 @@ async function requireVerifiedFromHeader(authHeader, env) {
   return { user };
 }
 
+// Helper to extract payload from either Authorization header or cookie-based auth
+async function getPayloadFromRequest(request, env) {
+  const authHeader = request.headers.get('authorization') || '';
+  let token = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const match = cookieHeader.match(/(^|; )auth_token=([^;]+)/);
+    if (match) token = match[2];
+  }
+  if (!token) return null;
+  // try header-style verification first
+  const payload = await getPayloadFromHeader(`Bearer ${token}`, env).then(p => {
+    // getPayloadFromHeader returns payload or null (it throws inside), so handle
+    return p && p.sub ? p : null;
+  }).catch(() => null);
+  if (payload) return payload;
+  // fallback to direct jwt verify (older code path)
+  try {
+    const verified = await verifyJwt(token, env.JWT_SECRET);
+    return verified;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Main worker handler
 export default {
   async fetch(request, env, ctx) {
@@ -1309,10 +1336,10 @@ export default {
 
           // Update user subscription and add credits
           await env.DB.prepare(
-            'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + ?, subscription_expires = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+            'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + ?, subscription_expires_at = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
           ).bind(plan, 'active', creditsToAdd, userId).run();
 
-          const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status, subscription_expires FROM users WHERE id = ?').bind(userId).first();
+          const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status, COALESCE(subscription_expires, subscription_expires_at) as subscription_expires FROM users WHERE id = ?').bind(userId).first();
           return new Response(JSON.stringify({
             success: true,
             message: `${plan} subscription activated successfully. ${creditsToAdd} credits added.`,
@@ -1692,31 +1719,14 @@ export default {
 
     if (url.pathname.startsWith('/api/admin/users') && request.method === 'GET') {
       try {
-        const authHeader = request.headers.get('authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(JSON.stringify({
-            message: 'Authentication required'
-          }), {
-            status: 401,
-            headers: corsHeaders
-          });
-        }
-
-        // Extract and verify JWT payload
-        const payload = await getPayloadFromHeader(authHeader, env);
+        const payload = await getPayloadFromRequest(request, env);
         if (!payload) {
-          return new Response(JSON.stringify({ message: 'Invalid or expired token' }), { status: 401, headers: corsHeaders });
+          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
         }
         const userId = payload.sub || payload.userId;
         const user = await getUserById(env.DB, userId);
-
         if (!user || user.is_admin !== 1) {
-          return new Response(JSON.stringify({
-            message: 'Admin access required'
-          }), {
-            status: 403,
-            headers: corsHeaders
-          });
+          return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
         }
 
         // Get search and pagination parameters
@@ -1783,15 +1793,9 @@ export default {
           const d = new Date(s);
           return !isNaN(d.getTime());
         };
-        const authHeader = request.headers.get('authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
-        }
-
-        // For admin operations, allow unverified admin users to proceed
-        const payload = await getPayloadFromHeader(authHeader, env);
+        const payload = await getPayloadFromRequest(request, env);
         if (!payload) {
-          return new Response(JSON.stringify({ message: 'Invalid or expired token' }), { status: 401, headers: corsHeaders });
+          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
         }
         const userId = payload.sub || payload.userId;
         const adminUser = await getUserById(env.DB, userId);
@@ -1949,6 +1953,7 @@ export default {
         // PUT actions: subscription update
         if (request.method === 'PUT' && parts.length >= 5 && parts[4] === 'subscription') {
           const body = await request.json().catch(() => ({}));
+          console.log('Subscription update request body:', body);
           // Allowed fields: plan, status, expiresAt, setCredits, addPlanCredits
           const updates = [];
           const params = [];
@@ -1965,13 +1970,18 @@ export default {
             if (!isValidIsoDateOrSpecial(body.expiresAt)) {
               return new Response(JSON.stringify({ message: 'Invalid expiresAt value' }), { status: 400, headers: corsHeaders });
             }
-            updates.push('subscription_expires = ?'); params.push(body.expiresAt);
+            updates.push('subscription_expires_at = ?'); params.push(body.expiresAt);
           }
+          console.log('Updates array:', updates);
+          console.log('Params array:', params);
           try {
             if (updates.length > 0) {
               const sql = `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
               params.push(targetId);
-              await env.DB.prepare(sql).bind(...params).run();
+              console.log('Final SQL:', sql);
+              console.log('Final params:', params);
+              const result = await env.DB.prepare(sql).bind(...params).run();
+              console.log('SQL execution result:', result);
             }
             // Handle credits changes
             if (typeof body.setCredits !== 'undefined') {
@@ -2009,27 +2019,13 @@ export default {
 
     if (url.pathname === '/api/admin/analytics/stats' && request.method === 'GET') {
       try {
-        const authHeader = request.headers.get('authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return new Response(JSON.stringify({
-            message: 'Authentication required'
-          }), {
-            status: 401,
-            headers: corsHeaders
-          });
+        const payload = await getPayloadFromRequest(request, env);
+        if (!payload) {
+          return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
         }
-
-        // require verified admin
-        const vCheck = await requireVerifiedFromHeader(authHeader, env);
-        if (vCheck.errorResponse) return vCheck.errorResponse;
-        const user = vCheck.user;
-        if (!user.is_admin) {
-          return new Response(JSON.stringify({
-            message: 'Admin access required'
-          }), {
-            status: 403,
-            headers: corsHeaders
-          });
+        const user = await getUserById(env.DB, payload.sub || payload.userId);
+        if (!user || user.is_admin !== 1) {
+          return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
         }
 
         const stats = await getAnalyticsStats(env.DB);
@@ -2267,24 +2263,12 @@ export default {
     // Email monitoring endpoint - Admin only
     if (url.pathname === '/api/admin/email-stats' && request.method === 'GET') {
       try {
-        // Require admin authentication
-        const authHeader = request.headers.get('authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // Accept either Authorization header or cookie-based auth
+        const payload = await getPayloadFromRequest(request, env);
+        if (!payload) {
           return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: corsHeaders });
         }
-
-        const token = authHeader.slice(7);
-        const meResponse = await fetch(`${new URL(request.url).origin}/api/auth/me`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!meResponse.ok) {
-          return new Response(JSON.stringify({ message: 'Invalid authentication' }), { status: 401, headers: corsHeaders });
-        }
-
-        const meData = await meResponse.json();
-        const user = meData.user;
+        const user = await getUserById(env.DB, payload.sub || payload.userId);
         if (!user || (user.is_admin !== 1 && user.isAdmin !== true)) {
           return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
         }
@@ -2302,7 +2286,7 @@ export default {
 
         // Get recent email events
         const recentEvents = await env.DB.prepare(`
-          SELECT event_type, user_id, metadata, created_at
+          SELECT event_type, user_id, data as metadata, created_at
           FROM analytics
           WHERE event_type IN ('verification_sent', 'email_send_failed', 'verification_success')
           ORDER BY created_at DESC

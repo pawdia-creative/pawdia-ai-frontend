@@ -23,6 +23,7 @@
     "exactOptionalPropertyTypes": true,
 
     "baseUrl": "./src",
+    "types": ["vitest"],
     "paths": {
       "@/*": ["./*"]
     }

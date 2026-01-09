@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
 import { toast } from 'sonner';
-import { tokenStorage } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 import { Globe, Activity, Users, TrendingUp } from 'lucide-react';
 
 // Analytics data interfaces

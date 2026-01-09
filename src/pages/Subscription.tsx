@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 import { API_BASE_URL } from '@/lib/constants';
 import Coins from 'lucide-react/dist/esm/icons/coins';
 import Crown from 'lucide-react/dist/esm/icons/crown';
@@ -784,10 +785,10 @@ const Subscription: React.FC = () => {
                         'data-client-metadata-id': 'pawdia-payment-' + Date.now()
                       }}
                       deferLoading={false}
-                      onError={(error: unknown) => {
+                      {...({ onError: (error: unknown) => {
                         if (import.meta.env.DEV) console.error('[PAYMENT] PayPal Script Provider error:', error);
                         setPaypalError('PayPal service initialization failed. This may be due to network issues or PayPal configuration problems.');
-                      }}
+                      } } as any)}
                     >
                       <PayPalButtons
                         style={{

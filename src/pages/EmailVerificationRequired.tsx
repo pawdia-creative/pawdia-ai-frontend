@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 import { apiClient } from '@/lib/apiClient';
 import type { ApiResponse } from '@/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

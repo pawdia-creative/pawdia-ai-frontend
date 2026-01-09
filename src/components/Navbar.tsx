@@ -8,7 +8,8 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 import { NavLink } from './NavLink';
 
 const Navbar: React.FC = () => {

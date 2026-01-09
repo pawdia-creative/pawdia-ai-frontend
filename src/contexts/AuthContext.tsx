@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult } from '@/types/auth';
+import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult, RegisterResult } from '@/types/auth';
 import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
 import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
 import { apiClient } from '@/lib/apiClient';
@@ -304,7 +304,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const register = async (credentials: RegisterCredentials) => {
+  const register = async (credentials: RegisterCredentials): Promise<RegisterResult> => {
     dispatch({ type: 'AUTH_START' });
 
     // Mock registration for testing when API is unavailable
@@ -323,7 +323,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       tokenStorage.clearToken();
       localStorage.removeItem('user');
       dispatch({ type: 'AUTH_LOGOUT' });
-      return;
+      const mockUser: User = {
+        id: `mock-user-${Date.now()}`,
+        email: credentials.email,
+        name: credentials.name,
+        createdAt: new Date().toISOString(),
+        credits: 0,
+        isAdmin: false,
+        isVerified: false
+      };
+      return {
+        message: 'Mock registration successful',
+        user: mockUser,
+        emailSent: false,
+        emailError: null
+      };
     }
 
     try {
@@ -361,6 +375,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       tokenStorage.clearToken();
       localStorage.removeItem('user');
       dispatch({ type: 'AUTH_LOGOUT' });
+      // Return server response to caller
+      return data as RegisterResult;
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Registration failed' });
       throw error;

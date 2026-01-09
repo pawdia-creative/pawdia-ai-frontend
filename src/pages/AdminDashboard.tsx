@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
@@ -19,14 +19,9 @@ interface User {
   lastLogin?: string;
 }
 
-interface EmailStats {
-  totalUsers: number;
-  verifiedUsers: number;
-  unverifiedUsers: number;
-  verificationRate: number;
-}
+type EmailStats = any;
 
-const AdminDashboard = memo(() => {
+const AdminDashboard = React.memo(() => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +38,7 @@ const AdminDashboard = memo(() => {
     try {
       setEmailStatsLoading(true);
       const response = await apiClient.get('/admin/email-stats');
-      setEmailStats(response.data);
+      setEmailStats(response.data as any);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching email stats:', error);
       toast.error('Failed to fetch email statistics');
@@ -56,10 +51,11 @@ const AdminDashboard = memo(() => {
   const fetchUsers = useCallback(async () => {
     try {
       const response = await apiClient.get(`/admin/users?search=${encodeURIComponent(searchTerm)}&page=${page}&perPage=${perPage}`);
+      const data = response.data as any;
         // Filter out users with null or undefined IDs
-      const validUsers = (response.data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
+      const validUsers = (data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
         setUsers(validUsers);
-      setTotal(Number(response.data.total || 0));
+      setTotal(Number(data.total || 0));
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching users:', error);
       toast.error('Failed to fetch user list');
@@ -194,7 +190,7 @@ const AdminDashboard = memo(() => {
                   <h3 className="text-lg font-semibold">Recent Email Events</h3>
                 </div>
                 <div className="divide-y">
-                  {emailStats.recentEvents.slice(0, 20).map((event: { event_type: string; email: string; created_at: string }, index: number) => (
+                  {emailStats.recentEvents.slice(0, 20).map((event: any, index: number) => (
                     <div key={index} className="p-4 flex justify-between items-center">
               <div>
                         <span className={`inline-block px-2 py-1 text-xs rounded-full ${
@@ -205,7 +201,7 @@ const AdminDashboard = memo(() => {
                           {event.event_type.replace('_', ' ')}
                         </span>
                         <span className="ml-2 text-sm text-gray-600">
-                          User: {event.user_id?.substring(0, 8)}...
+                          User: {String((event as any).user_id || '').substring(0, 8)}...
                         </span>
                       </div>
                       <span className="text-xs text-gray-500">

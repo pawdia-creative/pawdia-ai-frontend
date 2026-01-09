@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import React, { useEffect } from "react";
-import { AuthProvider, useAuth, tokenStorage } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { tokenStorage } from '@/lib/tokenStorage';
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Loading component

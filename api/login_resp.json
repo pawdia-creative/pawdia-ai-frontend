@@ -1,0 +1,17 @@
+HTTP/2 200 
+date: Fri, 09 Jan 2026 02:52:33 GMT
+content-type: application/json
+content-length: 397
+access-control-allow-origin: https://pawdia-ai.com
+set-cookie: auth_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiN2JhODEyOS01MzNkLTQ4MWItOGRhYS1lMmI0MzI2Mjc2MWUiLCJpc0FkbWluIjp0cnVlLCJpYXQiOjE3Njc5MjcxNTMsImV4cCI6MTc2ODUzMTk1M30.HCxi4Mr8e__Qllp1hKhciL72lY1QFqZRMVAs2Xn9UGI; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=604800
+vary: Origin, accept-encoding
+access-control-allow-credentials: true
+access-control-allow-headers: Content-Type, Authorization
+access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=f6eDL9UzWVJX1wUhU1XPwSRhA8%2BbXMG07pnIju24ABU3FDk6rupbfQqbHztncJkBnb4S2MZ7o3uUxPM39AZkn5B08Q9qhqfVZf9c3lNcBYR4MljoUa1efvnPzn0T8qTrEgEQ0bjlm7Yztl3km5SELoiJvSs%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: 9bb0a3a62bc00fc7-LAX
+alt-svc: h3=":443"; ma=86400
+
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiN2JhODEyOS01MzNkLTQ4MWItOGRhYS1lMmI0MzI2Mjc2MWUiLCJpc0FkbWluIjp0cnVlLCJpYXQiOjE3Njc5MjcxNTMsImV4cCI6MTc2ODUzMTk1M30.HCxi4Mr8e__Qllp1hKhciL72lY1QFqZRMVAs2Xn9UGI","user":{"id":"b7ba8129-533d-481b-8daa-e2b43262761e","email":"admin@pawdia.ai","name":"System Administrator","credits":970,"isAdmin":true,"isVerified":true},"isFirstLogin":false}

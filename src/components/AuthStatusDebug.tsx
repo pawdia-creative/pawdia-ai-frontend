@@ -1,4 +1,5 @@
-import { useAuth, tokenStorage } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const AuthStatusDebug: React.FC = () => {
@@ -42,7 +43,7 @@ const AuthStatusDebug: React.FC = () => {
               }`}>{isLoading.toString()}</span></div>
               <div>checkedAuth: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                 checkedAuth ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-blue-100 text-blue-800"
-              }`}>{checkedAuth.toString()}</span></div>
+              }`}>{String(checkedAuth)}</span></div>
               <div>User exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                 !!user ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
               }`}>{!!user ? "Yes" : "No"}</span></div>

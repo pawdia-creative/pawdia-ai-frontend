@@ -1,3 +1,62 @@
+// Temporary shims to smooth over missing/variant type exports during build.
+// These should be replaced with proper types or library upgrades later.
+
+declare module 'lucide-react' {
+  // Common icons used across the codebase (declare as any to avoid type errors)
+  export const Users: any;
+  export const BarChart3: any;
+  export const Search: any;
+  export const CreditCard: any;
+  export const Eye: any;
+  export const Save: any;
+  export const ShieldCheck: any;
+  export const KeyRound: any;
+  export const Trash2: any;
+  export const ArrowLeft: any;
+  export const Download: any;
+  export const RefreshCw: any;
+  export const AlertCircle: any;
+  export const Settings: any;
+  export const Coins: any;
+  export const AlertTriangle: any;
+  export const MoveHorizontal: any;
+  export const Wand2: any;
+  export const Globe: any;
+  export const Activity: any;
+  export const TrendingUp: any;
+  export const Mail: any;
+  export const CheckCircle: any;
+  export const Loader2: any;
+  export default any;
+}
+
+declare module 'recharts' {
+  // Minimal shims for Recharts components used in the project.
+  export const XAxis: any;
+  export const YAxis: any;
+  export const Line: any;
+  export const Tooltip: any;
+  export const Legend: any;
+  export const ResponsiveContainer: any;
+  export const LineChart: any;
+  export const CartesianGrid: any;
+  export const BarChart: any;
+  export const Bar: any;
+  export const AreaChart: any;
+  export const Area: any;
+  export const PieChart: any;
+  export const Pie: any;
+  export const Cell: any;
+  export const Sector: any;
+  export const ComposedChart: any;
+  export const CartesianAxis: any;
+  export const ChartTooltip: any;
+  export default any;
+}
+
+// Vitest globals shim for tests
+declare const vi: any;
+
 // Auto-generated shims to satisfy TypeScript in the editor for third-party modules
 // and Vite's import.meta.env typings. These are lightweight fallbacks so the
 // IDE stops complaining when types are not present. Prefer installing proper
@@ -30,36 +89,7 @@ declare module 'react/jsx-runtime' {
   export const Fragment: any;
 }
 
-declare module 'react' {
-  const React: any;
-  export default React;
-  export function useState<T = any>(initial?: T | (() => T)): [T, (value: T | ((prev: T) => T)) => void];
-  export function useEffect(effect: () => void | (() => void | undefined), deps?: any[]): void;
-  export function useContext<T = any>(context: any): T;
-  export function createContext<T = any>(defaultValue?: T): { Provider: any; Consumer: any; _currentValue?: T };
-  export function useReducer<R = any, I = any>(reducer: any, initialState: I): [R, (action: any) => void];
-  export type FC<P = any> = any;
-  export type ReactNode = any;
-  export const Fragment: any;
-  export const useRef: any;
-  export const useMemo: any;
-  export const useCallback: any;
-}
-
-declare global {
-  namespace React {
-    type FC<P = any> = any;
-    type ReactNode = any;
-  }
-
-  interface Window {
-    __PAYPAL_CLIENT_ID__?: string;
-  }
-}
-
-// Provide generic-compatible signatures for common React helpers
-declare function createContext<T = any>(defaultValue?: T): any;
-declare function useReducer<R = any, I = any>(reducer: any, initialState: I): any;
+ 
 
 declare module 'react-router-dom' {
   export const BrowserRouter: any;
@@ -70,15 +100,7 @@ declare module 'react-router-dom' {
   export const useSearchParams: any;
 }
 
-declare module 'lucide-react' {
-  export const CheckCircle: any;
-  export const XCircle: any;
-  export const Loader2: any;
-export const Mail: any;
-export const Instagram: any;
-export const MessageCircle: any;
-export const Clock: any;
-}
+ 
 
 declare module 'sonner' {
   export const toast: any;

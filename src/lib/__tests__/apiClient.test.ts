@@ -1,7 +1,8 @@
 /// <reference types="vitest" />
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+declare const vi: any;
+import { describe, it, expect, beforeEach } from 'vitest';
 import { apiClient, ApiError } from '../apiClient';
-import { tokenStorage } from '@/contexts/AuthContext';
+import { tokenStorage } from '@/lib/tokenStorage';
 import { API_BASE_URL } from '../constants';
 
 // Mock fetch API
@@ -18,12 +19,12 @@ vi.mock('@/contexts/AuthContext', () => ({
 describe('apiClient', () => {
   beforeEach(() => {
     mockFetch.mockClear();
-    (tokenStorage.getToken as vi.Mock).mockClear();
-    (tokenStorage.clearToken as vi.Mock).mockClear();
+    (tokenStorage.getToken as any).mockClear();
+    (tokenStorage.clearToken as any).mockClear();
   });
 
   it('should make a GET request with authorization header', async () => {
-    (tokenStorage.getToken as vi.Mock).mockReturnValue('test-token');
+    (tokenStorage.getToken as any).mockReturnValue('test-token');
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -47,7 +48,7 @@ describe('apiClient', () => {
   });
 
   it('should make a POST request with data and authorization header', async () => {
-    (tokenStorage.getToken as vi.Mock).mockReturnValue('test-token');
+    (tokenStorage.getToken as any).mockReturnValue('test-token');
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 201,

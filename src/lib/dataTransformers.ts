@@ -36,16 +36,20 @@ export const normalizeUser = (dbUser: DbUser | null): User | null => {
     name: dbUser.name,
     ...(dbUser.avatar ? { avatar: dbUser.avatar } : {}),
     credits: dbUser.credits,
-    // Accept multiple truthy representations from backend (number or string)
-    // Normalize various backend representations (number, string, boolean)
+    // Accept multiple truthy representations from backend (number/string) OR already-normalized frontend shape (boolean)
     isVerified: ((): boolean => {
-      const v = (dbUser as any).is_verified;
+      const raw = (dbUser as any);
+      // Prefer explicit frontend boolean if present
+      if (typeof raw.isVerified === 'boolean') return raw.isVerified;
+      const v = raw.is_verified ?? raw.isVerified;
       if (v === undefined || v === null) return false;
       const s = String(v).toLowerCase();
       return s === '1' || s === 'true';
     })(),
     isAdmin: ((): boolean => {
-      const v = (dbUser as any).is_admin;
+      const raw = (dbUser as any);
+      if (typeof raw.isAdmin === 'boolean') return raw.isAdmin;
+      const v = raw.is_admin ?? raw.isAdmin;
       if (v === undefined || v === null) return false;
       const s = String(v).toLowerCase();
       return s === '1' || s === 'true';
