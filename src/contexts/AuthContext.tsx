@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult, RegisterResult } from '@/types/auth';
 import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
@@ -76,7 +77,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 }
 
 // Context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Provider component
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -104,16 +105,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const consistencyCheck = async () => {
       const storedUserStr = localStorage.getItem('user');
       if (!storedUserStr) return;
-      let storedUser: any = null;
+      let storedUser: User | null = null;
       try {
-        storedUser = JSON.parse(storedUserStr);
+        storedUser = JSON.parse(storedUserStr) as User;
       } catch (e) {
         if (import.meta.env.DEV) console.debug('[AUTH] Failed to parse stored user for consistency check', e);
         return;
       }
 
       try {
-        const resp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 5000 });
+        const resp = await apiClient.get<{ user?: User }>('/auth/me', { timeout: 5000 });
         const serverUser = resp.data?.user;
         if (!serverUser) return;
 
@@ -137,7 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
           }
         }
-      } catch (error) {
+      } catch (error: unknown) {
         if (import.meta.env.DEV) console.debug('[AUTH] Consistency check fetch failed:', error);
       }
     };
@@ -151,8 +152,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Attempt to validate session using cookie-based auth via apiClient
       dispatch({ type: 'AUTH_START' });
       try {
-        const resp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 15000 });
-        const data = resp.data as { user?: any } | undefined;
+        const resp = await apiClient.get<{ user?: User }>('/auth/me', { timeout: 15000 });
+        const data = resp.data as { user?: User } | undefined;
         const serverUser = data?.user ?? null;
         if (serverUser) {
           const normalized = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
@@ -166,8 +167,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // No user in response - ensure logged out state
           dispatch({ type: 'AUTH_LOGOUT' });
         }
-      } catch (error: any) {
-        if ((error && (error.status === 401)) || (error instanceof Error && (error as any).status === 401)) {
+      } catch (error: unknown) {
+        const status = (error as { status?: number })?.status;
+        if (status === 401 || ((error instanceof Error) && (error as { status?: number })?.status === 401)) {
           if (import.meta.env.DEV) console.warn('[AUTH] No valid session (401), logging out');
           tokenStorage.clearToken();
           localStorage.removeItem('user');
@@ -266,8 +268,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // After login the server sets an HttpOnly cookie; use /auth/me via apiClient to retrieve canonical user info
       try {
-        const meResp = await apiClient.get<{ user: any }>('/auth/me', { timeout: 15000 });
-        const meData = meResp.data as { user?: any } | undefined;
+        const meResp = await apiClient.get<{ user?: User }>('/auth/me', { timeout: 15000 });
+        const meData = meResp.data as { user?: User } | undefined;
         const serverUser = meData?.user || claimedUser;
         // Prefer normalizeUser to handle varied backend representations (numbers/strings)
         const normalizedUser = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
@@ -291,15 +293,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (import.meta.env.DEV) console.warn('[AUTH] User not verified — blocking authentication', { email: normalizedUser.email });
           return { ...normalizedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
         }
-      } catch (err) {
+      } catch (err: unknown) {
         if (import.meta.env.DEV) console.error('[AUTH] Error validating token after login:', err);
         try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore */ }
         try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore */ }
         dispatch({ type: 'AUTH_LOGOUT' });
         return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
       }
-    } catch (error) {
-      dispatch({ type: 'AUTH_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
+    } catch (error: unknown) {
+      dispatch({ type: 'AUTH_FAILURE', payload: (error instanceof Error) ? error.message : 'Login failed' });
       throw error;
     }
   };
@@ -400,7 +402,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const response = await apiClient.put('/users/profile', data);
 
-      const result = response.data as any;
+      const result = response.data as { message?: string } | undefined;
       if (response.status !== 200) {
         throw new Error(result?.message || 'Failed to update profile');
       }
@@ -444,8 +446,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Enhanced state synchronization with server
   const syncVerificationStatus = async (): Promise<boolean> => {
     try {
-      const resp = await apiClient.get<{ user: any }>('/auth/me');
-      const data = resp.data as { user?: any } | undefined;
+      const resp = await apiClient.get<{ user?: User }>('/auth/me');
+      const data = resp.data as { user?: User } | undefined;
       const serverUser = data?.user;
       if (serverUser) {
         const normalized = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
@@ -454,8 +456,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (import.meta.env.DEV) console.log('Verification status synced with server');
         return true;
       }
-    } catch (error: any) {
-      if ((error && (error.status === 401)) || (error instanceof Error && (error as any).status === 401)) {
+    } catch (error: unknown) {
+      const status = (error as { status?: number })?.status;
+      if (status === 401 || ((error instanceof Error) && (error as { status?: number })?.status === 401)) {
         if (import.meta.env.DEV) console.warn('Token invalid during sync, logging out');
         await logout();
         return false;
@@ -494,11 +497,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 // tokenStorage is exported from src/lib/tokenStorage to avoid circular imports
 
-// Hook
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+// NOTE: useAuth hook has been moved to `src/contexts/useAuth.ts` to keep this file focused on component exports.

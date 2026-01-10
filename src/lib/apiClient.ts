@@ -18,7 +18,7 @@ export class ApiError extends Error {
 /**
  * API Response wrapper
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
   message?: string;
   status: number;
@@ -65,7 +65,7 @@ class ApiClient {
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const contentType = response.headers.get('content-type');
 
-    let data: any;
+    let data: unknown;
     if (contentType?.includes('application/json')) {
       data = await response.json();
     } else {
@@ -73,13 +73,24 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const message = data?.message || data?.error || `HTTP ${response.status}`;
-      throw new ApiError(message, response.status, data?.code);
+      let message = `HTTP ${response.status}`;
+      let code: string | undefined = undefined;
+      if (typeof data === 'object' && data !== null) {
+        const d = data as Record<string, unknown>;
+        if (typeof d['message'] === 'string') message = d['message'] as string;
+        else if (typeof d['error'] === 'string') message = d['error'] as string;
+        if (typeof d['code'] === 'string') code = d['code'] as string;
+      }
+      throw new ApiError(message, response.status, code);
     }
 
+    const returnedMessage = (typeof data === 'object' && data !== null && typeof (data as Record<string, unknown>)['message'] === 'string')
+      ? (data as Record<string, unknown>)['message'] as string
+      : undefined;
+
     return {
-      data,
-      message: data?.message,
+      data: data as T,
+      message: returnedMessage,
       status: response.status,
     };
   }
@@ -90,7 +101,7 @@ class ApiClient {
   private async request<T>(
     method: string,
     endpoint: string,
-    data?: any,
+    data?: unknown,
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
@@ -123,14 +134,15 @@ class ApiClient {
     try {
       const response = await fetch(url, requestConfig);
       return await this.handleResponse<T>(response);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If error already looks like an ApiError (has status), rethrow preserving it
-      if (error && typeof error.status === 'number') {
+      const status = (error as { status?: number })?.status;
+      if (status && typeof status === 'number') {
         throw error;
       }
 
       // Handle ApiError instances more robustly
-      if (error instanceof ApiError || error?.name === 'ApiError') {
+      if (error instanceof ApiError || (error as unknown as Record<string, unknown>)['name'] === 'ApiError') {
         throw error;
       }
 
@@ -160,14 +172,14 @@ class ApiClient {
   /**
    * POST request
    */
-  async post<T>(endpoint: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('POST', endpoint, data, config);
   }
 
   /**
    * PUT request
    */
-  async put<T>(endpoint: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('PUT', endpoint, data, config);
   }
 
@@ -181,7 +193,7 @@ class ApiClient {
   /**
    * PATCH request
    */
-  async patch<T>(endpoint: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>('PATCH', endpoint, data, config);
   }
 }

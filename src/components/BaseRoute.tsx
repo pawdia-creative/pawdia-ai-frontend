@@ -1,6 +1,6 @@
 import { useEffect, ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import EmailVerificationRequired from '@/pages/EmailVerificationRequired';
 
@@ -35,7 +35,7 @@ const BaseRoute = ({
         isLoading,
         checkedAuth,
         hasUser: !!user,
-        userVerified: user?.isVerified || (user as any)?.is_verified,
+        userVerified: user?.isVerified || (user ? (String((user as unknown as Record<string, unknown>)['is_verified'])) : undefined),
         hasToken: !!token,
         hasStoredUser: !!storedUser,
         path: location.pathname,

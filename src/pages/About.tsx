@@ -1,6 +1,6 @@
 import { MetaTags } from "@/components/SEO/MetaTags";
 import { StructuredData } from "@/components/SEO/StructuredData";
-import { generateOrganizationSchema } from "@/components/SEO/StructuredData";
+import { generateOrganizationSchema } from "@/components/SEO/structuredDataGenerators";
 import { SEO_CONFIG, BASE_URL } from "@/config/seo";
 import { Footer } from "@/components/Footer";
 import { Link } from "react-router-dom";

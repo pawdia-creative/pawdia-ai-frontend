@@ -10,7 +10,7 @@ import gtaImage from "@/assets/style-gta.jpg";
 import inkImage from "@/assets/style-ink.jpg";
 import crayonImage from "@/assets/style-crayon.jpg";
 import pencilImage from "@/assets/style-pencil.jpg";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/useAuth";
 import { useNavigate } from "react-router-dom";
 
 // Image mapping

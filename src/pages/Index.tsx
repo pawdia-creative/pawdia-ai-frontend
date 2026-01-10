@@ -8,7 +8,7 @@ import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
 import { MetaTags } from "@/components/SEO/MetaTags";
 import { StructuredData } from "@/components/SEO/StructuredData";
-import { generateWebApplicationSchema, generateOrganizationSchema, generateFAQPageSchema } from "@/components/SEO/StructuredData";
+import { generateWebApplicationSchema, generateOrganizationSchema, generateFAQPageSchema } from "@/components/SEO/structuredDataGenerators";
 import { SEO_CONFIG, BASE_URL } from "@/config/seo";
 
 const Index = () => {

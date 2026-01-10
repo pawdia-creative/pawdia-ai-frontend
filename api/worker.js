@@ -1,50 +1,14 @@
-// CORS helper - allowlist controlled by env.ALLOWED_ORIGINS (comma-separated)
-function parseAllowedOrigins(env) {
-  const raw = env.ALLOWED_ORIGINS || '';
-  const list = raw.split(',').map(s => s.trim()).filter(Boolean);
-  // default allow production domain and Pages preview if none provided
-  if (list.length === 0) {
-    return [
-      'https://pawdia-ai.com',
-      'https://www.pawdia-ai.com',
-      'https://pawdia-ai-frontend.pages.dev',
-      'https://25001b6c.pawdia-ai-frontend.pages.dev',
-      'http://localhost:5173'
-    ];
-  }
-  return list;
-}
+// Import utility functions
+import { makeCorsHeaders, makeHtmlResponse, checkRateLimit, checkRateLimitPersistent, checkRateLimitUpsert, generateVerificationToken, generateTempPassword, isValidEmail, validatePassword, logAnalyticsEvent } from './utils.js';
 
-function makeCorsHeaders(origin, env) {
-  const allowed = parseAllowedOrigins(env);
-  const headers = {
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Content-Type': 'application/json'
-  };
-  if (origin && allowed.includes(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Credentials'] = 'true';
-    headers['Vary'] = 'Origin';
-  } else {
-    // no allow-origin header when origin not allowed
-  }
-  return headers;
-}
+// Import authentication functions
+import { hashPassword, verifyPassword, signJwt, verifyJwt, getPayloadFromHeader } from './auth.js';
 
-// Helper to produce HTML responses with conservative caching for HTML pages.
-// Use this when the Worker returns HTML to browsers to prevent stale HTML
-// from being served by caches (Cloudflare, browsers). Static hashed assets
-// should still be served with long cache lifetimes (handled elsewhere).
-function makeHtmlResponse(html, status = 200) {
-  return new Response(html, {
-    status,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store'
-    }
-  });
-}
+// Import email functions
+import { sendViaResend, sendViaSendGrid, sendVerificationEmail, sendResetPasswordEmail } from './email.js';
+
+// Import PayPal functions
+import { getPayPalAccessToken, createPayPalOrder, capturePayPalOrder, createCreditPurchaseOrder, captureCreditPurchase } from './paypal.js';
 
 // Import database functions
 import {
@@ -53,137 +17,14 @@ import {
   createUser,
   updateUserCredits,
   getAllUsers,
-  logAnalyticsEvent,
   getAnalyticsStats,
-  deleteUser
-  , setVerificationToken, verifyUserByToken
+  deleteUser,
+  setVerificationToken,
+  verifyUserByToken
 } from './database.js';
 import { ensureSchema } from './database.js';
 
-// PayPal SDK configuration
-// mode === 'live' -> production API host
-// mode === 'sandbox' -> sandbox API host
-const PAYPAL_BASE_URL = (mode) => {
-  return mode === 'live'
-    ? 'https://api-m.paypal.com'
-    : 'https://api-m.sandbox.paypal.com';
-};
-
-// PayPal API helper functions
-// Accepts either an env object (env.PAYPAL_CLIENT_ID, env.PAYPAL_CLIENT_SECRET, env.PAYPAL_MODE)
-// or explicit parameters (clientId, clientSecret, mode).
-async function getPayPalAccessToken(envOrClientId, maybeClientSecret, maybeMode) {
-  let clientId;
-  let clientSecret;
-  let mode;
-
-  if (typeof envOrClientId === 'object' && envOrClientId !== null) {
-    clientId = envOrClientId.PAYPAL_CLIENT_ID;
-    clientSecret = envOrClientId.PAYPAL_CLIENT_SECRET;
-    mode = envOrClientId.PAYPAL_MODE || 'live';
-  } else {
-    clientId = envOrClientId;
-    clientSecret = maybeClientSecret;
-    mode = maybeMode || 'live';
-  }
-
-  if (!clientId || !clientSecret) {
-    throw new Error('PayPal credentials not configured');
-  }
-
-  const auth = btoa(`${clientId}:${clientSecret}`);
-  const response = await fetch(`${PAYPAL_BASE_URL(mode)}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials'
-  });
-
-  if (!response.ok) {
-    // No fallback: if auth fails for the requested mode, surface the error.
-    throw new Error(`PayPal auth failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-  // Debug logging (do not log full token in production logs)
-  try {
-    console.log('[PAYPAL] access token obtained, length:', (data.access_token || '').length);
-    if (data.access_token && typeof data.access_token === 'string') {
-      console.log('[PAYPAL] access token preview:', data.access_token.slice(0, 8));
-    }
-  } catch (e) {
-    // ignore logging errors
-  }
-  return data.access_token;
-}
-
-async function createPayPalOrder(accessToken, orderData, mode) {
-  // Compute item total to satisfy PayPal's validation requirements
-  const currency = orderData.currency || 'USD';
-  const itemTotal = orderData.items.reduce((sum, item) => {
-    const qty = Number(item.quantity) || 0;
-    const price = Number(item.price) || 0;
-    return sum + (qty * price);
-  }, 0);
-
-  const response = await fetch(`${PAYPAL_BASE_URL(mode)}/v2/checkout/orders`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      intent: 'CAPTURE',
-      purchase_units: [{
-        amount: {
-          currency_code: currency,
-          value: Number(orderData.totalAmount || itemTotal).toFixed(2),
-          breakdown: {
-            item_total: {
-              currency_code: currency,
-              value: itemTotal.toFixed(2)
-            }
-          }
-        },
-        items: orderData.items.map(item => ({
-          name: item.name,
-          description: item.description,
-          quantity: (item.quantity || 0).toString(),
-          unit_amount: {
-            currency_code: currency,
-            value: Number(item.price || 0).toFixed(2)
-          }
-        }))
-      }]
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`PayPal order creation failed: ${error}`);
-  }
-
-  return await response.json();
-}
-
-async function capturePayPalOrder(accessToken, orderId, mode) {
-  const response = await fetch(`${PAYPAL_BASE_URL(mode)}/v2/checkout/orders/${orderId}/capture`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    }
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`PayPal capture failed: ${error}`);
-  }
-
-  return await response.json();
-}
+// PayPal configuration
 
 // Simple test function
 function testFunction() {
@@ -218,432 +59,9 @@ async function getAnalyticsCount(db, eventType, timeFilter = null) {
   }
 }
 
-// Helper to send verification email with fallback support
-async function sendVerificationEmail(env, toEmail, toName, token) {
-  try {
-    const frontendUrl = env.FRONTEND_URL || 'https://www.pawdia-ai.com';
-    const verifyLink = `${frontendUrl.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
-    const subject = 'Verify your Pawdia AI email';
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verify your Pawdia AI email</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #f8fafc;
-          }
-          .container {
-            background-color: #ffffff;
-            margin: 20px;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #2563eb;
-            margin-bottom: 10px;
-          }
-          .subtitle {
-            color: #64748b;
-            font-size: 16px;
-          }
-          .content {
-            margin-bottom: 30px;
-          }
-          .greeting {
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: #1f2937;
-          }
-          .message {
-            margin-bottom: 25px;
-            line-height: 1.7;
-          }
-          .button {
-            display: inline-block;
-            background-color: #2563eb;
-            color: #ffffff;
-            text-decoration: none;
-            padding: 14px 28px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 16px;
-            margin: 20px 0;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-            transition: background-color 0.3s ease;
-          }
-          .button:hover {
-            background-color: #1d4ed8;
-          }
-          .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            font-size: 14px;
-            color: #6b7280;
-          }
-          .warning {
-            background-color: #fef3c7;
-            border: 1px solid #f59e0b;
-            border-radius: 6px;
-            padding: 12px;
-            margin: 20px 0;
-            font-size: 14px;
-            color: #92400e;
-          }
-          .link {
-            color: #2563eb;
-            word-break: break-all;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="logo">🐾 Pawdia AI</div>
-            <div class="subtitle">AI-Powered Pet Portraits</div>
-          </div>
 
-          <div class="content">
-            <div class="greeting">Hi ${toName || 'there'},</div>
 
-            <div class="message">
-              <p>Welcome to Pawdia AI! Thank you for joining our community of pet lovers.</p>
-              <p>To complete your registration and start creating beautiful AI portraits of your pets, please verify your email address by clicking the button below:</p>
-            </div>
 
-            <div style="text-align: center;">
-              <a href="${verifyLink}" class="button">Verify Your Email</a>
-            </div>
-
-            <div class="warning">
-              <strong>Important:</strong> This verification link will expire in 24 hours for security reasons.
-            </div>
-
-            <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
-            <p><a href="${verifyLink}" class="link">${verifyLink}</a></p>
-
-            <p>If you did not create an account with Pawdia AI, please ignore this email.</p>
-          </div>
-
-          <div class="footer">
-            <p><strong>Pawdia AI</strong></p>
-            <p>Creating beautiful AI portraits of your beloved pets</p>
-            <p>Questions? Contact us at <a href="mailto:pawdia.creative@gmail.com" style="color: #2563eb;">pawdia.creative@gmail.com</a></p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    // Try primary service (Resend)
-    const primaryResult = await sendViaResend(env, toEmail, toName, subject, html);
-    if (primaryResult.sent) {
-      return { sent: true, provider: 'resend' };
-    }
-
-    // Logout endpoint - clear auth cookie
-    if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
-      try {
-        const headersOut = new Headers(corsHeaders);
-        // Clear cookie by setting Max-Age=0
-        // For cross-origin API usage we need SameSite=None so browsers include the cookie on cross-site fetches.
-        // Keep HttpOnly and Secure for safety.
-        headersOut.append('Set-Cookie', 'auth_token=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0');
-        headersOut.set('Access-Control-Allow-Credentials', 'true');
-        return new Response(JSON.stringify({ success: true }), { status: 200, headers: headersOut });
-      } catch (e) {
-        console.error('Logout error:', e);
-        return new Response(JSON.stringify({ message: 'Logout failed' }), { status: 500, headers: corsHeaders });
-      }
-    }
-
-    console.warn('Primary email service (Resend) failed, error:', primaryResult.error || primaryResult, 'trying backup service...');
-
-    // Try backup service (SendGrid)
-    const backupResult = await sendViaSendGrid(env, toEmail, toName, subject, html);
-    if (backupResult.sent) {
-      return { sent: true, provider: 'sendgrid', fallback: true };
-    }
-
-    console.error('All email services failed', { primaryError: primaryResult.error, backupError: backupResult.error });
-    return {
-      sent: false,
-      error: 'All email services failed',
-      primaryError: primaryResult.error,
-      backupError: backupResult.error,
-      link: verifyLink
-    };
-  } catch (err) {
-    console.error('sendVerificationEmail error:', err);
-    return { sent: false, error: String(err) };
-  }
-}
-
-// Send email via Resend (primary service)
-async function sendViaResend(env, toEmail, toName, subject, html) {
-  try {
-    const resendKey = env.RESEND_API_KEY;
-    if (!resendKey || resendKey.trim() === '') {
-      return { sent: false, error: 'Resend API key not configured' };
-    }
-
-      // sanitize RESEND_FROM and optionally enforce expected verified domain
-      let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
-      const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
-      try {
-        const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
-        if (expectedDomain && fromDomain !== expectedDomain) {
-          console.warn('RESEND_FROM domain mismatch, falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
-          fromAddress = `no-reply@${expectedDomain}`;
-        }
-      } catch (e) {
-        console.warn('Failed to parse RESEND_FROM, using default', e);
-        fromAddress = 'no-reply@pawdia-ai.com';
-      }
-
-    const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-        'Authorization': `Bearer ${resendKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            from: fromAddress,
-            to: toEmail,
-            subject,
-            html
-        })
-      });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Resend send error:', response.status, errorText);
-      return { sent: false, error: `Resend API error: ${response.status} - ${errorText}` };
-        }
-
-        return { sent: true };
-      } catch (e) {
-        console.error('Resend send exception:', e);
-    return { sent: false, error: `Resend exception: ${String(e)}` };
-      }
-    }
-
-// Send email via SendGrid (backup service)
-async function sendViaSendGrid(env, toEmail, toName, subject, html) {
-  try {
-    const sendGridKey = env.SENDGRID_API_KEY;
-    if (!sendGridKey || sendGridKey.trim() === '') {
-      return { sent: false, error: 'SendGrid API key not configured' };
-    }
-
-    let fromAddress = (env.SENDGRID_FROM || 'no-reply@pawdia-ai.com').trim();
-
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${sendGridKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: toEmail, name: toName }]
-        }],
-        from: { email: fromAddress },
-        subject,
-        content: [{ type: 'text/html', value: html }]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('SendGrid send error:', response.status, errorText);
-      return { sent: false, error: `SendGrid API error: ${response.status} - ${errorText}` };
-    }
-
-    return { sent: true };
-  } catch (e) {
-    console.error('SendGrid send exception:', e);
-    return { sent: false, error: `SendGrid exception: ${String(e)}` };
-  }
-}
-
-// Send reset password email via Resend
-async function sendResetPasswordEmail(env, toEmail, toName, tempPassword) {
-  try {
-    const resendKey = env.RESEND_API_KEY;
-    const subject = 'Your Pawdia AI temporary password';
-    const html = `
-      <p>Hi ${toName || ''},</p>
-      <p>Your password has been reset by an administrator. Use the temporary password below to log in, then change it immediately in your profile.</p>
-      <p><strong>${tempPassword}</strong></p>
-      <p>If you did not request this, please contact support.</p>
-    `;
-
-    if (resendKey && resendKey.trim() !== '') {
-      // sanitize RESEND_FROM and enforce verified domain fallback
-      let fromAddress = (env.RESEND_FROM || 'no-reply@pawdia-ai.com').trim();
-      const expectedDomain = (env.RESEND_DOMAIN || '').trim().toLowerCase();
-      try {
-        const fromDomain = (fromAddress.split('@')[1] || '').toLowerCase();
-        if (expectedDomain && fromDomain !== expectedDomain) {
-          console.warn('RESEND_FROM domain mismatch (reset), falling back to expected domain', { fromAddress, fromDomain, expectedDomain });
-          fromAddress = `no-reply@${expectedDomain}`;
-        }
-      } catch (e) {
-        console.warn('Failed to parse RESEND_FROM (reset), using default', e);
-        fromAddress = 'no-reply@pawdia-ai.com';
-      }
-      try {
-        const r = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${resendKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: fromAddress,
-            to: toEmail,
-            subject,
-            html
-          })
-        });
-        if (!r.ok) {
-          const t = await r.text();
-          console.error('Resend send error (reset):', r.status, t);
-          return { sent: false, error: t, status: r.status, providerBody: t };
-        }
-        return { sent: true };
-      } catch (e) {
-        console.error('Resend send exception (reset):', e);
-        return { sent: false, error: String(e) };
-      }
-    }
-
-    console.warn('Resend not configured; reset password temp:', tempPassword);
-    return { sent: false, temp: tempPassword };
-  } catch (err) {
-    console.error('sendResetPasswordEmail error:', err);
-    return { sent: false, error: String(err) };
-  }
-}
-// Using Web Crypto API for password hashing (simplified bcrypt alternative)
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + 'pawdia-salt'); // Add salt
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function verifyPassword(password, hash) {
-  const hashedPassword = await hashPassword(password);
-  return hashedPassword === hash;
-}
-
-// JWT helpers using Web Crypto
-const textEncoder = new TextEncoder();
-function base64UrlEncode(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let str = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    str += String.fromCharCode(bytes[i]);
-  }
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function encodeBase64UrlString(str) {
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(str);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-async function importHmacKey(secret) {
-  return await crypto.subtle.importKey(
-    'raw',
-    textEncoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify']
-  );
-}
-
-async function signJwt(payload, secret, expiresInSeconds = 7 * 24 * 3600) {
-  const header = { alg: 'HS256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const claim = Object.assign({}, payload, { iat: now, exp: now + expiresInSeconds });
-  const encodedHeader = encodeBase64UrlString(JSON.stringify(header));
-  const encodedClaim = encodeBase64UrlString(JSON.stringify(claim));
-  const data = `${encodedHeader}.${encodedClaim}`;
-  const key = await importHmacKey(secret);
-  const signature = await crypto.subtle.sign('HMAC', key, textEncoder.encode(data));
-  const encodedSig = base64UrlEncode(signature);
-  return `${data}.${encodedSig}`;
-}
-
-async function verifyJwt(token, secret) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const [headerB64, payloadB64, sigB64] = parts;
-    const data = `${headerB64}.${payloadB64}`;
-    const key = await importHmacKey(secret);
-    // verify signature
-    const rawSig = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer;
-    const valid = await crypto.subtle.verify('HMAC', key, rawSig, textEncoder.encode(data));
-    if (!valid) return null;
-    // decode payload (base64url -> UTF-8)
-    const b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const payloadJson = new TextDecoder().decode(bytes);
-    const payload = JSON.parse(payloadJson);
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) return null;
-    return payload;
-  } catch (err) {
-    console.error('JWT verify error:', err);
-    return null;
-  }
-}
-
-// Helper to extract and verify JWT payload from Authorization header
-async function getPayloadFromHeader(authHeader, env) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.substring(7);
-  const secret = env.JWT_SECRET;
-  if (!secret) {
-    console.error('JWT_SECRET not set in env');
-    return null;
-  }
-  // Strict verification only
-  try {
-    const verified = await verifyJwt(token, secret);
-    return verified;
-  } catch (e) {
-    console.error('JWT verification failed:', e);
-    return null;
-  }
-}
 
 // Require a verified user based on Authorization header.
 // Returns the user object if verified, otherwise returns an object { errorResponse: Response } to return directly.
@@ -714,6 +132,50 @@ export default {
     const url = new URL(request.url);
     // compute CORS headers for this request origin to preserve backwards compatibility
     const corsHeaders = makeCorsHeaders(request.headers.get('origin'), env);
+
+    // Rate limiting for sensitive endpoints
+    const clientIP = request.headers.get('CF-Connecting-IP') ||
+                    request.headers.get('X-Forwarded-For') ||
+                    request.headers.get('X-Real-IP') ||
+                    'unknown';
+
+    // Stricter limits for authentication endpoints
+    if (url.pathname.startsWith('/api/auth/') && (url.pathname.includes('/login') || url.pathname.includes('/register'))) {
+      const rateLimitResult = await checkRateLimitUpsert(env.DB, `${clientIP}:auth`, 5, 15 * 60 * 1000); // 5 requests per 15 minutes
+      if (!rateLimitResult.allowed) {
+        console.warn(`Rate limit exceeded for auth endpoint: ${clientIP}`);
+        const retryAfterSeconds = rateLimitResult.resetTime ? Math.ceil(rateLimitResult.resetTime / 1000) : 60;
+        return new Response(JSON.stringify({
+          message: 'Too many authentication attempts. Please try again later.',
+          retryAfter: retryAfterSeconds
+        }), {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Retry-After': String(retryAfterSeconds),
+            'X-RateLimit-Reset': String(rateLimitResult.resetTime || (Date.now() + 60 * 1000))
+          }
+        });
+      }
+    }
+
+    // General API rate limiting
+    const generalRateLimit = await checkRateLimitUpsert(env.DB, `${clientIP}:api`, 100, 15 * 60 * 1000); // 100 requests per 15 minutes
+    if (!generalRateLimit.allowed) {
+      console.warn(`Rate limit exceeded for API: ${clientIP}`);
+      const retryAfterSeconds = generalRateLimit.resetTime ? Math.ceil(generalRateLimit.resetTime / 1000) : 60;
+      return new Response(JSON.stringify({
+        message: 'Too many requests. Please try again later.',
+        retryAfter: retryAfterSeconds
+      }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Retry-After': String(retryAfterSeconds),
+          'X-RateLimit-Reset': String(generalRateLimit.resetTime || (Date.now() + 60 * 1000))
+        }
+      });
+    }
 
     // NOTE: removed temporary catch-all response so real API routes (e.g. /api/generate) are reachable.
 
@@ -864,27 +326,52 @@ export default {
           });
         }
 
-        // Verify password hash - support both bcrypt (legacy) and SHA-256 (new)
+        // Verify password hash - support PBKDF2, legacy SHA-256, and bcrypt formats
         const storedHash = user.password || user.password_hash || '';
         if (!storedHash) {
           return new Response(JSON.stringify({ message: 'Invalid credentials' }), { status: 401, headers: corsHeaders });
         }
 
         let isValidPassword = false;
-        if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
-          // Legacy bcrypt hash - this would require bcryptjs, but since it's not available,
-          // for now we'll assume legacy users need to reset password or use a different approach
-          // For demo purposes, let's temporarily allow admin login with demo123 for bcrypt users
+        let needsRehash = false;
+
+        if (storedHash.startsWith('$pbkdf2-sha256$')) {
+          // New PBKDF2 hash
+          isValidPassword = await verifyPassword(password, storedHash);
+        } else if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
+          // Legacy bcrypt hash - temporarily allow admin login with demo123 for migration
+          // TODO: Remove this after all users have migrated to new password hash
           if (user.is_admin === 1 && password === 'demo123') {
             isValidPassword = true;
+            needsRehash = true; // Force password update on successful login
+          }
+        } else if (storedHash.match(/^[a-f0-9]{64}$/)) {
+          // Legacy SHA-256 hash - needs migration
+          isValidPassword = await verifyPassword(password, storedHash);
+          if (isValidPassword) {
+            needsRehash = true; // Upgrade to PBKDF2 on successful login
           }
         } else {
-          // New SHA-256 hash
-          isValidPassword = await verifyPassword(password, storedHash);
+          // Unknown hash format
+          console.warn('Unknown password hash format for user:', user.id);
+          isValidPassword = false;
         }
 
         if (!isValidPassword) {
           return new Response(JSON.stringify({ message: 'Invalid credentials' }), { status: 401, headers: corsHeaders });
+        }
+
+        // Auto-upgrade password hash if using legacy format
+        if (needsRehash) {
+          try {
+            const newHash = await hashPassword(password);
+            await env.DB.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+              .bind(newHash, user.id).run();
+            console.log('Password hash upgraded for user:', user.id);
+          } catch (rehashError) {
+            console.warn('Failed to upgrade password hash for user:', user.id, rehashError);
+            // Don't fail login if rehash fails, just log the error
+          }
         }
 
         // Determine if this is the user's first login (based on last_login)
@@ -1005,6 +492,24 @@ export default {
     }
 
     if (url.pathname === '/api/auth/resend-verification' && request.method === 'POST') {
+      // Stricter rate limiting for email resend (prevent email spam)
+      const emailResendLimit = await checkRateLimitUpsert(env.DB, `${clientIP}:resend`, 3, 60 * 60 * 1000); // 3 requests per hour
+      if (!emailResendLimit.allowed) {
+        console.warn(`Rate limit exceeded for email resend: ${clientIP}`);
+        const retryAfterSeconds = emailResendLimit.resetTime ? Math.ceil(emailResendLimit.resetTime / 1000) : 60;
+        return new Response(JSON.stringify({
+          message: 'Too many email resend requests. Please try again later.',
+          retryAfter: retryAfterSeconds
+        }), {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Retry-After': String(retryAfterSeconds),
+            'X-RateLimit-Reset': String(emailResendLimit.resetTime || (Date.now() + 60 * 1000))
+          }
+        });
+      }
+
       try {
         // Support two modes:
         // 1) Authenticated request with Authorization: Bearer <token>

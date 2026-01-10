@@ -89,3 +89,21 @@ CREATE INDEX IF NOT EXISTS idx_users_verification ON users(is_verified, created_
 CREATE INDEX IF NOT EXISTS idx_users_admin_status ON users(is_admin, created_at);
 CREATE INDEX IF NOT EXISTS idx_images_user_created ON images(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_payments_user_status ON payments(user_id, status, created_at);
+
+-- Rate limits table for persistent rate limiting
+CREATE TABLE IF NOT EXISTS rate_limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    identifier TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier_created_at ON rate_limits(identifier, created_at);
+
+-- Upsert-friendly counters table for token-bucket / fixed-window limits
+CREATE TABLE IF NOT EXISTS rate_counters (
+    identifier TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    window_end INTEGER NOT NULL -- epoch ms
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_counters_window_end ON rate_counters(window_end);

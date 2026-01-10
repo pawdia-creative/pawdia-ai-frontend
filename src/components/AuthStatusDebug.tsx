@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -45,8 +45,8 @@ const AuthStatusDebug: React.FC = () => {
                 checkedAuth ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-blue-100 text-blue-800"
               }`}>{String(checkedAuth)}</span></div>
               <div>User exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                !!user ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
-              }`}>{!!user ? "Yes" : "No"}</span></div>
+                user ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{user ? "Yes" : "No"}</span></div>
               {user && (
                 <>
                   <div>Email: {user.email}</div>
@@ -65,11 +65,11 @@ const AuthStatusDebug: React.FC = () => {
             <h3 className="font-semibold mb-2">Local Storage</h3>
             <div className="space-y-1 text-sm">
               <div>Token exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                !!token ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
-              }`}>{!!token ? "Yes" : "No"}</span></div>
+                token ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{token ? "Yes" : "No"}</span></div>
               <div>User data exists: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                !!storedUserStr ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
-              }`}>{!!storedUserStr ? "Yes" : "No"}</span></div>
+                storedUserStr ? "border-transparent bg-green-100 text-green-800" : "border-transparent bg-red-100 text-red-800"
+              }`}>{storedUserStr ? "Yes" : "No"}</span></div>
               <div>must_verify flag: <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                 mustVerify === '1' ? "border-transparent bg-red-100 text-red-800" : "border-transparent bg-gray-100 text-gray-800"
               }`}>{mustVerify || 'null'}</span></div>

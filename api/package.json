@@ -51,7 +51,9 @@
     "ws": "^8.18.0",
     "youch": "^4.1.0-beta.10",
     "youch-core": "^0.3.3",
-    "zod": "^3.22.3"
+    "zod": "^3.22.3",
+    "jose": "^4.14.4"
   },
-  "type": "commonjs"
+  "type": "module",
+  "description_note": "This package.json is ESM to support ESM-only dependencies like 'jose'. For local debugging, use `node --input-type=module` or run scripts from project root with NODE_OPTIONS as needed."
 }

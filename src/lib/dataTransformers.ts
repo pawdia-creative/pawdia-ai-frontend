@@ -38,18 +38,18 @@ export const normalizeUser = (dbUser: DbUser | null): User | null => {
     credits: dbUser.credits,
     // Accept multiple truthy representations from backend (number/string) OR already-normalized frontend shape (boolean)
     isVerified: ((): boolean => {
-      const raw = (dbUser as any);
+      const raw = dbUser as unknown as Record<string, unknown>;
       // Prefer explicit frontend boolean if present
-      if (typeof raw.isVerified === 'boolean') return raw.isVerified;
-      const v = raw.is_verified ?? raw.isVerified;
+      if (typeof raw['isVerified'] === 'boolean') return raw['isVerified'] as boolean;
+      const v = (raw['is_verified'] ?? raw['isVerified']);
       if (v === undefined || v === null) return false;
       const s = String(v).toLowerCase();
       return s === '1' || s === 'true';
     })(),
     isAdmin: ((): boolean => {
-      const raw = (dbUser as any);
-      if (typeof raw.isAdmin === 'boolean') return raw.isAdmin;
-      const v = raw.is_admin ?? raw.isAdmin;
+      const raw = dbUser as unknown as Record<string, unknown>;
+      if (typeof raw['isAdmin'] === 'boolean') return raw['isAdmin'] as boolean;
+      const v = (raw['is_admin'] ?? raw['isAdmin']);
       if (v === undefined || v === null) return false;
       const s = String(v).toLowerCase();
       return s === '1' || s === 'true';
@@ -79,17 +79,18 @@ export const denormalizeUser = (user: Partial<User>): Partial<DbUser> => {
   };
 
   // Remove frontend-only fields
-  delete (dbUser as any).isVerified;
-  delete (dbUser as any).isAdmin;
-  delete (dbUser as any).createdAt;
+  const dbObj = dbUser as Partial<Record<string, unknown>>;
+  delete dbObj['isVerified'];
+  delete dbObj['isAdmin'];
+  delete dbObj['createdAt'];
   // Map subscription back to DB fields if present
-  if ((user as any).subscription) {
-    const sub = (user as any).subscription;
-    dbUser.subscription_plan = sub.plan;
-    dbUser.subscription_status = sub.status;
-    dbUser.subscription_expires = sub.expiresAt;
+  const possibleSub = (user as unknown as { subscription?: { plan: string; expiresAt?: string; status: string } } )?.subscription;
+  if (possibleSub) {
+    dbUser.subscription_plan = possibleSub.plan;
+    dbUser.subscription_status = possibleSub.status;
+    dbUser.subscription_expires = possibleSub.expiresAt;
   }
-  delete (dbUser as any).subscription;
+  delete dbObj['subscription'];
 
   return dbUser;
 };
@@ -97,14 +98,14 @@ export const denormalizeUser = (user: Partial<User>): Partial<DbUser> => {
 /**
  * Type guard to check if a value is a valid User
  */
-export const isUser = (value: any): value is User => {
+export const isUser = (value: unknown): value is User => {
   return (
-    value &&
+    value !== null &&
     typeof value === 'object' &&
-    typeof value.id === 'string' &&
-    typeof value.email === 'string' &&
-    typeof value.name === 'string' &&
-    typeof value.credits === 'number'
+    typeof (value as Record<string, unknown>)['id'] === 'string' &&
+    typeof (value as Record<string, unknown>)['email'] === 'string' &&
+    typeof (value as Record<string, unknown>)['name'] === 'string' &&
+    typeof (value as Record<string, unknown>)['credits'] === 'number'
   );
 };
 
@@ -121,7 +122,7 @@ export const isUserVerified = (user: User | DbUser | null | undefined): boolean 
 
   // Check database format
   if ('is_verified' in user) {
-    const val = (user as any).is_verified;
+    const val = (user as unknown as Record<string, unknown>)['is_verified'];
     return val === 1 || val === '1' || val === true || val === 'true';
   }
 
@@ -141,7 +142,7 @@ export const isUserAdmin = (user: User | DbUser | null | undefined): boolean => 
 
   // Check database format
   if ('is_admin' in user) {
-    const val = (user as any).is_admin;
+    const val = (user as unknown as Record<string, unknown>)['is_admin'];
     if (val === undefined || val === null) return false;
     const s = String(val).toLowerCase();
     return s === '1' || s === 'true';

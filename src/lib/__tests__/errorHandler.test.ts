@@ -1,5 +1,4 @@
-/// <reference types="vitest" />
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { classifyError, getErrorMessage, handleError, ErrorType } from '../errorHandler';
 import { ApiError } from '../apiClient';
 import { toast } from 'sonner';
@@ -10,8 +9,16 @@ vi.mock('sonner', () => ({
 
 describe('errorHandler', () => {
   beforeEach(() => {
-    (toast.error as vi.Mock).mockClear();
-    (toast.success as vi.Mock).mockClear();
+    (toast.error as unknown as ReturnType<typeof vi.fn>).mockClear();
+    (toast.success as unknown as ReturnType<typeof vi.fn>).mockClear();
+  });
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined;
+  beforeEach(() => {
+    // Silence console.error during tests to avoid noisy stderr output
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    if (consoleErrorSpy) (consoleErrorSpy as { mockRestore?: () => void }).mockRestore?.();
   });
 
   it('should classify ApiError with NETWORK_ERROR code as NETWORK', () => {

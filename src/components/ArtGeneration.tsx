@@ -15,7 +15,7 @@ import {
 import { tokenStorage } from "@/lib/tokenStorage";
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/useAuth";
 import { useNavigate } from "react-router-dom";
 // User type removed (unused)
 import { QualitySettings } from "./QualitySettings";
@@ -663,7 +663,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     if (!currentConfig.dpiOptions.includes(dpi)) {
       setDpi(currentConfig.defaultDpi);
     }
-    if (!currentConfig.resolutionOptions.find((r: any) => r.value === resolution)) {
+    if (!currentConfig.resolutionOptions.find((r) => r.value === resolution)) {
       setResolution(currentConfig.defaultResolution);
     }
     if (!currentConfig.qualityOptions.includes(quality)) {
@@ -708,7 +708,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       if (import.meta.env.DEV) console.log('Style config:', styleConfig);
 
       // Prepare API request - pass image and prompt to Gemini
-      const resolutionValue = currentConfig.resolutionOptions.find((r: any) => r.value === resolution)?.value || currentConfig.defaultResolution;
+      const resolutionValue = currentConfig.resolutionOptions.find((r) => r.value === resolution)?.value || currentConfig.defaultResolution;
       const shortSide = parseInt(resolutionValue, 10);
       
       // Wait for image dimensions if not yet loaded

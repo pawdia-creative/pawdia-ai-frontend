@@ -71,7 +71,7 @@ const ERROR_MESSAGES = {
 /**
  * Determine error type from various error sources
  */
-export const classifyError = (error: any): ErrorType => {
+export const classifyError = (error: unknown): ErrorType => {
   // API Error with specific codes
   if (error instanceof ApiError) {
     switch (error.code) {
@@ -105,13 +105,19 @@ export const classifyError = (error: any): ErrorType => {
   }
 
   // Payment related errors
-  if (error.message?.includes('payment') || error.message?.includes('paypal')) {
+  {
+    const msg = String((error as unknown as Record<string, unknown>)['message'] ?? '').toLowerCase();
+    if (msg.includes('payment') || msg.includes('paypal')) {
     return ErrorType.PAYMENT;
+    }
   }
 
   // Authentication related errors
-  if (error.message?.includes('token') || error.message?.includes('auth')) {
+  {
+    const msg = String((error as unknown as Record<string, unknown>)['message'] ?? '').toLowerCase();
+    if (msg.includes('token') || msg.includes('auth')) {
     return ErrorType.AUTHENTICATION;
+    }
   }
 
   return ErrorType.UNKNOWN;
@@ -120,7 +126,7 @@ export const classifyError = (error: any): ErrorType => {
 /**
  * Get user-friendly error message
  */
-export const getErrorMessage = (error: any, context?: string): {
+export const getErrorMessage = (error: unknown, context?: string): {
   type: ErrorType;
   title: string;
   message: string;
@@ -168,7 +174,7 @@ export const getErrorMessage = (error: any, context?: string): {
  * Handle error with appropriate user feedback
  */
 export const handleError = (
-  error: any,
+  error: unknown,
   context?: string,
   options: {
     showToast?: boolean;
@@ -185,7 +191,7 @@ export const handleError = (
 
   // Report error to Sentry (only in production)
   if (import.meta.env.PROD) {
-    Sentry.captureException(error, {
+    Sentry.captureException(error as Error, {
       tags: {
         context: context || 'unknown',
         errorType: classifyError(error),
@@ -215,7 +221,7 @@ export const handleError = (
 /**
  * Create error boundary friendly error
  */
-export const createErrorBoundaryError = (error: any, errorInfo?: any) => {
+export const createErrorBoundaryError = (error: unknown, errorInfo?: unknown) => {
   const errorType = classifyError(error);
   const errorMessage = getErrorMessage(error);
 
@@ -237,7 +243,7 @@ export const retryWithBackoff = async <T>(
   maxRetries: number = 3,
   baseDelay: number = 1000
 ): Promise<T> => {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {

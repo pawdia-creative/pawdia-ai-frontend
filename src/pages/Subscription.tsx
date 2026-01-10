@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { API_BASE_URL } from '@/lib/constants';
 import Coins from 'lucide-react/dist/esm/icons/coins';
@@ -14,7 +14,8 @@ import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import PaymentService from '@/services/paymentService';
 import { MetaTags } from '@/components/SEO/MetaTags';
-import { StructuredData, generateFAQPageSchema } from '@/components/SEO/StructuredData';
+import { StructuredData } from '@/components/SEO/StructuredData';
+import { generateFAQPageSchema } from '@/components/SEO/structuredDataGenerators';
 import { SEO_CONFIG } from '@/config/seo';
 
 interface SubscriptionPlan {
@@ -156,8 +157,8 @@ const Subscription: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
 
-    if ((window as any).__PAYPAL_CLIENT_ID__) {
-      setRuntimePayPalClientId((window as any).__PAYPAL_CLIENT_ID__);
+    if (window.__PAYPAL_CLIENT_ID__) {
+      setRuntimePayPalClientId(window.__PAYPAL_CLIENT_ID__);
       setRuntimeClientFetchDone(true);
       return;
     }
@@ -785,10 +786,10 @@ const Subscription: React.FC = () => {
                         'data-client-metadata-id': 'pawdia-payment-' + Date.now()
                       }}
                       deferLoading={false}
-                      {...({ onError: (error: unknown) => {
+                      onError={(error: unknown) => {
                         if (import.meta.env.DEV) console.error('[PAYMENT] PayPal Script Provider error:', error);
                         setPaypalError('PayPal service initialization failed. This may be due to network issues or PayPal configuration problems.');
-                      } } as any)}
+                      }}
                     >
                       <PayPalButtons
                         style={{

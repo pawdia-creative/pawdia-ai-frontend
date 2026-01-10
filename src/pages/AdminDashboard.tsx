@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
@@ -19,7 +19,7 @@ interface User {
   lastLogin?: string;
 }
 
-type EmailStats = any;
+type EmailStats = Record<string, unknown>;
 
 const AdminDashboard = React.memo(() => {
   const { user: currentUser } = useAuth();
@@ -38,7 +38,7 @@ const AdminDashboard = React.memo(() => {
     try {
       setEmailStatsLoading(true);
       const response = await apiClient.get('/admin/email-stats');
-      setEmailStats(response.data as any);
+      setEmailStats(response.data as unknown as EmailStats);
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching email stats:', error);
       toast.error('Failed to fetch email statistics');
@@ -51,11 +51,15 @@ const AdminDashboard = React.memo(() => {
   const fetchUsers = useCallback(async () => {
     try {
       const response = await apiClient.get(`/admin/users?search=${encodeURIComponent(searchTerm)}&page=${page}&perPage=${perPage}`);
-      const data = response.data as any;
+      const data = response.data as unknown as Record<string, unknown>;
         // Filter out users with null or undefined IDs
-      const validUsers = (data.users || []).filter((u: { id?: string | null }) => u.id != null && u.id !== 'null' && u.id !== '');
+      const rawUsers = (data['users'] as unknown[]) || [];
+      const validUsers = rawUsers.filter((u: unknown) => {
+        const id = (u as unknown as Record<string, unknown>)['id'];
+        return id != null && id !== 'null' && id !== '';
+      }) as User[];
         setUsers(validUsers);
-      setTotal(Number(data.total || 0));
+      setTotal(Number((data['total'] as number) || 0));
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching users:', error);
       toast.error('Failed to fetch user list');
@@ -190,7 +194,7 @@ const AdminDashboard = React.memo(() => {
                   <h3 className="text-lg font-semibold">Recent Email Events</h3>
                 </div>
                 <div className="divide-y">
-                  {emailStats.recentEvents.slice(0, 20).map((event: any, index: number) => (
+                  {emailStats.recentEvents.slice(0, 20).map((event: unknown, index: number) => (
                     <div key={index} className="p-4 flex justify-between items-center">
               <div>
                         <span className={`inline-block px-2 py-1 text-xs rounded-full ${
@@ -201,7 +205,7 @@ const AdminDashboard = React.memo(() => {
                           {event.event_type.replace('_', ' ')}
                         </span>
                         <span className="ml-2 text-sm text-gray-600">
-                          User: {String((event as any).user_id || '').substring(0, 8)}...
+                          User: {String(((event as unknown as Record<string, unknown>)['user_id']) || '').substring(0, 8)}...
                         </span>
                       </div>
                       <span className="text-xs text-gray-500">

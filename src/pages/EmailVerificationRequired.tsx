@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { apiClient } from '@/lib/apiClient';
 import type { ApiResponse } from '@/lib/apiClient';
