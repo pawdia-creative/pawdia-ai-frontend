@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import type { NavigateFunction, Location as RouterLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/useAuth';
@@ -36,8 +37,8 @@ interface CreditPackage {
 }
 
 const Subscription: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = useNavigate() as NavigateFunction;
+  const location = useLocation() as RouterLocation;
   const { user, isAuthenticated, updateUser } = useAuth();
   
   // Get SEO config based on current path
@@ -786,10 +787,6 @@ const Subscription: React.FC = () => {
                         'data-client-metadata-id': 'pawdia-payment-' + Date.now()
                       }}
                       deferLoading={false}
-                      onError={(error: unknown) => {
-                        if (import.meta.env.DEV) console.error('[PAYMENT] PayPal Script Provider error:', error);
-                        setPaypalError('PayPal service initialization failed. This may be due to network issues or PayPal configuration problems.');
-                      }}
                     >
                       <PayPalButtons
                         style={{
