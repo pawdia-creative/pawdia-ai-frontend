@@ -1,6 +1,6 @@
 // API Configuration Constants
 // Default to production worker API if VITE_API_URL is not set during build
-const configuredUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api-production.pawdia-creative.workers.dev';
+const configuredUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev';
 
 // Ensure API_BASE_URL includes /api suffix for direct fetch calls
 export const API_BASE_URL = configuredUrl.startsWith('http') ? `${configuredUrl}/api` : configuredUrl;
