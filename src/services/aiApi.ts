@@ -301,7 +301,27 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     console.log('=== FRONTEND AI RESPONSE DEBUG END ===');
 
        // Priority 1: Check for Gemini API response structure (most common for img2img)
-       console.log('Checking for Gemini candidates structure...');
+       console.log('=== STARTING GEMINI PARSING ===');
+       console.log('Full data object keys:', Object.keys(data));
+       console.log('data.raw exists:', !!data.raw);
+       console.log('data.raw type:', typeof data.raw);
+
+       if (data.raw && typeof data.raw === 'object') {
+         console.log('data.raw keys:', Object.keys(data.raw));
+         console.log('data.raw.candidates exists:', !!data.raw.candidates);
+         console.log('data.raw.candidates is array:', Array.isArray(data.raw.candidates));
+         if (data.raw.candidates) {
+           console.log('data.raw.candidates length:', data.raw.candidates.length);
+         }
+         // Log a sample of the raw response for debugging
+         try {
+           const rawSample = JSON.stringify(data.raw).substring(0, 500);
+           console.log('Raw response sample:', rawSample + '...');
+         } catch (e) {
+           console.log('Could not stringify raw response');
+         }
+       }
+
        if (data.raw && typeof data.raw === 'object' && data.raw.candidates && Array.isArray(data.raw.candidates) && data.raw.candidates.length > 0) {
          console.log('Found Gemini candidates structure');
          const candidate = data.raw.candidates[0];
@@ -320,6 +340,25 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
                const mimeType = inlineData.mimeType || inlineData.mime_type || 'image/png';
                imageUrl = `data:${mimeType};base64,${base64Str}`;
                console.log('SUCCESS: Extracted image from Gemini inlineData, length:', base64Str.length);
+               break;
+             }
+           }
+         }
+       }
+
+       // Fallback: Try parsing raw directly as candidates (in case Worker wrapped it differently)
+       if (!imageUrl && data.raw && typeof data.raw === 'object' && Array.isArray(data.raw) && data.raw.length > 0) {
+         console.log('Trying raw array parsing...');
+         // If raw is an array, treat it as candidates
+         const candidate = data.raw[0];
+         if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
+           for (const part of candidate.content.parts) {
+             const inlineData = part.inlineData || part.inline_data;
+             if (inlineData && inlineData.data) {
+               const base64Str = inlineData.data;
+               const mimeType = inlineData.mimeType || inlineData.mime_type || 'image/png';
+               imageUrl = `data:${mimeType};base64,${base64Str}`;
+               console.log('SUCCESS: Extracted image from raw array fallback');
                break;
              }
            }
