@@ -31,6 +31,7 @@ function testFunction() {
   return 'test';
 }
 
+
 // Helper function to get analytics count with optional time filter
 async function getAnalyticsCount(db, eventType, timeFilter = null) {
   let sql = 'SELECT COUNT(*) as count FROM analytics WHERE event_type = ?';
@@ -1679,6 +1680,8 @@ export default {
           statusCode = geminiResp.status || 200;
           const geminiJson = await geminiResp.json();
           console.log('Gemini content API response:', geminiJson);
+          console.log('AI provider raw response (Gemini):', geminiJson);
+
 
           // Try to parse Gemini-style response (candidates -> content -> parts)
           try {
@@ -1732,6 +1735,8 @@ export default {
           statusCode = aiResp.status || 200;
           const aiJson = await aiResp.json();
           console.log('AI API response:', aiJson);
+          console.log('AI provider raw response (DALL-E):', aiJson);
+
 
           if (aiJson.data && aiJson.data[0]) {
             const imageData = aiJson.data[0];
@@ -1749,7 +1754,34 @@ export default {
 
         console.log('Converted response for frontend:', frontendResponse);
 
-        return new Response(JSON.stringify(frontendResponse), {
+        // Normalize output so frontend always receives an object containing either
+        // `imageUrl`/`base64` or a `raw` field with the provider response for fallback parsing.
+        let normalizedResponse = frontendResponse;
+        try {
+          if (!normalizedResponse || typeof normalizedResponse !== 'object') {
+            console.log('Normalizing non-object response, wrapping in raw');
+            normalizedResponse = { raw: normalizedResponse };
+          } else {
+            const hasImageUrl = Object.prototype.hasOwnProperty.call(normalizedResponse, 'imageUrl');
+            const hasBase64 = Object.prototype.hasOwnProperty.call(normalizedResponse, 'base64') || Object.prototype.hasOwnProperty.call(normalizedResponse, 'b64_json');
+            const hasRaw = Object.prototype.hasOwnProperty.call(normalizedResponse, 'raw');
+            console.log('Response analysis:', { hasImageUrl, hasBase64, hasRaw, keys: Object.keys(normalizedResponse) });
+            if (!hasImageUrl && !hasBase64 && !hasRaw) {
+              console.log('No direct image fields found, wrapping entire response under raw for frontend parsing');
+              // Wrap the entire provider response under `raw` to allow frontend recursive extraction
+              normalizedResponse = { raw: normalizedResponse };
+            } else {
+              console.log('Response already has direct image fields or raw, returning as-is');
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to normalize frontend response, wrapping as raw:', e);
+          normalizedResponse = { raw: frontendResponse };
+        }
+
+        console.log('Final normalized response returned to frontend:', JSON.stringify(normalizedResponse, null, 2));
+
+        return new Response(JSON.stringify(normalizedResponse), {
           status: statusCode,
           headers: corsHeaders
         });
@@ -1808,6 +1840,7 @@ export default {
         return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
       }
     }
+
 
     // 404 handler
     return new Response(JSON.stringify({

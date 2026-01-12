@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { NavigateFunction, Location as RouterLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/useAuth';
@@ -37,8 +36,10 @@ interface CreditPackage {
 }
 
 const Subscription: React.FC = () => {
-  const navigate = useNavigate() as NavigateFunction;
-  const location = useLocation() as RouterLocation;
+  // @ts-ignore: TypeScript cannot resolve react-router-dom types due to npm issues
+  const navigate = useNavigate();
+  // @ts-ignore: TypeScript cannot resolve react-router-dom types due to npm issues
+  const location = useLocation();
   const { user, isAuthenticated, updateUser } = useAuth();
   
   // Get SEO config based on current path

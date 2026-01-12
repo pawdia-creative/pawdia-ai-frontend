@@ -282,7 +282,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       timeout: 60000, // 60 second timeout for AI generation
     });
 
-    const data = response.data;
+    const data = response.data as any;
     if (import.meta.env.DEV) console.log('Backend proxy response:', data);
 
     // Check if the backend returned an error
@@ -290,18 +290,102 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       throw new ApiError(`AI API error: ${data.error}`, 400, 'AI_API_ERROR');
     }
 
-    // The backend should return the image URL or base64 data
-    let imageUrl: string;
+    // The backend should return the image URL or base64 data.
+    // Be resilient: accept multiple shapes and also attempt to extract image data
+    // from nested/raw provider responses under `data.raw` (fallback).
+    let imageUrl: string | undefined;
 
-    if (data.imageUrl) {
-      imageUrl = data.imageUrl;
-    } else if (data.image && data.image.url) {
-      imageUrl = data.image.url;
-    } else if (data.image && data.image.base64) {
-      imageUrl = `data:image/png;base64,${data.image.base64}`;
-    } else if (data.base64) {
-      imageUrl = `data:image/png;base64,${data.base64}`;
-    } else {
+    console.log('=== FRONTEND AI RESPONSE DEBUG START ===');
+    console.log('Full response data keys:', Object.keys(data));
+    console.log('Full response data:', data);
+    console.log('=== FRONTEND AI RESPONSE DEBUG END ===');
+
+       // Priority 1: Check for Gemini API response structure (most common for img2img)
+       console.log('Checking for Gemini candidates structure...');
+       if (data.raw && typeof data.raw === 'object' && data.raw.candidates && Array.isArray(data.raw.candidates) && data.raw.candidates.length > 0) {
+         console.log('Found Gemini candidates structure');
+         const candidate = data.raw.candidates[0];
+         console.log('First candidate keys:', Object.keys(candidate));
+
+         if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
+           console.log('Processing candidate.content.parts, length:', candidate.content.parts.length);
+           for (const part of candidate.content.parts) {
+             console.log('Part keys:', Object.keys(part));
+
+             // Check for both inlineData and inline_data (API might return either)
+             const inlineData = part.inlineData || part.inline_data;
+             if (inlineData && inlineData.data) {
+               console.log('Found inlineData/inline_data with data');
+               const base64Str = inlineData.data;
+               const mimeType = inlineData.mimeType || inlineData.mime_type || 'image/png';
+               imageUrl = `data:${mimeType};base64,${base64Str}`;
+               console.log('SUCCESS: Extracted image from Gemini inlineData, length:', base64Str.length);
+               break;
+             }
+           }
+         }
+       }
+
+       // Priority 2: Check direct well-known fields
+       if (!imageUrl) {
+         console.log('Checking direct fields...');
+         if (data.imageUrl && typeof data.imageUrl === 'string') {
+           imageUrl = data.imageUrl;
+           console.log('Found imageUrl in direct field');
+         } else if (data.image && data.image.url && typeof data.image.url === 'string') {
+           imageUrl = data.image.url;
+           console.log('Found image.url in direct field');
+         } else if (data.image && data.image.base64 && typeof data.image.base64 === 'string') {
+           imageUrl = `data:image/png;base64,${data.image.base64}`;
+           console.log('Found image.base64 in direct field');
+         } else if (data.base64 && typeof data.base64 === 'string') {
+           imageUrl = `data:image/png;base64,${data.base64}`;
+           console.log('Found base64 in direct field');
+         } else {
+           console.log('No direct image fields found');
+         }
+       }
+
+       // Priority 3: Fallback parsing for other API formats
+       if (!imageUrl && data.raw && typeof data.raw === 'object') {
+         console.log('Checking raw field for other formats...');
+         const raw = data.raw;
+
+         // Check for DALL-E style response
+         if (raw.data && Array.isArray(raw.data) && raw.data.length > 0) {
+           const imageData = raw.data[0];
+           if (imageData.url) {
+             imageUrl = imageData.url;
+             console.log('Found DALL-E style URL');
+           } else if (imageData.b64_json) {
+             imageUrl = `data:image/png;base64,${imageData.b64_json}`;
+             console.log('Found DALL-E style base64');
+           }
+         }
+       }
+
+    // Final fallback: check top-level text fields for embedded URLs
+    console.log('Checking top-level text fields for URLs...');
+    if (!imageUrl && typeof data === 'object') {
+      const textCandidates = ['text', 'message', 'content', 'result'];
+      for (const fld of textCandidates) {
+        const v = (data as any)[fld];
+        if (typeof v === 'string') {
+          console.log('Checking text field:', fld, 'value:', v.substring(0, 100));
+          const urlMatch = v.match(/https?:\/\/[^\s'"]+/);
+          if (urlMatch) {
+            imageUrl = urlMatch[0];
+            console.log('Found URL in text field:', fld);
+            break;
+          }
+        }
+      }
+    }
+
+    console.log('Final result - imageUrl found:', !!imageUrl, 'imageUrl value:', imageUrl);
+    if (!imageUrl) {
+      console.error('Backend proxy returned unexpected response shape:', data);
+      console.error('Available keys in response:', Object.keys(data));
       throw new Error('Backend proxy returned invalid response format');
     }
 
@@ -313,8 +397,8 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       generationTime,
       model: API_CONFIG.model
     };
-
-  } catch (error) {
+  }
+  catch (error: any) {
     handleError(error, 'ai_generation', {
       showToast: false, // Let the calling component handle UI feedback
       logError: true

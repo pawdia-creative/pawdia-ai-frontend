@@ -14,7 +14,7 @@ database_id = "e64c0539-0e91-42fb-a73b-df2803f31e82"
 # Environment variables
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://www.pawdia-ai.com,https://pawdia-ai.com,https://pawdia-ai-frontend.pages.dev,https://25001b6c.pawdia-ai-frontend.pages.dev,https://production.pawdia-ai-frontend.pages.dev,https://2c35d87a.pawdia-ai-frontend.pages.dev,http://localhost:5173"
+ALLOWED_ORIGINS = "https://www.pawdia-ai.com,https://pawdia-ai.com,https://pawdia-ai-frontend.pages.dev,https://25001b6c.pawdia-ai-frontend.pages.dev,https://production.pawdia-ai-frontend.pages.dev,https://2c35d87a.pawdia-ai-frontend.pages.dev,http://localhost:5173,https://pawdia-ai.com"
 # Email service configuration
 RESEND_FROM = "no-reply@pawdia-ai.com"
 RESEND_DOMAIN = "pawdia-ai.com"
