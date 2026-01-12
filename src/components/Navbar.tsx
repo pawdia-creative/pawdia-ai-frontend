@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { NavLink } from './NavLink';
+import logoUrl from '@/assets/logo.png';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -84,9 +85,9 @@ const Navbar: React.FC = () => {
               onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-2xl font-bold text-white hover:text-blue-200 transition-colors drop-shadow-lg"
             >
-              <img 
-                src="/logo.png" 
-                alt="Pawdia AI Logo" 
+              <img
+                src={logoUrl}
+                alt="Pawdia AI Logo"
                 className="h-20 w-auto"
               />
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent font-extrabold">
