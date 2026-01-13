@@ -11,6 +11,185 @@ export async function getUserByEmail(db, email) {
   }
 }
 
+// Full analytics stats for admin dashboard (richer payload expected by frontend)
+export async function getFullAnalyticsStats(db) {
+  try {
+    // Basic aggregates
+    const totalUsersRow = await db.prepare('SELECT COUNT(*) as total FROM users').first();
+    const totalUsers = totalUsersRow?.total || 0;
+
+    const totalImagesRow = await db.prepare('SELECT COUNT(*) as total FROM images').first();
+    const totalGenerations = totalImagesRow?.total || 0;
+
+    const totalCreditsRow = await db.prepare('SELECT SUM(credits_used) as total FROM images').first();
+    const totalCreditsUsed = totalCreditsRow?.total || 0;
+
+    // Page views and API calls from analytics table
+    const totalPageViewsRow = await db.prepare("SELECT COUNT(*) as cnt FROM analytics WHERE event_type = 'page_view'").first();
+    const totalPageViews = totalPageViewsRow?.cnt || 0;
+
+    const totalApiCallsRow = await db.prepare('SELECT COUNT(*) as cnt FROM analytics').first();
+    const totalApiCalls = totalApiCallsRow?.cnt || 0;
+
+    const uniqueUsersRow = await db.prepare('SELECT COUNT(DISTINCT user_id) as cnt FROM analytics WHERE user_id IS NOT NULL').first();
+    const uniqueUsers = uniqueUsersRow?.cnt || 0;
+
+    const uniqueSessionsRow = await db.prepare('SELECT COUNT(DISTINCT ip_address || "|" || COALESCE(user_agent, "")) as cnt FROM analytics WHERE ip_address IS NOT NULL').first();
+    const uniqueSessions = uniqueSessionsRow?.cnt || 0;
+    // Active users in last 30 days (based on last_login)
+    const activeUsersRow = await db.prepare("SELECT COUNT(*) as cnt FROM users WHERE last_login >= datetime('now', '-30 days')").first();
+    const activeUsers = activeUsersRow?.cnt || 0;
+
+    // Top users by activity
+    const topUsersRows = await db.prepare(`
+      SELECT a.user_id as user_id, COUNT(*) as total_events,
+             SUM(CASE WHEN a.event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
+             SUM(CASE WHEN a.event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls
+      FROM analytics a
+      WHERE a.user_id IS NOT NULL
+      GROUP BY a.user_id
+      ORDER BY total_events DESC
+      LIMIT 20
+    `).all();
+
+    const topUsers = [];
+    for (const r of (topUsersRows.results || [])) {
+      const u = await db.prepare('SELECT id, name, email, credits FROM users WHERE id = ?').bind(r.user_id).first();
+      topUsers.push({
+        id: u?.id || r.user_id,
+        name: u?.name || null,
+        email: u?.email || null,
+        credits: u?.credits || 0,
+        user_id: r.user_id,
+        total_events: r.total_events || 0,
+        page_views: r.page_views || 0,
+        api_calls: r.api_calls || 0
+      });
+    }
+
+    // Daily stats (last 30 days)
+    const dailyRows = await db.prepare(`
+      SELECT DATE(created_at) as period,
+             SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
+             SUM(CASE WHEN event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls,
+             (SELECT COUNT(*) FROM users WHERE DATE(created_at) = DATE(a.created_at)) as total_users,
+             (SELECT COUNT(*) FROM images WHERE DATE(created_at) = DATE(a.created_at)) as total_generations,
+             (SELECT COALESCE(SUM(credits_used),0) FROM images WHERE DATE(created_at) = DATE(a.created_at)) as total_credits_used
+      FROM analytics a
+      WHERE DATE(created_at) >= DATE('now', '-29 days')
+      GROUP BY DATE(created_at)
+      ORDER BY DATE(created_at) ASC
+    `).all();
+
+    const dailyStats = (dailyRows.results || []).map(r => ({
+      date: r.period,
+      period: r.period,
+      page_views: r.page_views || 0,
+      api_calls: r.api_calls || 0,
+      total_users: r.total_users || 0,
+      active_users: 0,
+      total_generations: r.total_generations || 0,
+      total_credits_used: r.total_credits_used || 0
+    }));
+
+    // Monthly stats (last 12 months)
+    const monthlyRows = await db.prepare(`
+      SELECT strftime('%Y-%m', created_at) as period,
+             SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
+             SUM(CASE WHEN event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls
+      FROM analytics
+      WHERE created_at >= DATE('now', '-11 months')
+      GROUP BY strftime('%Y-%m', created_at)
+      ORDER BY period ASC
+    `).all();
+    const monthlyStats = (monthlyRows.results || []).map(r => ({
+      period: r.period,
+      page_views: r.page_views || 0,
+      api_calls: r.api_calls || 0
+    }));
+
+    // Yearly stats (last 5 years)
+    const yearlyRows = await db.prepare(`
+      SELECT strftime('%Y', created_at) as period,
+             SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
+             SUM(CASE WHEN event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls
+      FROM analytics
+      WHERE created_at >= DATE('now', '-5 years')
+      GROUP BY strftime('%Y', created_at)
+      ORDER BY period ASC
+    `).all();
+    const yearlyStats = (yearlyRows.results || []).map(r => ({
+      period: r.period,
+      page_views: r.page_views || 0,
+      api_calls: r.api_calls || 0
+    }));
+
+    // Aggregate API call breakdowns from analytics table (event_type = 'api_call')
+    const apiByEndpointMap = {};
+    const apiByStatusMap = {};
+    try {
+      const apiRows = await db.prepare("SELECT data FROM analytics WHERE event_type = 'api_call'").all();
+      for (const row of (apiRows.results || [])) {
+        let parsed = null;
+        try {
+          parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+        } catch (e) {
+          // ignore parse errors
+          parsed = null;
+        }
+        const endpoint = parsed && parsed.endpoint ? String(parsed.endpoint) : (parsed && parsed.path ? String(parsed.path) : null);
+        const status = parsed && (parsed.status || parsed.status_code) ? String(parsed.status || parsed.status_code) : null;
+        if (endpoint) {
+          apiByEndpointMap[endpoint] = (apiByEndpointMap[endpoint] || 0) + 1;
+        }
+        if (status) {
+          apiByStatusMap[status] = (apiByStatusMap[status] || 0) + 1;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to aggregate api_call analytics:', e);
+    }
+
+    const apiByEndpoint = Object.keys(apiByEndpointMap).map(k => ({ endpoint: k, count: apiByEndpointMap[k] })).sort((a,b)=>b.count-a.count);
+    const apiByStatus = Object.keys(apiByStatusMap).map(k => ({ status_code: k, count: apiByStatusMap[k] })).sort((a,b)=>b.count-a.count);
+
+    return {
+      totalUsers,
+      activeUsers,
+      totalGenerations,
+      totalCreditsUsed,
+      totalPageViews,
+      totalApiCalls,
+      uniqueUsers,
+      uniqueSessions,
+      apiByEndpoint,
+      apiByStatus,
+      topUsers,
+      dailyStats,
+      monthlyStats,
+      yearlyStats
+    };
+  } catch (error) {
+    console.error('Error getting full analytics stats:', error);
+    return {
+      totalUsers: 0,
+      activeUsers: 0,
+      totalGenerations: 0,
+      totalCreditsUsed: 0,
+      totalPageViews: 0,
+      totalApiCalls: 0,
+      uniqueUsers: 0,
+      uniqueSessions: 0,
+      apiByEndpoint: [],
+      apiByStatus: [],
+      topUsers: [],
+      dailyStats: [],
+      monthlyStats: [],
+      yearlyStats: []
+    };
+  }
+}
+
 // Get user by ID
 export async function getUserById(db, id) {
   try {
@@ -77,6 +256,9 @@ export async function verifyUserByToken(db, token) {
 // Update user credits
 export async function updateUserCredits(db, userId, credits) {
   try {
+    // Clean expired credits before updating
+    await cleanExpiredCredits(db);
+
     const result = await db.prepare(
       'UPDATE users SET credits = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
     ).bind(credits, userId).run();
@@ -435,5 +617,25 @@ export async function ensureSchema(db) {
     }
   } catch (err) {
     console.warn('Schema ensure error (non-fatal):', err);
+  }
+}
+
+// Clean expired credits for users
+export async function cleanExpiredCredits(db) {
+  try {
+    const result = await db.prepare(`
+      UPDATE users
+      SET credits = 0, credits_expires = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE credits > 0 AND credits_expires IS NOT NULL AND credits_expires < CURRENT_TIMESTAMP
+    `).run();
+
+    if (result.changes > 0) {
+      console.log(`Cleaned expired credits for ${result.changes} users`);
+    }
+
+    return result.changes;
+  } catch (error) {
+    console.error('Error cleaning expired credits:', error);
+    return 0;
   }
 }

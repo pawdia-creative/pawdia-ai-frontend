@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     avatar TEXT,
     credits INTEGER DEFAULT 0,
+    credits_expires DATETIME,
     is_verified BOOLEAN DEFAULT FALSE,
     is_admin BOOLEAN DEFAULT FALSE,
     verification_token TEXT,
@@ -68,6 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_users_is_verified ON users(is_verified);
 CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin);
 CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status);
 CREATE INDEX IF NOT EXISTS idx_users_credits ON users(credits);
+CREATE INDEX IF NOT EXISTS idx_users_credits_expires ON users(credits_expires);
 
 CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id);
 CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at);

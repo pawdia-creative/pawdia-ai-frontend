@@ -18,9 +18,11 @@ import {
   updateUserCredits,
   getAllUsers,
   getAnalyticsStats,
+  getFullAnalyticsStats,
   deleteUser,
   setVerificationToken,
-  verifyUserByToken
+  verifyUserByToken,
+  cleanExpiredCredits
 } from './database.js';
 import { ensureSchema } from './database.js';
 
@@ -64,16 +66,34 @@ async function getAnalyticsCount(db, eventType, timeFilter = null) {
 
 
 
-// Require a verified user based on Authorization header.
+// Require a verified user based on Authorization header or cookie auth_token.
+// Accepts either an Authorization header string OR the whole Request object.
 // Returns the user object if verified, otherwise returns an object { errorResponse: Response } to return directly.
-async function requireVerifiedFromHeader(authHeader, env) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { errorResponse: new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
+async function requireVerifiedFromHeader(authOrRequest, env) {
+  // Determine payload using either header string or full request (which may include cookie)
+  let payload = null;
+  try {
+    if (typeof authOrRequest === 'string') {
+      // authOrRequest is an Authorization header value
+      const authHeader = authOrRequest;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return { errorResponse: new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
+      }
+      payload = await getPayloadFromHeader(authHeader, env);
+    } else if (authOrRequest && typeof authOrRequest.headers === 'object') {
+      // authOrRequest is a Request - use cookie-or-header helper
+      payload = await getPayloadFromRequest(authOrRequest, env);
+    } else {
+      return { errorResponse: new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
+    }
+  } catch (err) {
+    return { errorResponse: new Response(JSON.stringify({ message: 'Invalid or expired token' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
   }
-  const payload = await getPayloadFromHeader(authHeader, env);
+
   if (!payload) {
     return { errorResponse: new Response(JSON.stringify({ message: 'Invalid or expired token' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
   }
+
   const userId = payload.sub || payload.userId;
   const user = await getUserById(env.DB, userId);
   if (!user) {
@@ -391,7 +411,7 @@ export default {
         const signed = await signJwt(payload, jwtSecret);
 
         // Log login event
-        await logAnalyticsEvent(env.DB, 'user_login', user.id, { email }, request);
+        logAnalyticsEvent(env.DB, 'user_login', user.id, { email }, request).catch(err => console.warn('Failed to log user_login:', err));
 
         // Build response headers and set auth cookie (HttpOnly, Secure)
         const respHeaders = new Headers(corsHeaders);
@@ -467,6 +487,9 @@ export default {
             headers: corsHeaders
           });
         }
+
+        // Clean expired credits before returning user data
+        await cleanExpiredCredits(env.DB);
 
         return new Response(JSON.stringify({
           user: {
@@ -619,7 +642,7 @@ export default {
 
         // Success path: log event and update timestamp
           try {
-            await logAnalyticsEvent(env.DB, 'verification_sent', user.id, { email: user.email }, request);
+            logAnalyticsEvent(env.DB, 'verification_sent', user.id, { email: user.email }, request).catch(err => console.warn('Failed to log verification_sent:', err));
           } catch (e) {
             console.warn('Failed to log verification_sent event:', e);
           }
@@ -680,29 +703,21 @@ export default {
           const sendResult = await sendVerificationEmail(env, email, name || '', token);
           if (sendResult.sent) {
             emailSent = true;
-            try {
-              await logAnalyticsEvent(env.DB, 'verification_sent', userId, {
-                email,
-                provider: sendResult.provider,
-                fallback: sendResult.fallback || false
-              }, request);
-            } catch (e) {
-              console.warn('Failed to log verification_sent event on registration:', e);
-            }
+            logAnalyticsEvent(env.DB, 'verification_sent', userId, {
+              email,
+              provider: sendResult.provider,
+              fallback: sendResult.fallback || false
+            }, request).catch(err => console.warn('Failed to log verification_sent event on registration:', err));
           } else {
             emailError = sendResult.error;
             console.error('Verification email not sent on registration:', sendResult);
             // Log email failure for monitoring
-            try {
-              await logAnalyticsEvent(env.DB, 'email_send_failed', userId, {
-                email,
-                error: sendResult.error,
-                primaryError: sendResult.primaryError,
-                backupError: sendResult.backupError
-              }, request);
-            } catch (logErr) {
-              console.warn('Failed to log email_send_failed event:', logErr);
-            }
+            logAnalyticsEvent(env.DB, 'email_send_failed', userId, {
+              email,
+              error: sendResult.error,
+              primaryError: sendResult.primaryError,
+              backupError: sendResult.backupError
+            }, request).catch(err => console.warn('Failed to log email_send_failed event:', err));
           }
 
           // Only update last_verification_sent when email was actually sent successfully.
@@ -840,9 +855,9 @@ export default {
           if (plan === 'basic') creditsToAdd = 30;
           else if (plan === 'premium') creditsToAdd = 60;
 
-          // Update user subscription and add credits
+          // Update user subscription and add credits with expiry
           await env.DB.prepare(
-            'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + ?, subscription_expires_at = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+            'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + ?, credits_expires = datetime("now", "+30 days"), subscription_expires_at = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
           ).bind(plan, 'active', creditsToAdd, userId).run();
 
           const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status, COALESCE(subscription_expires, subscription_expires_at) as subscription_expires FROM users WHERE id = ?').bind(userId).first();
@@ -890,9 +905,11 @@ export default {
           });
         }
 
-        // Add credits
+        // Add credits with 30-day expiry for credit packages
         const newCredits = (user.credits || 0) + amount;
-        await updateUserCredits(env.DB, userId, newCredits);
+        await env.DB.prepare(
+          'UPDATE users SET credits = ?, credits_expires = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).bind(newCredits, userId).run();
 
         return new Response(JSON.stringify({
           success: true,
@@ -1000,8 +1017,8 @@ export default {
           });
         }
 
-        // Get PayPal access token
-        const accessToken = await getPayPalAccessToken(clientId, clientSecret, paypalMode);
+        // Get PayPal access token (pass env so helper can read secrets)
+        const accessToken = await getPayPalAccessToken(env);
 
         // Create PayPal order
         const orderData = {
@@ -1018,6 +1035,7 @@ export default {
           'INSERT INTO payments (id, user_id, paypal_order_id, amount, currency, status) VALUES (?, ?, ?, ?, ?, ?)'
         ).bind(paymentId, userId, orderResult.id, totalAmount, currency, 'pending').run();
 
+        logAnalyticsEvent(env.DB, 'api_call', userId, { endpoint: url.pathname, status: 200 }, request).catch(err => console.warn('Failed to log api_call for create-order:', err));
         return new Response(JSON.stringify({
           orderId: orderResult.id,
           status: 'CREATED'
@@ -1027,6 +1045,7 @@ export default {
 
       } catch (error) {
         console.error('Create PayPal order error:', error);
+        logAnalyticsEvent(env.DB, 'api_call', null, { endpoint: url.pathname, status: 500, error: String(error) }, request).catch(err => console.warn('Failed to log api_call for create-order error:', err));
         return new Response(JSON.stringify({
           error: error.message || 'Failed to create payment order'
         }), {
@@ -1088,12 +1107,14 @@ export default {
         ).bind(orderId, userId).first();
 
         if (paymentRecord && paymentRecord.credits_purchased) {
-          // Add credits to user account
+          // Add credits to user account with 30-day expiry for credit packages
           const currentUser = await getUserById(env.DB, userId);
           const newCredits = (currentUser.credits || 0) + paymentRecord.credits_purchased;
-          await updateUserCredits(env.DB, userId, newCredits);
+          await env.DB.prepare(
+            'UPDATE users SET credits = ?, credits_expires = datetime("now", "+30 days"), updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          ).bind(newCredits, userId).run();
         }
-
+        logAnalyticsEvent(env.DB, 'api_call', userId, { endpoint: url.pathname, status: 200 }, request).catch(err => console.warn('Failed to log api_call for capture-order:', err));
         return new Response(JSON.stringify({
           orderId,
           captureId: captureResult.id,
@@ -1104,6 +1125,7 @@ export default {
 
       } catch (error) {
         console.error('Capture PayPal payment error:', error);
+        logAnalyticsEvent(env.DB, 'api_call', null, { endpoint: url.pathname, status: 500, error: String(error) }, request).catch(err => console.warn('Failed to log api_call for capture-order error:', err));
         return new Response(JSON.stringify({
           error: error.message || 'Failed to capture payment'
         }), {
@@ -1206,7 +1228,7 @@ export default {
     if (url.pathname === '/api/analytics/page-view' && request.method === 'POST') {
       try {
         // Log page view event
-        await logAnalyticsEvent(env.DB, 'page_view', null, null, request);
+        logAnalyticsEvent(env.DB, 'page_view', null, null, request).catch(err => console.warn('Failed to log page_view:', err));
         return new Response(JSON.stringify({
           success: true
         }), {
@@ -1420,7 +1442,7 @@ export default {
             }
 
             const ok = await updateUserCredits(env.DB, targetId, newCredits);
-            await logAnalyticsEvent(env.DB, 'admin_credit_operation', adminUser.id, { targetId, action, amount, newCredits }, request);
+            logAnalyticsEvent(env.DB, 'admin_credit_operation', adminUser.id, { targetId, action, amount, newCredits }, request).catch(err => console.warn('Failed to log admin_credit_operation:', err));
             if (!ok) return new Response(JSON.stringify({ message: 'Failed to update credits' }), { status: 500, headers: corsHeaders });
             return new Response(JSON.stringify({ success: true, credits: newCredits }), { headers: corsHeaders });
           }
@@ -1438,7 +1460,7 @@ export default {
             const hash = await hashPassword(tempPassword);
             try {
               await env.DB.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(hash, targetId).run();
-              await logAnalyticsEvent(env.DB, 'admin_reset_password', adminUser.id, { targetId }, request);
+              logAnalyticsEvent(env.DB, 'admin_reset_password', adminUser.id, { targetId }, request).catch(err => console.warn('Failed to log admin_reset_password:', err));
               // Send temporary password to user's email via Resend; do not return it in the API response.
               try {
                 const mailResult = await sendResetPasswordEmail(env, user.email, user.name || '', tempPassword);
@@ -1506,7 +1528,7 @@ export default {
                 await updateUserCredits(env.DB, targetId, newCredits);
               }
             }
-            await logAnalyticsEvent(env.DB, 'admin_update_subscription', adminUser.id, { targetId, body }, request);
+            logAnalyticsEvent(env.DB, 'admin_update_subscription', adminUser.id, { targetId, body }, request).catch(err => console.warn('Failed to log admin_update_subscription:', err));
             return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
           } catch (e) {
             console.error('Subscription update error:', e);
@@ -1534,7 +1556,17 @@ export default {
           return new Response(JSON.stringify({ message: 'Admin access required' }), { status: 403, headers: corsHeaders });
         }
 
-        const stats = await getAnalyticsStats(env.DB);
+        // Prefer rich analytics payload if available
+        let stats = null;
+        if (typeof getFullAnalyticsStats === 'function') {
+          stats = await getFullAnalyticsStats(env.DB).catch(err => {
+            console.warn('getFullAnalyticsStats failed, falling back to getAnalyticsStats:', err);
+            return null;
+          });
+        }
+        if (!stats) {
+          stats = await getAnalyticsStats(env.DB);
+        }
 
         return new Response(JSON.stringify(stats), {
           headers: corsHeaders
@@ -1781,12 +1813,24 @@ export default {
 
         console.log('Final normalized response returned to frontend:', JSON.stringify(normalizedResponse, null, 2));
 
+        // Log API call analytics (non-blocking but await to surface errors)
+        try {
+          logAnalyticsEvent(env.DB, 'api_call', requester && requester.id ? requester.id : null, { endpoint: url.pathname, status: statusCode }, request).catch(err => console.warn('Failed to log api_call for generate:', err));
+        } catch (logErr) {
+          console.warn('Failed to log api_call for generate:', logErr);
+        }
+
         return new Response(JSON.stringify(normalizedResponse), {
           status: statusCode,
           headers: corsHeaders
         });
       } catch (error) {
         console.error('Generate endpoint error:', error);
+        try {
+          logAnalyticsEvent(env.DB, 'api_call', null, { endpoint: url.pathname, status: 500, error: String(error) }, request).catch(err => console.warn('Failed to log api_call for generate error:', err));
+        } catch (logErr) {
+          console.warn('Failed to log api_call for generate error:', logErr);
+        }
         return new Response(JSON.stringify({
           error: 'Internal server error',
           detail: String(error)

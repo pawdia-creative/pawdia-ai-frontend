@@ -55,7 +55,11 @@ const Subscription: React.FC = () => {
     },
     {
       question: 'Do unused credits roll over?',
-      answer: 'Yes. Unused credits remain in your account and can be used later for AI generations or downloads.',
+      answer: 'Free users have permanent credits. Paid subscription and credit package credits expire after 30 days. Unused credits remain in your account until expiration.',
+    },
+    {
+      question: 'Do credits expire?',
+      answer: 'Free users get 3 permanent credits that never expire. Credits from paid subscriptions (Basic/Premium) and credit packages expire after 30 days from purchase. Expired credits are automatically cleared.',
     },
   ]);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
@@ -76,7 +80,7 @@ const Subscription: React.FC = () => {
       price: 0,
       credits: 3,
       features: [
-        '3 AI art generations',
+        '3 AI art generations (permanent credits)',
         'Basic art styles',
         'Standard quality',
         'Community support'
@@ -89,7 +93,7 @@ const Subscription: React.FC = () => {
       price: 9.99,
       credits: 30,
       features: [
-        '30 AI art generations',
+        '30 AI art generations (30-day expiry)',
         'All art styles',
         'High quality',
         'Priority support',
@@ -104,7 +108,7 @@ const Subscription: React.FC = () => {
       price: 14.99,
       credits: 60,
       features: [
-        '60 AI art generations',
+        '60 AI art generations (30-day expiry)',
         'All art styles + exclusive',
         'Ultra HD quality',
         '24/7 priority support',
@@ -651,7 +655,7 @@ const Subscription: React.FC = () => {
                   <CardTitle className="text-2xl">
                     {creditPackage.credits + creditPackage.bonus}
                   </CardTitle>
-                  <CardDescription>Credits</CardDescription>
+                  <CardDescription>Credits (30-day expiry)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4">

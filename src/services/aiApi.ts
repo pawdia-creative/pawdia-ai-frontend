@@ -342,6 +342,19 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
                console.log('SUCCESS: Extracted image from Gemini inlineData, length:', base64Str.length);
                break;
              }
+
+             // Check for text field containing markdown image with base64 data URL
+             if (part.text && typeof part.text === 'string') {
+               console.log('Found text field, checking for markdown image pattern');
+               // Look for ![image](data:image/png;base64,...) pattern
+               const markdownImageRegex = /!\[image\]\((data:image\/[^;]+;base64,[^)]+)\)/;
+               const match = part.text.match(markdownImageRegex);
+               if (match) {
+                 imageUrl = match[1];
+                 console.log('SUCCESS: Extracted image from Gemini markdown text, URL length:', imageUrl?.length || 0);
+                 break;
+               }
+             }
            }
          }
        }
@@ -360,6 +373,18 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
                imageUrl = `data:${mimeType};base64,${base64Str}`;
                console.log('SUCCESS: Extracted image from raw array fallback');
                break;
+             }
+
+             // Check for text field containing markdown image with base64 data URL
+             if (part.text && typeof part.text === 'string') {
+               console.log('Found text field in raw array, checking for markdown image pattern');
+               const markdownImageRegex = /!\[image\]\((data:image\/[^;]+;base64,[^)]+)\)/;
+               const match = part.text.match(markdownImageRegex);
+               if (match) {
+                 imageUrl = match[1];
+                 console.log('SUCCESS: Extracted image from raw array markdown text fallback, URL length:', imageUrl?.length || 0);
+                 break;
+               }
              }
            }
          }
