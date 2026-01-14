@@ -124,9 +124,10 @@ export const Hero = () => {
   }, []);
   const sectionStyle = bgImageData
     ? {
-        backgroundImage: `url(${bgImageData.src})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        // Use multiple backgrounds so we can layer the existing gradient on top of the image
+        backgroundImage: `var(--gradient-hero), url(${bgImageData.src})`,
+        backgroundSize: 'cover, cover',
+        backgroundPosition: 'center, center',
       }
     : undefined;
 
@@ -135,22 +136,7 @@ export const Hero = () => {
       className="relative min-h-[90vh] flex items-center justify-center overflow-hidden"
       style={sectionStyle}
     >
-      {/* Background image with responsive loading */}
-      {bgImageData && (
-        <img
-          src={bgImageData.src}
-          srcSet={bgImageData.srcSet}
-          sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, (max-width: 1280px) 1280px, 1920px"
-          alt="Hero background with pets"
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ zIndex: 10 }}
-          decoding="async"
-          loading="lazy"
-        />
-      )}
-
-      {/* Background gradient (behind the image) */}
-      <div className="absolute inset-0 gradient-hero pointer-events-none" style={{ zIndex: 0 }} />
+      {/* Background handled via section inline style (gradient + image) */}
       
       {/* Content */}
       <div className="relative z-30 container mx-auto px-4 py-20 text-center">
