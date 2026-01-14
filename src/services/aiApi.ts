@@ -4,6 +4,23 @@ import { handleError } from '@/lib/errorHandler';
 
 // ----- Types and helpers for robust AI response parsing -----
 type AnyObj = Record<string, unknown>;
+
+// API response types for image extraction
+type ImageData = {
+  url?: string;
+  b64_json?: string;
+  base64?: string;
+};
+
+type APIResponse = {
+  imageUrl?: string;
+  image?: ImageData;
+  base64?: string;
+  raw?: {
+    data?: ImageData[];
+  };
+  data?: ImageData[];
+};
 function isObject(v: unknown): v is AnyObj {
   return typeof v === 'object' && v !== null;
 }
@@ -334,26 +351,26 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
 
        // Priority 2: Check direct well-known fields
        if (!imageUrl) {
-    if (typeof (data as any).imageUrl === 'string') {
-      imageUrl = (data as any).imageUrl;
-    } else if (isObject((data as any).image) && typeof ((data as any).image as any).url === 'string') {
-      imageUrl = ((data as any).image as any).url;
-    } else if (isObject((data as any).image) && typeof ((data as any).image as any).base64 === 'string') {
-      imageUrl = `data:image/png;base64,${((data as any).image as any).base64}`;
-    } else if (typeof (data as any).base64 === 'string') {
-      imageUrl = `data:image/png;base64,${(data as any).base64}`;
+    if (typeof (data as APIResponse).imageUrl === 'string') {
+      imageUrl = (data as APIResponse).imageUrl;
+    } else if (isObject((data as APIResponse).image) && typeof ((data as APIResponse).image as ImageData).url === 'string') {
+      imageUrl = ((data as APIResponse).image as ImageData).url;
+    } else if (isObject((data as APIResponse).image) && typeof ((data as APIResponse).image as ImageData).base64 === 'string') {
+      imageUrl = `data:image/png;base64,${((data as APIResponse).image as ImageData).base64}`;
+    } else if (typeof (data as APIResponse).base64 === 'string') {
+      imageUrl = `data:image/png;base64,${(data as APIResponse).base64}`;
          } else {
            // No direct image fields found
          }
     }
 
        // Priority 3: Fallback parsing for other API formats
-    if (!imageUrl && isObject((data as any).raw)) {
-         const raw = (data as any).raw;
+    if (!imageUrl && isObject((data as APIResponse).raw)) {
+         const raw = (data as APIResponse).raw;
 
          // Check for DALL-E style response
          if (Array.isArray(raw.data) && raw.data.length > 0) {
-           const imageData = raw.data[0] as any;
+           const imageData = raw.data[0] as ImageData;
            if (typeof imageData.url === 'string') {
              imageUrl = imageData.url;
            } else if (typeof imageData.b64_json === 'string') {

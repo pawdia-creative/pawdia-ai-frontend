@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import * as RR from 'react-router-dom';
+import { useEffect, useLocation, useNavigate } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/lib/toast';
 import AuthForm from '@/components/AuthForm';
@@ -11,9 +10,8 @@ type LocationState = { from?: { pathname?: string } };
 
 const Login = () => {
   const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
-  // call the react-router hooks at runtime (keep casts for TypeScript compatibility)
-  const navigate = (RR as any).useNavigate() as NavigateFunction;
-  const location = (RR as any).useLocation() as { state?: LocationState; pathname: string };
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const from: string = (location?.state?.from?.pathname as string) || '/';
 

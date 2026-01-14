@@ -1,6 +1,3 @@
-// @ts-nocheck - react-router-dom v6 types not properly resolved by TypeScript
-// This is a necessary workaround due to library type definition issues
-// Removing this would cause extensive JSX element type errors throughout the component
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -84,14 +81,14 @@ const Navbar: React.FC = () => {
     // Defer loading the large logo until browser is idle to reduce first-paint/network contention
     const doLoad = () => {
       import('@/assets/logo.webp')
-        .then((m: any) => setLogoSrc(m.default || m))
+        .then((m) => setLogoSrc(m.default || m))
         .catch(() => {
           // fallback to known path
           setLogoSrc('/logo.webp');
         });
     };
     if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(doLoad, { timeout: 2000 });
+      (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => void }).requestIdleCallback(doLoad, { timeout: 2000 });
     } else {
       // small timeout fallback
       const id = setTimeout(doLoad, 2000);

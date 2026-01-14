@@ -60,14 +60,14 @@ export const normalizeUser = (dbUser: DbUser | User | null | undefined): User | 
   if (raw['subscription'] && typeof raw['subscription'] === 'object') {
     const sub = raw['subscription'] as Record<string, unknown>;
     subscription = {
-      plan: (sub['plan'] as string) as any,
-      status: (sub['status'] as string) as any,
+      plan: sub['plan'] as 'free' | 'basic' | 'premium',
+      status: sub['status'] as 'active' | 'expired' | 'cancelled',
       expiresAt: sub['expiresAt'] as string | undefined,
     } as User['subscription'];
   } else if (raw['subscription_plan'] || raw['subscription_status'] || raw['subscription_expires'] || raw['subscription_expires_at']) {
     subscription = {
-      plan: (raw['subscription_plan'] as string) as any,
-      status: (raw['subscription_status'] as string) as any,
+      plan: raw['subscription_plan'] as 'free' | 'basic' | 'premium',
+      status: raw['subscription_status'] as 'active' | 'expired' | 'cancelled',
       expiresAt: String(raw['subscription_expires'] ?? raw['subscription_expires_at'] ?? ''),
         };
     if (subscription.expiresAt === '') delete subscription.expiresAt;

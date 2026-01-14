@@ -283,7 +283,7 @@ if (typeof window !== 'undefined') {
       import('@/pages/Examples');
       import('@/pages/ArtCreation');
       import('@/components/Navbar');
-    } catch (e) {
+    } catch {
       // ignore
     }
   };

@@ -3,6 +3,12 @@ import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
 
+// Types for Sentry API
+type SentryAPI = {
+  replayIntegration?: (config: { maskAllText: boolean; blockAllMedia: boolean }) => void;
+  captureException?: (error: unknown) => void;
+};
+
 // Defer heavy Sentry initialization (tracing & replay) until browser idle to reduce startup cost
 if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
   const initSentry = () => {
@@ -20,8 +26,8 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
       // Defer session replay initialization to idle
       const initReplay = () => {
         try {
-          if ((Sentry as any).replayIntegration) {
-            (Sentry as any).replayIntegration({
+          if ((Sentry as SentryAPI).replayIntegration) {
+            (Sentry as SentryAPI).replayIntegration({
               maskAllText: true,
               blockAllMedia: true,
             });
@@ -32,7 +38,7 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
       };
 
       if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(initReplay, { timeout: 2000 });
+        (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => void }).requestIdleCallback(initReplay, { timeout: 2000 });
       } else {
         setTimeout(initReplay, 3000);
       }
@@ -42,7 +48,7 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
   };
 
   if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(initSentry, { timeout: 1000 });
+    (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => void }).requestIdleCallback(initSentry, { timeout: 1000 });
   } else {
     setTimeout(initSentry, 1500);
   }
@@ -51,12 +57,11 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
 // Global handler to surface unhandled promise rejections during login flows
 window.addEventListener('unhandledrejection', (event) => {
   // Log to console for immediate debugging
-  // eslint-disable-next-line no-console
   console.error('Unhandled promise rejection captured:', event.reason, event);
   // Also send to Sentry if initialized
   try {
-    if ((Sentry as any).captureException) {
-      (Sentry as any).captureException(event.reason);
+    if ((Sentry as SentryAPI).captureException) {
+      (Sentry as SentryAPI).captureException(event.reason);
     }
   } catch (e) {
     // ignore
@@ -72,13 +77,12 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       await navigator.serviceWorker.register('/sw.js');
     } catch (e) {
       // ignore registration failures
-      // eslint-disable-next-line no-console
       console.warn('Service worker registration failed', e);
     }
   };
 
   if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(() => {
+    (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => void }).requestIdleCallback(() => {
       registerSW();
     }, { timeout: 3000 });
   } else {

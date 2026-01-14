@@ -16,7 +16,7 @@ import { tokenStorage } from "@/lib/tokenStorage";
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
 import { useAuth } from "@/contexts/useAuth";
-import * as RR from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 // User type removed (unused)
 import { QualitySettings } from "./QualitySettings";
 
@@ -51,7 +51,7 @@ interface ArtGenerationProps {
 
 export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGenerationProps) => {
   const { user, isAuthenticated, updateUser } = useAuth();
-  const navigate = (RR as any).useNavigate() as (to: string) => void;
+  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedArt, setGeneratedArt] = useState<string>('');
   const [progress, setProgress] = useState(0);
@@ -865,7 +865,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       if (progressInterval) clearInterval(progressInterval);
       
       // Detect provider quota error (from ApiError.body.raw.error or message)
-      const apiErr = err as any;
+      const apiErr = err as { body?: { raw?: { error?: string }; message?: string }; message?: string };
       const providerQuotaError =
         (apiErr && apiErr.status === 403 && apiErr.body && apiErr.body.raw && apiErr.body.raw.error && apiErr.body.raw.error.code === 'insufficient_user_quota') ||
         (apiErr && typeof apiErr.message === 'string' && apiErr.message.toLowerCase().includes('quota'));

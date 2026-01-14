@@ -1,10 +1,13 @@
 import { Button } from "@/components/ui/button";
-import * as RR from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { useEffect, useState } from "react";
 
+// Type for dynamic import modules
+type DynamicImportModule = { default: string };
+
 export const Hero = () => {
-  const navigate = (RR as any).useNavigate() as (to: string) => void;
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   
   // Prefetch commonly used routes to reduce first-click latency
@@ -37,11 +40,11 @@ export const Hero = () => {
 
         // Build srcset for responsive loading
         const srcSet = [
-          `${(mobileMod as any).default} 640w`,
-          `${(smMod as any).default} 768w`,
-          `${(mdMod as any).default} 1024w`,
-          `${(lgMod as any).default} 1280w`,
-          `${(xlMod as any).default} 1920w`
+          `${(mobileMod as DynamicImportModule).default} 640w`,
+          `${(smMod as DynamicImportModule).default} 768w`,
+          `${(mdMod as DynamicImportModule).default} 1024w`,
+          `${(lgMod as DynamicImportModule).default} 1280w`,
+          `${(xlMod as DynamicImportModule).default} 1920w`
         ].join(', ');
 
         // Choose appropriate src based on current screen size
@@ -49,15 +52,15 @@ export const Hero = () => {
         let src: string;
 
         if (screenWidth <= 640) {
-          src = (mobileMod as any).default;
+          src = (mobileMod as DynamicImportModule).default;
         } else if (screenWidth <= 768) {
-          src = (smMod as any).default;
+          src = (smMod as DynamicImportModule).default;
         } else if (screenWidth <= 1024) {
-          src = (mdMod as any).default;
+          src = (mdMod as DynamicImportModule).default;
         } else if (screenWidth <= 1280) {
-          src = (lgMod as any).default;
+          src = (lgMod as DynamicImportModule).default;
         } else {
-          src = (xlMod as any).default;
+          src = (xlMod as DynamicImportModule).default;
         }
 
         // Preload the selected image for LCP
@@ -81,7 +84,7 @@ export const Hero = () => {
       } catch (e) {
         // fallback to compressed jpg
         try {
-          const fallbackUrl = (fallbackMod && (fallbackMod as any).default) || fallbackMod;
+          const fallbackUrl = (fallbackMod && (fallbackMod as DynamicImportModule).default) || fallbackMod;
           const img = new Image();
           img.decoding = 'async';
           img.src = fallbackUrl;
@@ -93,7 +96,7 @@ export const Hero = () => {
     };
 
     if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(() => {
+      (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => void }).requestIdleCallback(() => {
         doLoadHero().catch(() => {});
       }, { timeout: 1500 });
     } else {
