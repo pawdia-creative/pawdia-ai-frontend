@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import fallbackStatic from "@/assets/hero-pets-compressed.jpg";
 
 // Type for dynamic import modules
 type DynamicImportModule = { default: string };
 
 export const Hero = () => {
-  const navigate = useNavigate() as unknown as (to: string) => void;
+  const navigate = (useNavigate as any)() as (to: string) => void;
   const { user, isAuthenticated } = useAuth();
   
   // Prefetch commonly used routes to reduce first-click latency
@@ -25,11 +25,6 @@ export const Hero = () => {
     src: string;
     srcSet: string;
   } | null>(null);
-
-  const bgRef = useRef<typeof bgImageData>(bgImageData);
-  useEffect(() => {
-    bgRef.current = bgImageData;
-  }, [bgImageData]);
 
   useEffect(() => {
     let fallbackMod: DynamicImportModule | string | null = null;
@@ -94,9 +89,9 @@ export const Hero = () => {
         // fallback to compressed jpg
         try {
           const fallbackUrl =
-            fallbackMod && typeof (fallbackMod as DynamicImportModule).default === 'string'
+            fallbackMod && typeof (fallbackMod as any).default === 'string'
               ? (fallbackMod as DynamicImportModule).default
-              : (typeof fallbackMod === 'string' ? fallbackMod : '');
+              : (fallbackMod as string) || '';
           const img = new Image();
           img.decoding = 'async';
           img.src = fallbackUrl;
@@ -119,7 +114,7 @@ export const Hero = () => {
     }
     // Fallback: if lazy loading failed for any reason, ensure we show a compressed background after a short delay
     const fallbackId = setTimeout(() => {
-      if (!bgRef.current) {
+      if (!bgImageData) {
         setBgImageData({ src: fallbackStatic, srcSet: fallbackStatic });
       }
     }, 2500);
@@ -147,15 +142,15 @@ export const Hero = () => {
           srcSet={bgImageData.srcSet}
           sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, (max-width: 1280px) 1280px, 1920px"
           alt="Hero background with pets"
-          className="absolute inset-0 w-full h-full object-cover z-10 hero-bg-image"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ zIndex: 10 }}
           decoding="async"
           loading="lazy"
-          style={{ zIndex: 0 }}
         />
       )}
 
       {/* Background gradient (behind the image) */}
-      <div className="absolute inset-0 gradient-hero z-0 pointer-events-none" />
+      <div className="absolute inset-0 gradient-hero pointer-events-none" style={{ zIndex: 0 }} />
       
       {/* Content */}
       <div className="relative z-30 container mx-auto px-4 py-20 text-center">
