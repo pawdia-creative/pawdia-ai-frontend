@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// @ts-nocheck - react-router-dom v6 types not properly resolved by TypeScript
+// @ts-nocheck - TypeScript compiler passes but ESLint has issues with react-router-dom types
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import React, { useEffect } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
