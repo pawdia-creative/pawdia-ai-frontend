@@ -14,7 +14,7 @@ import {
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { NavLink } from './NavLink';
-import logoUrl from '@/assets/logo.png';
+import { useEffect, useState } from 'react';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -78,6 +78,27 @@ const Navbar: React.FC = () => {
   };
 
 
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Defer loading the large logo until browser is idle to reduce first-paint/network contention
+    const doLoad = () => {
+      import('@/assets/logo.webp')
+        .then((m: any) => setLogoSrc(m.default || m))
+        .catch(() => {
+          // fallback to known path
+          setLogoSrc('/logo.webp');
+        });
+    };
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(doLoad, { timeout: 2000 });
+    } else {
+      // small timeout fallback
+      const id = setTimeout(doLoad, 2000);
+      return () => clearTimeout(id);
+    }
+  }, []);
+
   return (
     <nav className="bg-gradient-to-b from-black/40 via-black/20 to-transparent sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-0 sm:px-0 lg:px-0">
@@ -88,10 +109,14 @@ const Navbar: React.FC = () => {
               onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-2xl font-bold text-white hover:text-blue-200 transition-colors drop-shadow-lg"
             >
-              <img 
-                src={logoUrl}
-                alt="Pawdia AI Logo" 
-                className="h-20 w-auto"
+              <img
+                src={logoSrc || '/favicon.ico'}
+                alt="Pawdia AI Logo"
+                className="w-20 h-20 object-contain"
+                loading="lazy"
+                decoding="async"
+                width={80}
+                height={80}
               />
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent font-extrabold">
                 Pawdia AI

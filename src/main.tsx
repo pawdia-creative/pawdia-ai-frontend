@@ -3,24 +3,49 @@ import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
 
-// Initialize Sentry for error monitoring
+// Defer heavy Sentry initialization (tracing & replay) until browser idle to reduce startup cost
 if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
-    environment: import.meta.env.MODE,
-    integrations: [
-      Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration({
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
-    ],
-    // Performance Monitoring
-    tracesSampleRate: 1.0, // Capture 100% of the transactions
-    // Session Replay
-    replaysSessionSampleRate: 0.1, // This sets the sample rate at 10%. You may want to change it to 100% while in development and then sample at a lower rate in production.
-    replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
-  });
+  const initSentry = () => {
+    try {
+      Sentry.init({
+        dsn: import.meta.env.VITE_SENTRY_DSN,
+        environment: import.meta.env.MODE,
+        integrations: [
+          // Initialize minimal tracing first; full replay/tracing deferred
+          Sentry.browserTracingIntegration && Sentry.browserTracingIntegration(),
+        ].filter(Boolean),
+        tracesSampleRate: 0.1, // lowered default sampling for startup
+      });
+
+      // Defer session replay initialization to idle
+      const initReplay = () => {
+        try {
+          if ((Sentry as any).replayIntegration) {
+            (Sentry as any).replayIntegration({
+              maskAllText: true,
+              blockAllMedia: true,
+            });
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(initReplay, { timeout: 2000 });
+      } else {
+        setTimeout(initReplay, 3000);
+      }
+    } catch (e) {
+      // ignore init errors
+    }
+  };
+
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(initSentry, { timeout: 1000 });
+  } else {
+    setTimeout(initSentry, 1500);
+  }
 }
 
 // Global handler to surface unhandled promise rejections during login flows
@@ -39,3 +64,24 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Register service worker during idle to enable precaching of key assets
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  const registerSW = async () => {
+    try {
+      await navigator.serviceWorker.register('/sw.js');
+    } catch (e) {
+      // ignore registration failures
+      // eslint-disable-next-line no-console
+      console.warn('Service worker registration failed', e);
+    }
+  };
+
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(() => {
+      registerSW();
+    }, { timeout: 3000 });
+  } else {
+    setTimeout(registerSW, 5000);
+  }
+}

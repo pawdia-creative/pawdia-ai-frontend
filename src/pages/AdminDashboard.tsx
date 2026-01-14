@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/useAuth';
 import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
-import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 import { Users, BarChart3, Mail } from 'lucide-react';
+
+// Lazy load AnalyticsDashboard to reduce initial bundle size
+const AnalyticsDashboard = React.lazy(() => import('@/components/admin/AnalyticsDashboard'));
 
 interface User {
   id: string;
@@ -151,7 +153,14 @@ const AdminDashboard = React.memo(() => {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <AnalyticsDashboard activeTab={activeTab} />
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2">Loading analytics...</span>
+            </div>
+          }>
+            <AnalyticsDashboard activeTab={activeTab} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="emails">

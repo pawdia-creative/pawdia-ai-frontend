@@ -1,24 +1,127 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Coins, Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import * as RR from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
-import heroImage from "@/assets/hero-pets.jpg";
+import { useEffect, useState } from "react";
 
 export const Hero = () => {
-  const navigate = useNavigate();
+  const navigate = (RR as any).useNavigate() as (to: string) => void;
   const { user, isAuthenticated } = useAuth();
+  
+  // Prefetch commonly used routes to reduce first-click latency
+  const preloadCreate = () => {
+    // preload ArtCreation page chunk
+    import('@/pages/ArtCreation').catch(() => {});
+  };
+  const preloadExamples = () => {
+    import('@/pages/Examples').catch(() => {});
+  };
+  
+  // Lazy load hero background image with responsive srcset during idle time.
+  const [bgImageData, setBgImageData] = useState<{
+    src: string;
+    srcSet: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const doLoadHero = async () => {
+      try {
+        // Import all responsive images
+        const [mobileMod, smMod, mdMod, lgMod, xlMod, fallbackMod] = await Promise.all([
+          import('@/assets/hero-pets-mobile.webp'),
+          import('@/assets/hero-pets-sm.webp'),
+          import('@/assets/hero-pets-md.webp'),
+          import('@/assets/hero-pets-lg.webp'),
+          import('@/assets/hero-pets-xl.webp'),
+          import('@/assets/hero-pets-compressed.jpg')
+        ]);
+
+        // Build srcset for responsive loading
+        const srcSet = [
+          `${(mobileMod as any).default} 640w`,
+          `${(smMod as any).default} 768w`,
+          `${(mdMod as any).default} 1024w`,
+          `${(lgMod as any).default} 1280w`,
+          `${(xlMod as any).default} 1920w`
+        ].join(', ');
+
+        // Choose appropriate src based on current screen size
+        const screenWidth = window.innerWidth;
+        let src: string;
+
+        if (screenWidth <= 640) {
+          src = (mobileMod as any).default;
+        } else if (screenWidth <= 768) {
+          src = (smMod as any).default;
+        } else if (screenWidth <= 1024) {
+          src = (mdMod as any).default;
+        } else if (screenWidth <= 1280) {
+          src = (lgMod as any).default;
+        } else {
+          src = (xlMod as any).default;
+        }
+
+        // Preload the selected image for LCP
+        try {
+          const link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.href = src;
+          link.setAttribute('imagesrcset', srcSet);
+          link.setAttribute('imagesizes', '(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, (max-width: 1280px) 1280px, 1920px');
+          document.head.appendChild(link);
+        } catch (e) {
+          // ignore
+        }
+
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+        img.onload = () => setBgImageData({ src, srcSet });
+
+      } catch (e) {
+        // fallback to compressed jpg
+        try {
+          const fallbackUrl = (fallbackMod && (fallbackMod as any).default) || fallbackMod;
+          const img = new Image();
+          img.decoding = 'async';
+          img.src = fallbackUrl;
+          img.onload = () => setBgImageData({ src: fallbackUrl, srcSet: fallbackUrl });
+        } catch (fallbackError) {
+          // ignore
+        }
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        doLoadHero().catch(() => {});
+      }, { timeout: 1500 });
+    } else {
+      const id = setTimeout(() => {
+        doLoadHero().catch(() => {});
+      }, 1500);
+      return () => clearTimeout(id);
+    }
+  }, []);
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+      {/* Background image with responsive loading */}
+      {bgImageData && (
+        <img
+          src={bgImageData.src}
+          srcSet={bgImageData.srcSet}
+          sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, (max-width: 1280px) 1280px, 1920px"
+          alt="Hero background with pets"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ zIndex: -1 }}
+          decoding="async"
+          loading="lazy"
+        />
+      )}
+
       {/* Background with gradient overlay */}
       <div className="absolute inset-0 gradient-hero" />
-      <div 
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage: `url(${heroImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
+      <div className="absolute inset-0 opacity-20" />
       
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-20 text-center">
@@ -26,7 +129,7 @@ export const Hero = () => {
         {isAuthenticated && user && (
           <div className="absolute top-6 right-6 flex items-center gap-3">
             <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm border border-border rounded-full px-4 py-2 shadow-soft">
-              <Coins className="w-4 h-4 text-yellow-500" />
+              <span className="text-yellow-500">🪙</span>
               <span className="text-sm font-medium">{user.credits || 0} Credits</span>
             </div>
             <Button 
@@ -34,15 +137,14 @@ export const Hero = () => {
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-glow"
               onClick={() => navigate('/subscription')}
             >
-              <Plus className="w-4 h-4 mr-1" />
+              +
               Recharge
             </Button>
           </div>
         )}
         
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 mb-6 shadow-soft">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">AI-Powered Pet Art</span>
+          <span className="text-sm font-medium text-primary">✨ AI-Powered Pet Art</span>
         </div>
         
         <h1 className="mb-6 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
@@ -60,14 +162,16 @@ export const Hero = () => {
             size="lg" 
             className="shadow-glow hover:shadow-elevated transition-smooth group text-lg px-8 py-6"
             onClick={() => navigate('/create')}
+            onMouseEnter={preloadCreate}
           >
-            Create Your Art
-            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-smooth" />
+            Create Your Art →
           </Button>
           <Button 
             size="lg" 
             variant="outline"
             className="text-lg px-8 py-6 border-2"
+            onClick={() => navigate('/examples')}
+            onMouseEnter={preloadExamples}
           >
             View Examples
           </Button>

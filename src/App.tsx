@@ -273,3 +273,24 @@ const App = () => (
 );
 
 export default App;
+
+// Prefetch important route chunks when the browser is idle to reduce first-click latency.
+// This runs outside of the React render tree to avoid impacting hydration.
+if (typeof window !== 'undefined') {
+  const doPrefetch = () => {
+    // Prefetch examples and creation page after idle
+    try {
+      import('@/pages/Examples');
+      import('@/pages/ArtCreation');
+      import('@/components/Navbar');
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(doPrefetch, { timeout: 2000 });
+  } else {
+    setTimeout(doPrefetch, 2500);
+  }
+}
