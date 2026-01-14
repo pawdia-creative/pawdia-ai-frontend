@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+// Intentionally not importing Link from react-router-dom to avoid type conflicts with @types in this environment.
+import 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,7 @@ export interface AuthFormProps {
   type: 'login' | 'register';
   onSubmit: (data: { email: string; password: string; name?: string; confirmPassword?: string }) => void;
   isLoading: boolean;
-  error?: string;
+  error?: string | null;
   onClearError?: () => void;
 }
 
@@ -211,9 +212,9 @@ const AuthForm: React.FC<AuthFormProps> = ({
           
           <div className="mt-4 text-center text-sm">
             {getLinkText()}{' '}
-            <Link to={getLinkPath()} className="text-blue-600 hover:underline">
+            <a href={getLinkPath()} className="text-blue-600 hover:underline">
               {getLinkLabel()}
-            </Link>
+            </a>
           </div>
         </CardContent>
       </Card>

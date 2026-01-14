@@ -36,9 +36,9 @@ interface CreditPackage {
 }
 
 const Subscription: React.FC = () => {
-  // @ts-ignore: TypeScript cannot resolve react-router-dom types due to npm issues
+  // @ts-expect-error: TypeScript cannot resolve react-router-dom types due to npm issues
   const navigate = useNavigate();
-  // @ts-ignore: TypeScript cannot resolve react-router-dom types due to npm issues
+  // @ts-expect-error: TypeScript cannot resolve react-router-dom types due to npm issues
   const location = useLocation();
   const { user, isAuthenticated, updateUser } = useAuth();
   

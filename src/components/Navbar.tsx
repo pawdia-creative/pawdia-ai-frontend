@@ -1,4 +1,6 @@
-// @ts-nocheck
+// @ts-nocheck - react-router-dom v6 types not properly resolved by TypeScript
+// This is a necessary workaround due to library type definition issues
+// Removing this would cause extensive JSX element type errors throughout the component
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';

@@ -1,8 +1,8 @@
-// @ts-nocheck
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// @ts-nocheck - react-router-dom v6 types not properly resolved by TypeScript
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import React, { useEffect } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -36,6 +36,7 @@ const TermsOfService = React.lazy(() => import("@/pages/TermsOfService"));
 const EmailVerification = React.lazy(() => import("@/pages/EmailVerification"));
 const EmailVerificationRequired = React.lazy(() => import("@/pages/EmailVerificationRequired"));
 const VerifySuccess = React.lazy(() => import("@/pages/VerifySuccess"));
+const Diagnostics = React.lazy(() => import("@/pages/Diagnostics"));
 const About = React.lazy(() => import("@/pages/About"));
 const Contact = React.lazy(() => import("@/pages/Contact"));
 const Examples = React.lazy(() => import("@/pages/Examples"));
@@ -198,6 +199,11 @@ const AppContent = () => (
                 <Route path="/verify" element={<EmailVerification />} />
                 <Route path="/verify-success" element={<VerifySuccess />} />
                 <Route path="/verify-required" element={<EmailVerificationRequired />} />
+        <Route path="/diagnostics" element={
+          <BaseRoute publicForGuests={true}>
+            <Diagnostics />
+          </BaseRoute>
+        } />
         <Route path="/about" element={
                   <BaseRoute publicForGuests={true}>
                     <About />

@@ -1,10 +1,19 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
-import { toast } from 'sonner';
+import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+
+// Type-safe Recharts component wrappers
+const LineChartTyped = LineChart as React.ComponentType<React.ComponentProps<typeof LineChart>>;
+const CartesianGridTyped = CartesianGrid as React.ComponentType<React.ComponentProps<typeof CartesianGrid>>;
+const XAxisTyped = XAxis as React.ComponentType<React.ComponentProps<typeof XAxis>>;
+const YAxisTyped = YAxis as React.ComponentType<React.ComponentProps<typeof YAxis>>;
+const TooltipTyped = Tooltip as React.ComponentType<React.ComponentProps<typeof Tooltip>>;
+const LegendTyped = Legend as React.ComponentType<React.ComponentProps<typeof Legend>>;
+const LineTyped = Line as React.ComponentType<React.ComponentProps<typeof Line>>;
+import { toast } from '@/lib/toast';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { Globe, Activity, Users, TrendingUp } from 'lucide-react';
 
@@ -376,15 +385,15 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                     }}
                     className="h-64"
                   >
-                    <LineChart data={analytics.dailyStats}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Line type="monotone" dataKey="page_views" stroke="hsl(var(--primary))" dot={false} />
-                      <Line type="monotone" dataKey="api_calls" stroke="hsl(var(--secondary))" dot={false} />
-                    </LineChart>
+                    {React.createElement(LineChartTyped, { data: analytics.dailyStats },
+                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" }),
+                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } }),
+                      React.createElement(YAxisTyped, {}),
+                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) }),
+                      React.createElement(LegendTyped, {}),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false }),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })
+                    )}
                   </ChartContainer>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">No data</div>
@@ -402,15 +411,15 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                     }}
                     className="h-64"
                   >
-                    <LineChart data={analytics.monthlyStats}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Line type="monotone" dataKey="page_views" stroke="hsl(var(--primary))" dot={false} />
-                      <Line type="monotone" dataKey="api_calls" stroke="hsl(var(--secondary))" dot={false} />
-                    </LineChart>
+                    {React.createElement(LineChartTyped, { data: analytics.monthlyStats },
+                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" }),
+                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } }),
+                      React.createElement(YAxisTyped, {}),
+                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) }),
+                      React.createElement(LegendTyped, {}),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false }),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })
+                    )}
                   </ChartContainer>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">No data</div>
@@ -428,15 +437,15 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                     }}
                     className="h-64"
                   >
-                    <LineChart data={analytics.yearlyStats}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend />
-                      <Line type="monotone" dataKey="page_views" stroke="hsl(var(--primary))" dot={false} />
-                      <Line type="monotone" dataKey="api_calls" stroke="hsl(var(--secondary))" dot={false} />
-                    </LineChart>
+                    {React.createElement(LineChartTyped, { data: analytics.yearlyStats },
+                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" }),
+                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } }),
+                      React.createElement(YAxisTyped, {}),
+                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) }),
+                      React.createElement(LegendTyped, {}),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false }),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })
+                    )}
                   </ChartContainer>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">No data</div>

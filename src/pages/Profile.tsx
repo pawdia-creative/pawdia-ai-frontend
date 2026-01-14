@@ -3,13 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/useAuth';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import * as RR from 'react-router-dom';
+import { toast } from '@/lib/toast';
 import AuthStatusDebug from '@/components/AuthStatusDebug';
+
+// Type-safe react-router hooks (workaround for type resolution issues)
+type NavigateFunction = (to: string | number, options?: { replace?: boolean; state?: unknown }) => void;
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
-  const navigate = useNavigate();
+  const navigate = RR.useNavigate as unknown as NavigateFunction;
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [isLoading, setIsLoading] = useState(false);

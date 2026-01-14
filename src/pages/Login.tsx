@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import * as RR from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import AuthForm from '@/components/AuthForm';
 import { isUserVerified } from '@/lib/dataTransformers';
 
+// Type-safe react-router hooks (workaround for type resolution issues)
+type NavigateFunction = (to: string | number, options?: { replace?: boolean; state?: unknown }) => void;
+type LocationState = { from?: { pathname?: string } };
+
 const Login = () => {
   const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = RR.useNavigate as unknown as NavigateFunction;
+  const location = RR.useLocation as unknown as { state?: LocationState; pathname: string };
 
-  const from = location.state?.from?.pathname || '/';
+  const from: string = (location?.state?.from?.pathname as string) || '/';
 
   // 如果已经登录且邮箱已验证，重定向到首页或来源页面
   useEffect(() => {
@@ -91,15 +95,15 @@ const Login = () => {
       if (import.meta.env.DEV) console.log('[Login] login() completed, result:', { isVerified, isAdmin, isFirstLogin });
 
         if (!isVerified && !isAdmin) {
-          // AuthContext.login is responsible for setting must_verify and token storage.
-          toast.success('登录成功！请先验证邮箱。');
+        // AuthContext.login is responsible for setting must_verify and token storage.
+          toast('登录成功！请先验证邮箱。');
           // Always route unverified users to the centralized verification-required page.
           navigate('/verify-required', { replace: true });
           return;
         }
 
       // Verified users allowed through
-        toast.success('登录成功！');
+        toast('登录成功！');
       if (import.meta.env.DEV) console.log('[Login] User verified, redirecting to:', from);
         navigate(from, { replace: true });
     } catch (error) {

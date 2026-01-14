@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/apiClient';
 import { handleError } from '@/lib/errorHandler';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 interface OrderData {
   items: Array<{
@@ -157,7 +157,7 @@ class PaymentService {
    * Handle payment cancellation
    */
   static handlePaymentCancel() {
-    toast.info('Payment was cancelled');
+    toast('Payment was cancelled');
   }
 
   /**

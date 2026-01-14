@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { Search, CreditCard, Eye, Save, ShieldCheck, KeyRound, Trash2 } from 'lucide-react';
@@ -50,7 +50,8 @@ interface UserManagementProps {
   total: number;
   onPageChange: (page: number) => void;
   onPerPageChange: (perPage: number) => void;
-  onRefreshUsers: () => void;
+  // onRefreshUsers may return an updated users array for callers that await it
+  onRefreshUsers: () => Promise<User[] | void>;
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({
@@ -153,9 +154,17 @@ const UserManagement: React.FC<UserManagementProps> = ({
       });
 
       if (response.ok) {
-        toast.success('Credit operation successful');
+        toast('Credit operation successful');
         setCreditDialogOpen(false);
-        onRefreshUsers();
+          try {
+            const updatedUsers = await onRefreshUsers();
+            if (Array.isArray(updatedUsers) && selectedUser) {
+              const refreshed = (updatedUsers as User[]).find(u => u.id === selectedUser.id);
+              if (refreshed) setSelectedUser(refreshed);
+            }
+          } catch (e) {
+          // ignore
+        }
       } else {
         const data = await response.json();
         toast.error(data.message || 'Credit operation failed');
@@ -222,9 +231,19 @@ const UserManagement: React.FC<UserManagementProps> = ({
       });
 
       if (response.ok) {
-        toast.success('Subscription updated successfully');
+        // Use any-cast because toast type may be limited in this environment
+        toast('Subscription updated successfully');
         setSubscriptionDialogOpen(false);
-        onRefreshUsers();
+        // Try to refresh parent user list and update selectedUser with fresh data if returned
+          try {
+            const updatedUsers = await onRefreshUsers();
+            if (Array.isArray(updatedUsers) && selectedUser) {
+              const refreshed = updatedUsers.find(u => u.id === selectedUser.id);
+              if (refreshed) setSelectedUser(refreshed);
+            }
+          } catch (e) {
+          // ignore refresh errors
+        }
       } else {
         const data = await response.json();
         toast.error(data.message || 'Subscription update failed');
@@ -317,10 +336,17 @@ const UserManagement: React.FC<UserManagementProps> = ({
         },
       });
       if (response.ok) {
-        toast.success('User deleted successfully');
+        toast('User deleted successfully');
         setDeleteDialogOpen(false);
         setUserToDelete(null);
-        onRefreshUsers();
+        try {
+          await onRefreshUsers();
+          if (selectedUser && selectedUser.id === userToDelete?.id) {
+            setSelectedUser(null);
+          }
+        } catch (e) {
+          // ignore
+        }
       } else {
         let data = null;
         try {

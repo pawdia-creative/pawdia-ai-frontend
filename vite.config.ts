@@ -34,10 +34,20 @@ export default defineConfig(({ mode }) => {
     build: {
       // Enable sourcemaps for Sentry error tracking
       sourcemap: mode === 'production',
-      // Temporarily disable code splitting to fix React forwardRef issue
       rollupOptions: {
         output: {
-          manualChunks: undefined, // Disable manual chunking
+          manualChunks: {
+            // Vendor chunk for React and core libraries
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            // UI library chunk
+            ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+            // Query and state management
+            query: ['@tanstack/react-query'],
+            // Payment libraries
+            payment: ['@paypal/react-paypal-js', '@stripe/react-stripe-js'],
+            // Icons and utilities
+            icons: ['lucide-react'],
+          },
         },
       },
     },

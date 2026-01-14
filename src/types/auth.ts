@@ -59,4 +59,6 @@ export interface AuthContextType extends AuthState {
   updateProfile: (data: UpdateProfileData) => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   syncVerificationStatus: () => Promise<boolean>;
+  // Optional helper to force auth state back to idle (UI can call when stuck)
+  ensureIdle?: () => void;
 }

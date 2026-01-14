@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import * as Sentry from '@sentry/react';
 import { ApiError } from './apiClient';
 

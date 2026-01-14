@@ -25,7 +25,7 @@
     <link rel="dns-prefetch" href="https://pawdia-ai-api.pawdia-creative.workers.dev" />
     
     <!-- Preload critical resources -->
-    <link rel="preload" href="/logo.png" as="image" type="image/png" />
+    <!-- Logo is now managed by Vite assets, no need to preload -->
     
     <!-- Open Graph -->
     <meta property="og:title" content="Pawdia AI - AI Pet Portrait Art Generator" />
@@ -62,8 +62,12 @@
       gtag('js', new Date());
       gtag('config', '{{GA4_MEASUREMENT_ID}}');
     </script> -->
-    <script type="module" crossorigin src="/assets/index-B6m15qi2.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DipPKVjN.css">
+    <script type="module" crossorigin src="/assets/index-BU50ICSl.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-CXjDiAKO.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-CslE_aw5.js">
+    <link rel="modulepreload" crossorigin href="/assets/icons-Bnlx_wmm.js">
+    <link rel="modulepreload" crossorigin href="/assets/query-DKbnWbUY.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-C_JUgh_-.css">
   </head>
 
   <body>

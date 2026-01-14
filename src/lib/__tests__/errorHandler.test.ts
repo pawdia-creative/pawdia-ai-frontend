@@ -1,24 +1,34 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { classifyError, getErrorMessage, handleError, ErrorType } from '../errorHandler';
 import { ApiError } from '../apiClient';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
-vi.mock('sonner', () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
+// Mock the toast module directly
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    promise: vi.fn(),
+    dismiss: vi.fn(),
+  },
 }));
 
 describe('errorHandler', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let consoleErrorSpy: any; // Vitest spy types are complex to type precisely
+
   beforeEach(() => {
-    (toast.error as unknown as ReturnType<typeof vi.fn>).mockClear();
-    (toast.success as unknown as ReturnType<typeof vi.fn>).mockClear();
-  });
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined;
-  beforeEach(() => {
+    // Clear all mocks before each test
+    vi.clearAllMocks();
+
     // Silence console.error during tests to avoid noisy stderr output
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
+
   afterEach(() => {
-    if (consoleErrorSpy) (consoleErrorSpy as { mockRestore?: () => void }).mockRestore?.();
+    if (consoleErrorSpy) consoleErrorSpy.mockRestore();
   });
 
   it('should classify ApiError with NETWORK_ERROR code as NETWORK', () => {

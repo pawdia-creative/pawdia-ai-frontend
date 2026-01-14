@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/useAuth';
 import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
@@ -19,7 +19,21 @@ interface User {
   lastLogin?: string;
 }
 
-type EmailStats = Record<string, unknown>;
+interface EmailStats {
+  stats?: {
+    verification_sent?: number;
+    verification_sent_today?: number;
+    verification_success?: number;
+    verification_success_today?: number;
+    email_send_failed?: number;
+    email_send_failed_today?: number;
+  };
+  recentEvents?: Array<{
+    event_type?: string;
+    user_id?: string | null;
+    created_at?: string;
+  }>;
+}
 
 const AdminDashboard = React.memo(() => {
   const { user: currentUser } = useAuth();
@@ -58,14 +72,16 @@ const AdminDashboard = React.memo(() => {
         const id = (u as unknown as Record<string, unknown>)['id'];
         return id != null && id !== 'null' && id !== '';
       }) as User[];
-        setUsers(validUsers);
+      setUsers(validUsers);
       setTotal(Number((data['total'] as number) || 0));
+      return validUsers;
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error fetching users:', error);
       toast.error('Failed to fetch user list');
     } finally {
       setLoading(false);
     }
+    return [];
   }, [searchTerm, page, perPage]);
 
   useEffect(() => {
@@ -156,27 +172,27 @@ const AdminDashboard = React.memo(() => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-lg border shadow-sm">
                   <h3 className="text-sm font-medium text-gray-600">Verification Emails Sent</h3>
-                  <p className="text-2xl font-bold text-blue-600">{emailStats.stats?.verification_sent || 0}</p>
-                  <p className="text-xs text-gray-500">Today: {emailStats.stats?.verification_sent_today || 0}</p>
+                  <p className="text-2xl font-bold text-blue-600">{emailStats.stats?.verification_sent ?? 0}</p>
+                  <p className="text-xs text-gray-500">Today: {emailStats.stats?.verification_sent_today ?? 0}</p>
                 </div>
 
                 <div className="bg-white p-4 rounded-lg border shadow-sm">
                   <h3 className="text-sm font-medium text-gray-600">Successful Verifications</h3>
-                  <p className="text-2xl font-bold text-green-600">{emailStats.stats?.verification_success || 0}</p>
-                  <p className="text-xs text-gray-500">Today: {emailStats.stats?.verification_success_today || 0}</p>
+                  <p className="text-2xl font-bold text-green-600">{emailStats.stats?.verification_success ?? 0}</p>
+                  <p className="text-xs text-gray-500">Today: {emailStats.stats?.verification_success_today ?? 0}</p>
                 </div>
 
                 <div className="bg-white p-4 rounded-lg border shadow-sm">
                   <h3 className="text-sm font-medium text-gray-600">Email Send Failures</h3>
-                  <p className="text-2xl font-bold text-red-600">{emailStats.stats?.email_send_failed || 0}</p>
-                  <p className="text-xs text-gray-500">Today: {emailStats.stats?.email_send_failed_today || 0}</p>
+                  <p className="text-2xl font-bold text-red-600">{emailStats.stats?.email_send_failed ?? 0}</p>
+                  <p className="text-xs text-gray-500">Today: {emailStats.stats?.email_send_failed_today ?? 0}</p>
                 </div>
 
                 <div className="bg-white p-4 rounded-lg border shadow-sm">
                   <h3 className="text-sm font-medium text-gray-600">Success Rate</h3>
                   <p className="text-2xl font-bold text-purple-600">
-                    {emailStats.stats?.verification_sent > 0
-                      ? Math.round(((emailStats.stats?.verification_success || 0) / emailStats.stats?.verification_sent) * 100)
+                    {(emailStats.stats?.verification_sent ?? 0) > 0
+                      ? Math.round(((emailStats.stats?.verification_success ?? 0) / (emailStats.stats?.verification_sent ?? 1)) * 100)
                       : 0}%
                   </p>
                   <p className="text-xs text-gray-500">Overall success rate</p>
@@ -194,25 +210,29 @@ const AdminDashboard = React.memo(() => {
                   <h3 className="text-lg font-semibold">Recent Email Events</h3>
                 </div>
                 <div className="divide-y">
-                  {emailStats.recentEvents.slice(0, 20).map((event: unknown, index: number) => (
-                    <div key={index} className="p-4 flex justify-between items-center">
-              <div>
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                          event.event_type === 'verification_sent' ? 'bg-blue-100 text-blue-800' :
-                          event.event_type === 'verification_success' ? 'bg-green-100 text-green-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {event.event_type.replace('_', ' ')}
-                        </span>
-                        <span className="ml-2 text-sm text-gray-600">
-                          User: {String(((event as unknown as Record<string, unknown>)['user_id']) || '').substring(0, 8)}...
+                  {emailStats.recentEvents.slice(0, 20).map((event, index: number) => {
+                    const evt = event as { event_type?: string; user_id?: string | null; created_at?: string };
+                    const label = evt.event_type || 'event';
+                    return (
+                      <div key={index} className="p-4 flex justify-between items-center">
+                        <div>
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                            label === 'verification_sent' ? 'bg-blue-100 text-blue-800' :
+                            label === 'verification_success' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {label.replace('_', ' ')}
+                          </span>
+                          <span className="ml-2 text-sm text-gray-600">
+                            User: {String((evt.user_id || '').toString()).slice(0, 8)}...
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {evt.created_at ? new Date(evt.created_at).toLocaleString() : ''}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {new Date(event.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                     </div>
                   </div>
                 )}

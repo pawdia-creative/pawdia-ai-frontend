@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
+import * as RR from 'react-router-dom';
 import { apiClient } from '@/lib/apiClient';
 import type { ApiResponse } from '@/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, CheckCircle, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
+// Type-safe react-router hooks (workaround for type resolution issues)
+type NavigateFunction = (to: string | number, options?: { replace?: boolean; state?: unknown }) => void;
 
 const EmailVerificationRequired: React.FC = () => {
   const { user, logout, syncVerificationStatus } = useAuth();
-  const navigate = useNavigate();
+  const navigate = RR.useNavigate as unknown as NavigateFunction;
   const [isResending, setIsResending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [redirectAttempts] = useState(0);
@@ -55,7 +57,7 @@ const EmailVerificationRequired: React.FC = () => {
 
       if (respMsg.includes('Verification email sent') || apiResp.status === 200) {
         setEmailSent(true);
-        toast.success('验证邮件已重新发送，请检查您的邮箱');
+        toast('验证邮件已重新发送，请检查您的邮箱');
       } else {
         if (import.meta.env.DEV) console.warn('[EmailVerificationRequired] resend-verification response:', apiResp);
         throw new Error(respMsg || '发送失败');
@@ -138,7 +140,7 @@ const EmailVerificationRequired: React.FC = () => {
                   const synced = await syncVerificationStatus();
                   if (synced) {
                     // Server confirmed verification and safeAuthSuccess cleared must_verify
-                    toast.success('验证成功，跳转到首页');
+                    toast('验证成功，跳转到首页');
                     navigate('/', { replace: true });
                     return;
                   } else {

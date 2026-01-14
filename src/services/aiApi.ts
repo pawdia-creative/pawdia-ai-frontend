@@ -2,6 +2,21 @@
 import { apiClient, ApiError } from '@/lib/apiClient';
 import { handleError } from '@/lib/errorHandler';
 
+// ----- Types and helpers for robust AI response parsing -----
+type AnyObj = Record<string, unknown>;
+function isObject(v: unknown): v is AnyObj {
+  return typeof v === 'object' && v !== null;
+}
+
+function getRawCandidates(obj: AnyObj): AnyObj[] | null {
+  if (!obj) return null;
+  const raw = obj.raw ?? obj;
+  if (Array.isArray(raw)) return raw as AnyObj[];
+  if (isObject(raw) && Array.isArray(raw.candidates)) return raw.candidates as AnyObj[];
+  return null;
+}
+
+// ------------------------------------------------------------
 // API call configuration
 const API_CONFIG = {
   model: import.meta.env.VITE_AI_MODEL || 'gemini-2.5-flash-image'
@@ -195,7 +210,6 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
   try {
     const startTime = Date.now();
 
-    if (import.meta.env.DEV) console.log('Calling backend proxy for image generation...');
 
     // Build complete prompt (include dimensions in prompt for Gemini API)
     const fullPrompt = buildFullPrompt(request.prompt, request.negativePrompt, request.dpi, request.quality);
@@ -236,27 +250,24 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
           const firstTarget = Math.min(Math.max(512, targetShortSide), 1024);
           imgFile = await compressImage(request.image, firstTarget, 0.80);
           b64 = await fileToBase64(imgFile);
-          if (import.meta.env.DEV) console.log('After pass 1 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
             const secondTarget = 384;
             imgFile = await compressImage(request.image, secondTarget, 0.72);
             b64 = await fileToBase64(imgFile);
-            if (import.meta.env.DEV) console.log('After pass 2 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
           }
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
             const thirdTarget = 256;
             imgFile = await compressImage(request.image, thirdTarget, 0.65);
             b64 = await fileToBase64(imgFile);
-            if (import.meta.env.DEV) console.log('After pass 3 aggressive compression, base64 length:', b64.length, 'mime:', imgFile.type);
           }
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
             if (import.meta.env.DEV) console.warn('Image still large after aggressive compression passes; final base64 length:', b64.length);
           }
         } else {
-          if (import.meta.env.DEV) console.log('Image compressed within acceptable size', { length: b64.length, mime: imgFile.type });
+          // No additional compression needed
         }
 
         // Final safety check: if still too large after aggressive compression, abort and surface error.
@@ -271,7 +282,6 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
         // image_strength controls how much to preserve original.
         const requestedImageStrength = request.image_strength;
         proxyRequestBody.image_strength = typeof requestedImageStrength !== 'undefined' ? requestedImageStrength : 0.15;
-        if (import.meta.env.DEV) console.log('Image-to-image request prepared, size:', b64.length, 'mime:', proxyRequestBody.imageMimeType, 'strength:', proxyRequestBody.image_strength);
       } catch (e) {
         if (import.meta.env.DEV) console.warn('Failed to prepare image input for A.I. proxy, falling back to text-only:', e);
       }
@@ -282,137 +292,64 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       timeout: 60000, // 60 second timeout for AI generation
     });
 
-    const data = response.data as any;
-    if (import.meta.env.DEV) console.log('Backend proxy response:', data);
+    const data = response.data as Record<string, unknown>;
 
     // Check if the backend returned an error
     if (data.error) {
       throw new ApiError(`AI API error: ${data.error}`, 400, 'AI_API_ERROR');
     }
 
-    // The backend should return the image URL or base64 data.
-    // Be resilient: accept multiple shapes and also attempt to extract image data
-    // from nested/raw provider responses under `data.raw` (fallback).
-    let imageUrl: string | undefined;
+  // The backend should return the image URL or base64 data.
+  // Be resilient: accept multiple shapes and also attempt to extract image data
+  // from nested/raw provider responses under `data.raw` (fallback).
+  let imageUrl: string | undefined;
 
-    console.log('=== FRONTEND AI RESPONSE DEBUG START ===');
-    console.log('Full response data keys:', Object.keys(data));
-    console.log('Full response data:', data);
-    console.log('=== FRONTEND AI RESPONSE DEBUG END ===');
-
-       // Priority 1: Check for Gemini API response structure (most common for img2img)
-       console.log('=== STARTING GEMINI PARSING ===');
-       console.log('Full data object keys:', Object.keys(data));
-       console.log('data.raw exists:', !!data.raw);
-       console.log('data.raw type:', typeof data.raw);
-
-       if (data.raw && typeof data.raw === 'object') {
-         console.log('data.raw keys:', Object.keys(data.raw));
-         console.log('data.raw.candidates exists:', !!data.raw.candidates);
-         console.log('data.raw.candidates is array:', Array.isArray(data.raw.candidates));
-         if (data.raw.candidates) {
-           console.log('data.raw.candidates length:', data.raw.candidates.length);
-         }
-         // Log a sample of the raw response for debugging
-         try {
-           const rawSample = JSON.stringify(data.raw).substring(0, 500);
-           console.log('Raw response sample:', rawSample + '...');
-         } catch (e) {
-           console.log('Could not stringify raw response');
-         }
-       }
-
-       if (data.raw && typeof data.raw === 'object' && data.raw.candidates && Array.isArray(data.raw.candidates) && data.raw.candidates.length > 0) {
-         console.log('Found Gemini candidates structure');
-         const candidate = data.raw.candidates[0];
-         console.log('First candidate keys:', Object.keys(candidate));
-
-         if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
-           console.log('Processing candidate.content.parts, length:', candidate.content.parts.length);
-           for (const part of candidate.content.parts) {
-             console.log('Part keys:', Object.keys(part));
-
-             // Check for both inlineData and inline_data (API might return either)
-             const inlineData = part.inlineData || part.inline_data;
-             if (inlineData && inlineData.data) {
-               console.log('Found inlineData/inline_data with data');
-               const base64Str = inlineData.data;
-               const mimeType = inlineData.mimeType || inlineData.mime_type || 'image/png';
-               imageUrl = `data:${mimeType};base64,${base64Str}`;
-               console.log('SUCCESS: Extracted image from Gemini inlineData, length:', base64Str.length);
-               break;
-             }
-
-             // Check for text field containing markdown image with base64 data URL
-             if (part.text && typeof part.text === 'string') {
-               console.log('Found text field, checking for markdown image pattern');
-               // Look for ![image](data:image/png;base64,...) pattern
-               const markdownImageRegex = /!\[image\]\((data:image\/[^;]+;base64,[^)]+)\)/;
-               const match = part.text.match(markdownImageRegex);
-               if (match) {
-                 imageUrl = match[1];
-                 console.log('SUCCESS: Extracted image from Gemini markdown text, URL length:', imageUrl?.length || 0);
-                 break;
-               }
-             }
-           }
-         }
-       }
-
-       // Fallback: Try parsing raw directly as candidates (in case Worker wrapped it differently)
-       if (!imageUrl && data.raw && typeof data.raw === 'object' && Array.isArray(data.raw) && data.raw.length > 0) {
-         console.log('Trying raw array parsing...');
-         // If raw is an array, treat it as candidates
-         const candidate = data.raw[0];
-         if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
-           for (const part of candidate.content.parts) {
-             const inlineData = part.inlineData || part.inline_data;
-             if (inlineData && inlineData.data) {
-               const base64Str = inlineData.data;
-               const mimeType = inlineData.mimeType || inlineData.mime_type || 'image/png';
-               imageUrl = `data:${mimeType};base64,${base64Str}`;
-               console.log('SUCCESS: Extracted image from raw array fallback');
-               break;
-             }
-
-             // Check for text field containing markdown image with base64 data URL
-             if (part.text && typeof part.text === 'string') {
-               console.log('Found text field in raw array, checking for markdown image pattern');
-               const markdownImageRegex = /!\[image\]\((data:image\/[^;]+;base64,[^)]+)\)/;
-               const match = part.text.match(markdownImageRegex);
-               if (match) {
-                 imageUrl = match[1];
-                 console.log('SUCCESS: Extracted image from raw array markdown text fallback, URL length:', imageUrl?.length || 0);
-                 break;
-               }
-             }
-           }
-         }
-       }
+      // Priority 1: Try to extract image from provider "candidates" structure (Gemini-style)
+      const candidates = getRawCandidates(data);
+      if (candidates && candidates.length > 0) {
+        for (const cand of candidates) {
+          if (!isObject(cand)) continue;
+          const content = cand.content;
+          if (!isObject(content) || !Array.isArray(content.parts)) continue;
+          for (const partRaw of content.parts) {
+            const part = partRaw as AnyObj;
+            const inlineData = isObject(part) && (part.inlineData || part.inline_data);
+            if (isObject(inlineData) && typeof inlineData.data === 'string') {
+              const base64Str = inlineData.data;
+              const mimeType = inlineData.mimeType || inlineData.mime_type || 'image/png';
+              imageUrl = `data:${mimeType};base64,${base64Str}`;
+              break;
+            }
+            if (typeof part.text === 'string') {
+              const markdownImageRegex = /!\[image\]\((data:image\/[^;]+;base64,[^)]+)\)/;
+              const match = part.text.match(markdownImageRegex);
+              if (match) {
+                imageUrl = match[1];
+                break;
+              }
+            }
+          }
+          if (imageUrl) break;
+        }
+      }
 
        // Priority 2: Check direct well-known fields
        if (!imageUrl) {
-         console.log('Checking direct fields...');
          if (data.imageUrl && typeof data.imageUrl === 'string') {
            imageUrl = data.imageUrl;
-           console.log('Found imageUrl in direct field');
          } else if (data.image && data.image.url && typeof data.image.url === 'string') {
            imageUrl = data.image.url;
-           console.log('Found image.url in direct field');
          } else if (data.image && data.image.base64 && typeof data.image.base64 === 'string') {
            imageUrl = `data:image/png;base64,${data.image.base64}`;
-           console.log('Found image.base64 in direct field');
          } else if (data.base64 && typeof data.base64 === 'string') {
            imageUrl = `data:image/png;base64,${data.base64}`;
-           console.log('Found base64 in direct field');
          } else {
-           console.log('No direct image fields found');
+           // No direct image fields found
          }
        }
 
        // Priority 3: Fallback parsing for other API formats
        if (!imageUrl && data.raw && typeof data.raw === 'object') {
-         console.log('Checking raw field for other formats...');
          const raw = data.raw;
 
          // Check for DALL-E style response
@@ -420,33 +357,28 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
            const imageData = raw.data[0];
            if (imageData.url) {
              imageUrl = imageData.url;
-             console.log('Found DALL-E style URL');
            } else if (imageData.b64_json) {
              imageUrl = `data:image/png;base64,${imageData.b64_json}`;
-             console.log('Found DALL-E style base64');
            }
          }
        }
 
     // Final fallback: check top-level text fields for embedded URLs
-    console.log('Checking top-level text fields for URLs...');
-    if (!imageUrl && typeof data === 'object') {
+    if (!imageUrl && typeof data === 'object' && data !== null) {
       const textCandidates = ['text', 'message', 'content', 'result'];
+      const obj = data as Record<string, unknown>;
       for (const fld of textCandidates) {
-        const v = (data as any)[fld];
+        const v = obj[fld];
         if (typeof v === 'string') {
-          console.log('Checking text field:', fld, 'value:', v.substring(0, 100));
           const urlMatch = v.match(/https?:\/\/[^\s'"]+/);
           if (urlMatch) {
             imageUrl = urlMatch[0];
-            console.log('Found URL in text field:', fld);
             break;
           }
         }
       }
     }
 
-    console.log('Final result - imageUrl found:', !!imageUrl, 'imageUrl value:', imageUrl);
     if (!imageUrl) {
       console.error('Backend proxy returned unexpected response shape:', data);
       console.error('Available keys in response:', Object.keys(data));
@@ -454,7 +386,6 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     }
 
     const generationTime = Date.now() - startTime;
-    if (import.meta.env.DEV) console.log('Image generation successful via backend proxy');
 
     return {
       imageUrl,
@@ -462,7 +393,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       model: API_CONFIG.model
     };
   }
-  catch (error: any) {
+  catch (error: unknown) {
     handleError(error, 'ai_generation', {
       showToast: false, // Let the calling component handle UI feedback
       logError: true
