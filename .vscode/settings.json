@@ -1,0 +1,14 @@
+{
+  // Prevent CSS/SCSS/LESS language server from warning about Tailwind at-rules like @tailwind/@apply
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  // Enable suggestions inside strings (useful for class names)
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+
+  // Avoid git large workspace warning in VS Code
+  "git.ignoreLimitWarning": true
+}
