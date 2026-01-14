@@ -131,15 +131,14 @@ export const Hero = () => {
           srcSet={bgImageData.srcSet}
           sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, (max-width: 1280px) 1280px, 1920px"
           alt="Hero background with pets"
-          className="absolute inset-0 w-full h-full object-cover z-0"
+          className="absolute inset-0 w-full h-full object-cover z-10"
           decoding="async"
           loading="lazy"
         />
       )}
 
-      {/* Background with gradient overlay (non-interactive) */}
-      <div className="absolute inset-0 gradient-hero z-10 pointer-events-none" />
-      <div className="absolute inset-0 opacity-20 z-20 pointer-events-none" />
+      {/* Background gradient (behind the image) */}
+      <div className="absolute inset-0 gradient-hero z-0 pointer-events-none" />
       
       {/* Content */}
       <div className="relative z-30 container mx-auto px-4 py-20 text-center">
