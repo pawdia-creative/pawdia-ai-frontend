@@ -124,8 +124,8 @@ export const Hero = () => {
   }, []);
   const sectionStyle = bgImageData
     ? {
-        // Use multiple backgrounds so we can layer the existing gradient on top of the image
-        backgroundImage: `var(--gradient-hero), url(${bgImageData.src})`,
+        // Put the image first so it displays above the gradient layer (gradient remains visible via transparency)
+        backgroundImage: `url(${bgImageData.src}), var(--gradient-hero)`,
         backgroundSize: 'cover, cover',
         backgroundPosition: 'center, center',
       }
