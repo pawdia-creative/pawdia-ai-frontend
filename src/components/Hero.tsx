@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 type DynamicImportModule = { default: string };
 
 export const Hero = () => {
-  const navigate = useNavigate();
+  const navigate = (useNavigate as any)() as (to: string) => void;
   const { user, isAuthenticated } = useAuth();
   
   // Prefetch commonly used routes to reduce first-click latency
@@ -26,10 +26,12 @@ export const Hero = () => {
   } | null>(null);
 
   useEffect(() => {
+    let fallbackMod: DynamicImportModule | string | null = null;
+
     const doLoadHero = async () => {
       try {
         // Import all responsive images
-        const [mobileMod, smMod, mdMod, lgMod, xlMod, fallbackMod] = await Promise.all([
+        const [mobileMod, smMod, mdMod, lgMod, xlMod, fallback] = await Promise.all([
           import('@/assets/hero-pets-mobile.webp'),
           import('@/assets/hero-pets-sm.webp'),
           import('@/assets/hero-pets-md.webp'),
@@ -37,6 +39,7 @@ export const Hero = () => {
           import('@/assets/hero-pets-xl.webp'),
           import('@/assets/hero-pets-compressed.jpg')
         ]);
+        fallbackMod = fallback;
 
         // Build srcset for responsive loading
         const srcSet = [
@@ -81,10 +84,13 @@ export const Hero = () => {
         img.src = src;
         img.onload = () => setBgImageData({ src, srcSet });
 
-      } catch (e) {
+        } catch (e) {
         // fallback to compressed jpg
         try {
-          const fallbackUrl = (fallbackMod && (fallbackMod as DynamicImportModule).default) || fallbackMod;
+          const fallbackUrl =
+            fallbackMod && typeof (fallbackMod as any).default === 'string'
+              ? (fallbackMod as DynamicImportModule).default
+              : (fallbackMod as string) || '';
           const img = new Image();
           img.decoding = 'async';
           img.src = fallbackUrl;
@@ -115,19 +121,18 @@ export const Hero = () => {
           srcSet={bgImageData.srcSet}
           sizes="(max-width: 640px) 640px, (max-width: 768px) 768px, (max-width: 1024px) 1024px, (max-width: 1280px) 1280px, 1920px"
           alt="Hero background with pets"
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ zIndex: -1 }}
+          className="absolute inset-0 w-full h-full object-cover z-0"
           decoding="async"
           loading="lazy"
         />
       )}
 
-      {/* Background with gradient overlay */}
-      <div className="absolute inset-0 gradient-hero" />
-      <div className="absolute inset-0 opacity-20" />
+      {/* Background with gradient overlay (non-interactive) */}
+      <div className="absolute inset-0 gradient-hero z-10 pointer-events-none" />
+      <div className="absolute inset-0 opacity-20 z-20 pointer-events-none" />
       
       {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 py-20 text-center">
+      <div className="relative z-30 container mx-auto px-4 py-20 text-center">
         {/* User credit display and recharge button */}
         {isAuthenticated && user && (
           <div className="absolute top-6 right-6 flex items-center gap-3">
