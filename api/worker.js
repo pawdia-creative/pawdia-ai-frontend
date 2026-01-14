@@ -1266,7 +1266,7 @@ export default {
 
         // Build count query
         let countSql = 'SELECT COUNT(*) as cnt FROM users';
-        let selectSql = 'SELECT id, name, email, avatar, credits, is_verified, is_admin, created_at, subscription_plan, subscription_status FROM users';
+        let selectSql = 'SELECT id, name, email, avatar, credits, is_verified, is_admin, created_at, subscription_plan, subscription_status, subscription_expires_at FROM users';
         const params = [];
         if (searchTerm) {
           countSql += ' WHERE email LIKE ? OR name LIKE ?';
@@ -1283,7 +1283,17 @@ export default {
         const selectParams = params.slice();
         selectParams.push(perPage, offset);
         const rows = await env.DB.prepare(selectSql).bind(...selectParams).all();
-        const users = rows && rows.results ? rows.results : [];
+        const rawUsers = rows && rows.results ? rows.results : [];
+
+        // Transform users to match frontend interface (convert subscription fields to nested object)
+        const users = rawUsers.map(user => ({
+          ...user,
+          subscription: {
+            plan: user.subscription_plan,
+            status: user.subscription_status,
+            expiresAt: user.subscription_expires_at
+          }
+        }));
 
         return new Response(JSON.stringify({
           users,

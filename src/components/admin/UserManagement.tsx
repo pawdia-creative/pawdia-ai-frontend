@@ -154,7 +154,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       });
 
       if (response.ok) {
-        toast('Credit operation successful');
+        toast.success('Credit operation successful');
         setCreditDialogOpen(false);
           try {
             const updatedUsers = await onRefreshUsers();
@@ -231,8 +231,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       });
 
       if (response.ok) {
-        // Use any-cast because toast type may be limited in this environment
-        toast('Subscription updated successfully');
+        toast.success('Subscription updated successfully');
         setSubscriptionDialogOpen(false);
         // Try to refresh parent user list and update selectedUser with fresh data if returned
           try {
@@ -336,7 +335,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
         },
       });
       if (response.ok) {
-        toast('User deleted successfully');
+        toast.success('User deleted successfully');
         setDeleteDialogOpen(false);
         setUserToDelete(null);
         try {
@@ -382,35 +381,79 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center gap-3 ml-4">
-              <label className="text-sm">Per page:</label>
-              <select
-                value={perPage}
-                onChange={(e) => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
-                className="rounded-md border px-2 py-1"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <div className="text-sm text-muted-foreground ml-2">
-                Page {page} / {Math.max(1, Math.ceil(total / perPage))}
+            <div className="flex items-center gap-4 ml-4">
+              {/* 每页显示数量选择 */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground">每页显示:</label>
+                <select
+                  value={perPage}
+                  onChange={(e) => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
+                  className="rounded-md border px-2 py-1 text-sm"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
               </div>
-              <button
-                className="px-2 py-1 rounded border"
-                onClick={() => onPageChange(Math.max(1, page - 1))}
-                disabled={page <= 1}
-              >
-                Prev
-              </button>
-              <button
-                className="px-2 py-1 rounded border"
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= Math.max(1, Math.ceil(total / perPage))}
-              >
-                Next
-              </button>
+
+              {/* 分页信息 */}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>
+                  显示 {(page - 1) * perPage + 1}-{Math.min(page * perPage, total)} / 共 {total} 个用户
+                </span>
+                <span>
+                  第 {page} / {Math.max(1, Math.ceil(total / perPage))} 页
+                </span>
+              </div>
+
+              {/* 分页导航 */}
+              <div className="flex items-center gap-1">
+                <button
+                  className="px-3 py-1 rounded border text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => onPageChange(Math.max(1, page - 1))}
+                  disabled={page <= 1}
+                >
+                  上一页
+                </button>
+
+                {/* 页码跳转输入框 */}
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground">跳转到:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(1, Math.ceil(total / perPage))}
+                    value={page}
+                    onChange={(e) => {
+                      const newPage = Number(e.target.value);
+                      const maxPage = Math.max(1, Math.ceil(total / perPage));
+                      if (newPage >= 1 && newPage <= maxPage) {
+                        onPageChange(newPage);
+                      }
+                    }}
+                    className="w-16 px-2 py-1 text-sm border rounded text-center"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const newPage = Number((e.target as HTMLInputElement).value);
+                        const maxPage = Math.max(1, Math.ceil(total / perPage));
+                        if (newPage >= 1 && newPage <= maxPage) {
+                          onPageChange(newPage);
+                        }
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">页</span>
+                </div>
+
+                <button
+                  className="px-3 py-1 rounded border text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page >= Math.max(1, Math.ceil(total / perPage))}
+                >
+                  下一页
+                </button>
+              </div>
             </div>
           </div>
 
