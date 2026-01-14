@@ -159,7 +159,7 @@ const AdminDashboard = React.memo(() => {
               <span className="ml-2">Loading analytics...</span>
             </div>
           }>
-            <AnalyticsDashboard activeTab={activeTab} />
+          <AnalyticsDashboard activeTab={activeTab} />
           </Suspense>
         </TabsContent>
 
