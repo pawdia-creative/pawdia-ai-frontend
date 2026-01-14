@@ -8,7 +8,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public code?: string
+    public code?: string,
+    public body?: unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -81,7 +82,7 @@ class ApiClient {
         else if (typeof d['error'] === 'string') message = d['error'] as string;
         if (typeof d['code'] === 'string') code = d['code'] as string;
       }
-      throw new ApiError(message, response.status, code);
+      throw new ApiError(message, response.status, code, data);
     }
 
     const returnedMessage = (typeof data === 'object' && data !== null && typeof (data as Record<string, unknown>)['message'] === 'string')
@@ -90,7 +91,7 @@ class ApiClient {
 
     return {
       data: data as T,
-      message: returnedMessage,
+      message: returnedMessage ?? '',
       status: response.status,
     };
   }

@@ -1,0 +1,679 @@
+{
+  "generatedAt": "2026-01-14T07:27:29.915Z",
+  "stats": {
+    "cartoon": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 2076627.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1971498,
+            "entropy": 7.9988002150144935
+          },
+          {
+            "file": "2.jpg",
+            "size": 2140653,
+            "entropy": 7.999132158484391
+          },
+          {
+            "file": "3.jpg",
+            "size": 2117732,
+            "entropy": 7.99917460305669
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2251581,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2273510,
+            "entropy": 7.996986501245145
+          },
+          {
+            "file": "2.jpg",
+            "size": 2275440,
+            "entropy": 7.99617982913244
+          },
+          {
+            "file": "3.jpg",
+            "size": 2205793,
+            "entropy": 7.998596745908319
+          }
+        ]
+      }
+    },
+    "crayon": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 2016757.3333333333,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2010025,
+            "entropy": 7.9988613074993955
+          },
+          {
+            "file": "2.jpg",
+            "size": 2026694,
+            "entropy": 7.999101622467206
+          },
+          {
+            "file": "3.jpg",
+            "size": 2013553,
+            "entropy": 7.999156379445509
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2099213.3333333335,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2160236,
+            "entropy": 7.998774805610483
+          },
+          {
+            "file": "2.jpg",
+            "size": 2082466,
+            "entropy": 7.998834990049704
+          },
+          {
+            "file": "3.jpg",
+            "size": 2054938,
+            "entropy": 7.998795760841062
+          }
+        ]
+      }
+    },
+    "ink": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 1701431.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1611112,
+            "entropy": 7.998875827031888
+          },
+          {
+            "file": "2.jpg",
+            "size": 1750745,
+            "entropy": 7.998721825038191
+          },
+          {
+            "file": "3.jpg",
+            "size": 1742438,
+            "entropy": 7.998833511657255
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 1628268.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1655043,
+            "entropy": 7.999128911272828
+          },
+          {
+            "file": "2.jpg",
+            "size": 1640816,
+            "entropy": 7.999437559222954
+          },
+          {
+            "file": "3.jpg",
+            "size": 1588947,
+            "entropy": 7.999061840069597
+          }
+        ]
+      }
+    },
+    "oil": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 1786261.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1721375,
+            "entropy": 7.9965477913962975
+          },
+          {
+            "file": "2.jpg",
+            "size": 1764860,
+            "entropy": 7.997501468765067
+          },
+          {
+            "file": "3.jpg",
+            "size": 1872550,
+            "entropy": 7.99747251117609
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 1785717.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1763878,
+            "entropy": 7.998733709044845
+          },
+          {
+            "file": "2.jpg",
+            "size": 1830453,
+            "entropy": 7.998779699231437
+          },
+          {
+            "file": "3.jpg",
+            "size": 1762822,
+            "entropy": 7.998890101526224
+          }
+        ]
+      }
+    },
+    "popart": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 1668367.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1905088,
+            "entropy": 7.998247961258155
+          },
+          {
+            "file": "2.jpg",
+            "size": 1437997,
+            "entropy": 7.99819960560512
+          },
+          {
+            "file": "3.jpg",
+            "size": 1662018,
+            "entropy": 7.999223204469293
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2322081.3333333335,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2219060,
+            "entropy": 7.9975015838514985
+          },
+          {
+            "file": "2.jpg",
+            "size": 2455032,
+            "entropy": 7.997513172617192
+          },
+          {
+            "file": "3.jpg",
+            "size": 2292152,
+            "entropy": 7.998406057311325
+          }
+        ]
+      }
+    },
+    "sketch": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 1871830,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1893900,
+            "entropy": 7.9972224351276475
+          },
+          {
+            "file": "2.jpg",
+            "size": 1922467,
+            "entropy": 7.99733165863504
+          },
+          {
+            "file": "3.jpg",
+            "size": 1799123,
+            "entropy": 7.998652093295165
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2029936.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2035164,
+            "entropy": 7.998734248782352
+          },
+          {
+            "file": "2.jpg",
+            "size": 2041724,
+            "entropy": 7.998795418584532
+          },
+          {
+            "file": "3.jpg",
+            "size": 2012922,
+            "entropy": 7.997888944823196
+          }
+        ]
+      }
+    },
+    "watercolor": {
+      "baseline": {
+        "count": 3,
+        "avgSize": 1672364.3333333333,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1677785,
+            "entropy": 7.998841436822677
+          },
+          {
+            "file": "2.jpg",
+            "size": 1638898,
+            "entropy": 7.999127524925213
+          },
+          {
+            "file": "3.jpg",
+            "size": 1700410,
+            "entropy": 7.998644028646006
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 1769115,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1780037,
+            "entropy": 7.998795671591785
+          },
+          {
+            "file": "2.jpg",
+            "size": 1767199,
+            "entropy": 7.999102815953875
+          },
+          {
+            "file": "3.jpg",
+            "size": 1760109,
+            "entropy": 7.998666196188218
+          }
+        ]
+      }
+    }
+  },
+  "recommendations": [
+    {
+      "styleId": "cartoon",
+      "baseline": {
+        "count": 3,
+        "avgSize": 2076627.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1971498,
+            "entropy": 7.9988002150144935
+          },
+          {
+            "file": "2.jpg",
+            "size": 2140653,
+            "entropy": 7.999132158484391
+          },
+          {
+            "file": "3.jpg",
+            "size": 2117732,
+            "entropy": 7.99917460305669
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2251581,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2273510,
+            "entropy": 7.996986501245145
+          },
+          {
+            "file": "2.jpg",
+            "size": 2275440,
+            "entropy": 7.99617982913244
+          },
+          {
+            "file": "3.jpg",
+            "size": 2205793,
+            "entropy": 7.998596745908319
+          }
+        ]
+      },
+      "suggestions": [
+        "Enhanced prompt shows measurable increase in entropy; parameters seem sufficient. Consider minor tuning only."
+      ]
+    },
+    {
+      "styleId": "crayon",
+      "baseline": {
+        "count": 3,
+        "avgSize": 2016757.3333333333,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2010025,
+            "entropy": 7.9988613074993955
+          },
+          {
+            "file": "2.jpg",
+            "size": 2026694,
+            "entropy": 7.999101622467206
+          },
+          {
+            "file": "3.jpg",
+            "size": 2013553,
+            "entropy": 7.999156379445509
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2099213.3333333335,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2160236,
+            "entropy": 7.998774805610483
+          },
+          {
+            "file": "2.jpg",
+            "size": 2082466,
+            "entropy": 7.998834990049704
+          },
+          {
+            "file": "3.jpg",
+            "size": 2054938,
+            "entropy": 7.998795760841062
+          }
+        ]
+      },
+      "suggestions": [
+        "Increase cfgScale by +0.5 and steps by +2~4; emphasize wax texture and pigment buildup."
+      ]
+    },
+    {
+      "styleId": "ink",
+      "baseline": {
+        "count": 3,
+        "avgSize": 1701431.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1611112,
+            "entropy": 7.998875827031888
+          },
+          {
+            "file": "2.jpg",
+            "size": 1750745,
+            "entropy": 7.998721825038191
+          },
+          {
+            "file": "3.jpg",
+            "size": 1742438,
+            "entropy": 7.998833511657255
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 1628268.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1655043,
+            "entropy": 7.999128911272828
+          },
+          {
+            "file": "2.jpg",
+            "size": 1640816,
+            "entropy": 7.999437559222954
+          },
+          {
+            "file": "3.jpg",
+            "size": 1588947,
+            "entropy": 7.999061840069597
+          }
+        ]
+      },
+      "suggestions": [
+        "Increase steps by +4~6 and cfgScale by +0.5; emphasize bold brush strokes and high contrast."
+      ]
+    },
+    {
+      "styleId": "oil",
+      "baseline": {
+        "count": 3,
+        "avgSize": 1786261.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1721375,
+            "entropy": 7.9965477913962975
+          },
+          {
+            "file": "2.jpg",
+            "size": 1764860,
+            "entropy": 7.997501468765067
+          },
+          {
+            "file": "3.jpg",
+            "size": 1872550,
+            "entropy": 7.99747251117609
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 1785717.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1763878,
+            "entropy": 7.998733709044845
+          },
+          {
+            "file": "2.jpg",
+            "size": 1830453,
+            "entropy": 7.998779699231437
+          },
+          {
+            "file": "3.jpg",
+            "size": 1762822,
+            "entropy": 7.998890101526224
+          }
+        ]
+      },
+      "suggestions": [
+        "Increase steps by +6~8 and cfgScale by +1.0; consider sampler DPM++ 2M Karras."
+      ]
+    },
+    {
+      "styleId": "popart",
+      "baseline": {
+        "count": 3,
+        "avgSize": 1668367.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1905088,
+            "entropy": 7.998247961258155
+          },
+          {
+            "file": "2.jpg",
+            "size": 1437997,
+            "entropy": 7.99819960560512
+          },
+          {
+            "file": "3.jpg",
+            "size": 1662018,
+            "entropy": 7.999223204469293
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2322081.3333333335,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2219060,
+            "entropy": 7.9975015838514985
+          },
+          {
+            "file": "2.jpg",
+            "size": 2455032,
+            "entropy": 7.997513172617192
+          },
+          {
+            "file": "3.jpg",
+            "size": 2292152,
+            "entropy": 7.998406057311325
+          }
+        ]
+      },
+      "suggestions": [
+        "Enhanced prompt shows measurable increase in entropy; parameters seem sufficient. Consider minor tuning only."
+      ]
+    },
+    {
+      "styleId": "sketch",
+      "baseline": {
+        "count": 3,
+        "avgSize": 1871830,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1893900,
+            "entropy": 7.9972224351276475
+          },
+          {
+            "file": "2.jpg",
+            "size": 1922467,
+            "entropy": 7.99733165863504
+          },
+          {
+            "file": "3.jpg",
+            "size": 1799123,
+            "entropy": 7.998652093295165
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 2029936.6666666667,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 2035164,
+            "entropy": 7.998734248782352
+          },
+          {
+            "file": "2.jpg",
+            "size": 2041724,
+            "entropy": 7.998795418584532
+          },
+          {
+            "file": "3.jpg",
+            "size": 2012922,
+            "entropy": 7.997888944823196
+          }
+        ]
+      },
+      "suggestions": [
+        "Enhanced prompt shows measurable increase in entropy; parameters seem sufficient. Consider minor tuning only."
+      ]
+    },
+    {
+      "styleId": "watercolor",
+      "baseline": {
+        "count": 3,
+        "avgSize": 1672364.3333333333,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1677785,
+            "entropy": 7.998841436822677
+          },
+          {
+            "file": "2.jpg",
+            "size": 1638898,
+            "entropy": 7.999127524925213
+          },
+          {
+            "file": "3.jpg",
+            "size": 1700410,
+            "entropy": 7.998644028646006
+          }
+        ]
+      },
+      "enhanced": {
+        "count": 3,
+        "avgSize": 1769115,
+        "avgEnt": null,
+        "samples": [
+          {
+            "file": "1.jpg",
+            "size": 1780037,
+            "entropy": 7.998795671591785
+          },
+          {
+            "file": "2.jpg",
+            "size": 1767199,
+            "entropy": 7.999102815953875
+          },
+          {
+            "file": "3.jpg",
+            "size": 1760109,
+            "entropy": 7.998666196188218
+          }
+        ]
+      },
+      "suggestions": [
+        "Enhanced prompt shows measurable increase in entropy; parameters seem sufficient. Consider minor tuning only."
+      ]
+    }
+  ]
+}

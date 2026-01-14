@@ -27,44 +27,62 @@ export interface DbUser {
 /**
  * Normalizes database user record to frontend User type
  */
-export const normalizeUser = (dbUser: DbUser | null): User | null => {
+export const normalizeUser = (dbUser: DbUser | User | null | undefined): User | null => {
   if (!dbUser) return null;
 
-  return {
-    id: dbUser.id,
-    email: dbUser.email,
-    name: dbUser.name,
-    ...(dbUser.avatar ? { avatar: dbUser.avatar } : {}),
-    credits: dbUser.credits,
-    // Accept multiple truthy representations from backend (number/string) OR already-normalized frontend shape (boolean)
-    isVerified: ((): boolean => {
       const raw = dbUser as unknown as Record<string, unknown>;
-      // Prefer explicit frontend boolean if present
-      if (typeof raw['isVerified'] === 'boolean') return raw['isVerified'] as boolean;
-      const v = (raw['is_verified'] ?? raw['isVerified']);
-      if (v === undefined || v === null) return false;
+
+  const id = String(raw['id'] ?? '');
+  const email = String(raw['email'] ?? '');
+  const name = String(raw['name'] ?? '');
+  const avatar = raw['avatar'] ? String(raw['avatar']) : undefined;
+  const credits = typeof raw['credits'] === 'number' ? (raw['credits'] as number) : Number(raw['credits'] ?? 0);
+
+  const parseBoolField = (fieldNames: string[]) => {
+    for (const f of fieldNames) {
+      const v = raw[f];
+      if (typeof v === 'boolean') return v;
+      if (v === undefined || v === null) continue;
       const s = String(v).toLowerCase();
-      return s === '1' || s === 'true';
-    })(),
-    isAdmin: ((): boolean => {
-      const raw = dbUser as unknown as Record<string, unknown>;
-      if (typeof raw['isAdmin'] === 'boolean') return raw['isAdmin'] as boolean;
-      const v = (raw['is_admin'] ?? raw['isAdmin']);
-      if (v === undefined || v === null) return false;
-      const s = String(v).toLowerCase();
-      return s === '1' || s === 'true';
-    })(),
-    createdAt: dbUser.created_at,
-    ...(dbUser.subscription_plan ? {
-      subscription: (() => {
-        const obj: { plan: 'free' | 'basic' | 'premium'; expiresAt?: string; status: 'active' | 'expired' | 'cancelled' } = {
-          plan: dbUser.subscription_plan as 'free' | 'basic' | 'premium',
-          status: (dbUser.subscription_status as 'active' | 'expired' | 'cancelled') || 'inactive',
+      if (s === '1' || s === 'true') return true;
+      if (s === '0' || s === 'false') return false;
+    }
+    return false;
+  };
+
+  const isVerified = parseBoolField(['isVerified', 'is_verified']);
+  const isAdmin = parseBoolField(['isAdmin', 'is_admin']);
+
+  const createdAt = String(raw['createdAt'] ?? raw['created_at'] ?? new Date().toISOString());
+
+  // Subscription normalization: accept both DB flattened fields and already-normalized frontend object
+  let subscription: User['subscription'] | undefined = undefined;
+  if (raw['subscription'] && typeof raw['subscription'] === 'object') {
+    const sub = raw['subscription'] as Record<string, unknown>;
+    subscription = {
+      plan: (sub['plan'] as string) as any,
+      status: (sub['status'] as string) as any,
+      expiresAt: sub['expiresAt'] as string | undefined,
+    } as User['subscription'];
+  } else if (raw['subscription_plan'] || raw['subscription_status'] || raw['subscription_expires'] || raw['subscription_expires_at']) {
+    subscription = {
+      plan: (raw['subscription_plan'] as string) as any,
+      status: (raw['subscription_status'] as string) as any,
+      expiresAt: String(raw['subscription_expires'] ?? raw['subscription_expires_at'] ?? ''),
         };
-        if (dbUser.subscription_expires) obj.expiresAt = dbUser.subscription_expires;
-        return obj;
-      })()
-    } : {}),
+    if (subscription.expiresAt === '') delete subscription.expiresAt;
+  }
+
+  return {
+    id,
+    email,
+    name,
+    ...(avatar ? { avatar } : {}),
+    credits,
+    isVerified,
+    isAdmin,
+    createdAt,
+    ...(subscription ? { subscription } : {}),
   };
 };
 

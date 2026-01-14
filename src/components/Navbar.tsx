@@ -88,9 +88,9 @@ const Navbar: React.FC = () => {
               onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-2xl font-bold text-white hover:text-blue-200 transition-colors drop-shadow-lg"
             >
-              <img
+              <img 
                 src={logoUrl}
-                alt="Pawdia AI Logo"
+                alt="Pawdia AI Logo" 
                 className="h-20 w-auto"
               />
               <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent font-extrabold">

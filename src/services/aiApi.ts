@@ -228,37 +228,38 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
     if (request.image) {
       try {
         // Decide a sensible compression target based on requested output dimensions.
-        const targetShortSide = Math.max(request.width || 512, request.height || 512);
-        // Clamp max width to a reasonable upper bound to avoid extremely large uploads.
-        const clampMaxWidth = Math.min(Math.max(targetShortSide, 512) * 2, 2048);
+        // Use the short side (min) to avoid upscaling and reduce payload.
+        const targetShortSide = Math.min(request.width || 512, request.height || 512);
+        // Clamp max width to a conservative bound to avoid extremely large uploads.
+        // Prefer keeping it near the requested short side and never exceed 1024 on upload.
+        const clampMaxWidth = Math.min(Math.max(targetShortSide, 512), 1024);
 
-        // First-pass compress: aim for roughly twice the short side (keeps quality but reduces large originals)
-        // Force compression to ensure even files under 10MB get resized if needed.
-        let imgFile = await compressImage(request.image, clampMaxWidth, 0.92, true);
+        // First-pass compress: resize down to clampMaxWidth (if larger) and use a reasonable quality.
+        // Force compression to ensure even files under default thresholds get resized if needed.
+        let imgFile = await compressImage(request.image, clampMaxWidth, 0.88, true);
         let b64 = await fileToBase64(imgFile);
 
         // If payload still too large for provider/Cloudflare, perform additional aggressive compression passes.
         // Use a conservative threshold on base64 length (characters). Adjust as needed by provider limits.
-        const BASE64_WARN_THRESHOLD = 4_000_000; // ~3MB binary
+        const BASE64_WARN_THRESHOLD = 1_500_000; // ~1.1MB binary
         if (b64.length > BASE64_WARN_THRESHOLD) {
           if (import.meta.env.DEV) console.warn('Image base64 payload is large, applying extra compression passes', { length: b64.length, clampMaxWidth });
           // Multi-pass aggressive compression strategy:
-          // 1) Reduce to target short side (request.width/request.height short side or 512) at quality 0.80
-          // 2) If still too large, reduce to 384 at quality 0.72
-          // 3) If still too large, reduce to 256 at quality 0.65
-          const targetShortSide = Math.max(request.width || 512, request.height || 512);
+          // 1) Reduce to firstTarget (min(request short side, 1024)) at quality 0.78
+          // 2) If still too large, reduce to 512 at quality 0.72
+          // 3) If still too large, reduce to 384 at quality 0.65
           const firstTarget = Math.min(Math.max(512, targetShortSide), 1024);
-          imgFile = await compressImage(request.image, firstTarget, 0.80);
+          imgFile = await compressImage(request.image, firstTarget, 0.78);
           b64 = await fileToBase64(imgFile);
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
-            const secondTarget = 384;
+            const secondTarget = 512;
             imgFile = await compressImage(request.image, secondTarget, 0.72);
             b64 = await fileToBase64(imgFile);
           }
 
           if (b64.length > BASE64_WARN_THRESHOLD) {
-            const thirdTarget = 256;
+            const thirdTarget = 384;
             imgFile = await compressImage(request.image, thirdTarget, 0.65);
             b64 = await fileToBase64(imgFile);
           }
@@ -266,12 +267,10 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
           if (b64.length > BASE64_WARN_THRESHOLD) {
             if (import.meta.env.DEV) console.warn('Image still large after aggressive compression passes; final base64 length:', b64.length);
           }
-        } else {
-          // No additional compression needed
         }
 
         // Final safety check: if still too large after aggressive compression, abort and surface error.
-        const FINAL_BASE64_HARD_LIMIT = 6_000_000; // ~4.5MB binary
+        const FINAL_BASE64_HARD_LIMIT = 1_800_000; // ~1.35MB binary
         if (b64.length > FINAL_BASE64_HARD_LIMIT) {
           throw new Error('Image too large after compression; please use a smaller image or crop before uploading');
         }
@@ -299,10 +298,10 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
       throw new ApiError(`AI API error: ${data.error}`, 400, 'AI_API_ERROR');
     }
 
-  // The backend should return the image URL or base64 data.
-  // Be resilient: accept multiple shapes and also attempt to extract image data
-  // from nested/raw provider responses under `data.raw` (fallback).
-  let imageUrl: string | undefined;
+    // The backend should return the image URL or base64 data.
+    // Be resilient: accept multiple shapes and also attempt to extract image data
+    // from nested/raw provider responses under `data.raw` (fallback).
+    let imageUrl: string | undefined;
 
       // Priority 1: Try to extract image from provider "candidates" structure (Gemini-style)
       const candidates = getRawCandidates(data);
@@ -335,33 +334,33 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
 
        // Priority 2: Check direct well-known fields
        if (!imageUrl) {
-         if (data.imageUrl && typeof data.imageUrl === 'string') {
-           imageUrl = data.imageUrl;
-         } else if (data.image && data.image.url && typeof data.image.url === 'string') {
-           imageUrl = data.image.url;
-         } else if (data.image && data.image.base64 && typeof data.image.base64 === 'string') {
-           imageUrl = `data:image/png;base64,${data.image.base64}`;
-         } else if (data.base64 && typeof data.base64 === 'string') {
-           imageUrl = `data:image/png;base64,${data.base64}`;
+    if (typeof (data as any).imageUrl === 'string') {
+      imageUrl = (data as any).imageUrl;
+    } else if (isObject((data as any).image) && typeof ((data as any).image as any).url === 'string') {
+      imageUrl = ((data as any).image as any).url;
+    } else if (isObject((data as any).image) && typeof ((data as any).image as any).base64 === 'string') {
+      imageUrl = `data:image/png;base64,${((data as any).image as any).base64}`;
+    } else if (typeof (data as any).base64 === 'string') {
+      imageUrl = `data:image/png;base64,${(data as any).base64}`;
          } else {
            // No direct image fields found
          }
-       }
+    }
 
        // Priority 3: Fallback parsing for other API formats
-       if (!imageUrl && data.raw && typeof data.raw === 'object') {
-         const raw = data.raw;
+    if (!imageUrl && isObject((data as any).raw)) {
+         const raw = (data as any).raw;
 
          // Check for DALL-E style response
-         if (raw.data && Array.isArray(raw.data) && raw.data.length > 0) {
-           const imageData = raw.data[0];
-           if (imageData.url) {
+         if (Array.isArray(raw.data) && raw.data.length > 0) {
+           const imageData = raw.data[0] as any;
+           if (typeof imageData.url === 'string') {
              imageUrl = imageData.url;
-           } else if (imageData.b64_json) {
+           } else if (typeof imageData.b64_json === 'string') {
              imageUrl = `data:image/png;base64,${imageData.b64_json}`;
            }
-         }
-       }
+      }
+    }
 
     // Final fallback: check top-level text fields for embedded URLs
     if (!imageUrl && typeof data === 'object' && data !== null) {

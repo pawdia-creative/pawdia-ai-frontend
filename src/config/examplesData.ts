@@ -23,14 +23,7 @@ export const examplesStyles = [
     generated: '/examples/oil/generated.jpg',
     link: '/oil-painting-pet-portrait-ai',
   },
-  {
-    id: 'cartoon',
-    name: 'Cartoon',
-    description: 'Fun, playful cartoon style perfect for kids and social media',
-    original: '/examples/cartoon/original.jpg',
-    generated: '/examples/cartoon/generated.jpg',
-    link: '/cartoon-pet-portrait-ai',
-  },
+  // Cartoon style removed from Examples (kept Crayon as requested)
   {
     id: 'ink',
     name: 'Ink Drawing',

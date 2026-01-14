@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useReducer, useEffect } from 'react';
 import { AuthContextType, AuthState, User, LoginCredentials, RegisterCredentials, UpdateProfileData, LoginResult, RegisterResult } from '@/types/auth';
 import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
 import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
@@ -268,7 +268,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // After login the server sets an HttpOnly cookie; use /auth/me via apiClient to retrieve canonical user info
       try {
-        const meResp = await apiClient.get<{ user?: User }>('/auth/me', { timeout: 15000 });
+        // Ensure the temporary token is available to apiClient for this immediate call.
+        if (typeof tempToken === 'string' && tempToken.length > 0) {
+          try { tokenStorage.setToken(tempToken); } catch (e) { if (import.meta.env.DEV) console.warn('[AUTH] Failed to store temp token before /auth/me:', e); }
+        }
+        const meResp = await apiClient.get<{ user?: User }>('/auth/me', { timeout: 15000, headers: { Authorization: `Bearer ${tempToken}` } });
         const meData = meResp.data as { user?: User } | undefined;
         const serverUser = meData?.user || claimedUser;
         // Prefer normalizeUser to handle varied backend representations (numbers/strings)
@@ -294,11 +298,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return { ...normalizedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
         }
       } catch (err: unknown) {
-        if (import.meta.env.DEV) console.error('[AUTH] Error validating token after login:', err);
+        // If /auth/me fails (e.g., race with cookie set or temporary validation failure),
+        // fall back to using the claimed user and the temp token so the UI doesn't go into an error state.
+        if (import.meta.env.DEV) console.error('[AUTH] Error validating token after login - falling back to claimed user:', err);
+        try {
+          const normalizedClaimed = normalizeUser(claimedUser) || { ...claimedUser, isVerified: isUserVerified(claimedUser), isAdmin: isUserAdmin(claimedUser) };
+          localStorage.setItem('user', JSON.stringify(normalizedClaimed));
+          if (typeof tempToken === 'string' && tempToken.length > 0) {
+            try { tokenStorage.setToken(tempToken); } catch (e) { if (import.meta.env.DEV) console.warn('[AUTH] Failed to set temp token in tokenStorage fallback:', e); }
+          }
+          const isVerifiedFallback = isUserVerified(normalizedClaimed);
+          const isAdminFallback = isUserAdmin(normalizedClaimed);
+          if (isVerifiedFallback || isAdminFallback) {
+            try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
+            dispatch({ type: 'AUTH_SUCCESS', payload: normalizedClaimed });
+            if (import.meta.env.DEV) console.log('[AUTH] Fallback: authenticated with claimed user');
+            return { ...normalizedClaimed, token: tempToken, isVerified: isVerifiedFallback, isAdmin: isAdminFallback, isFirstLogin: data.isFirstLogin };
+          } else {
+            try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore */ }
+            dispatch({ type: 'AUTH_LOGOUT' });
+            return { ...normalizedClaimed, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
+          }
+        } catch (fallbackErr) {
+          if (import.meta.env.DEV) console.error('[AUTH] Fallback handling failed:', fallbackErr);
         try { localStorage.setItem('user', JSON.stringify(claimedUser)); } catch (e) { /* Ignore */ }
         try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore */ }
         dispatch({ type: 'AUTH_LOGOUT' });
         return { ...claimedUser, token: tempToken, isVerified: false, isFirstLogin: data.isFirstLogin };
+        }
       }
     } catch (error: unknown) {
       dispatch({ type: 'AUTH_FAILURE', payload: (error instanceof Error) ? error.message : 'Login failed' });

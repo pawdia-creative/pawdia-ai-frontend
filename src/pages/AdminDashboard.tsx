@@ -72,7 +72,7 @@ const AdminDashboard = React.memo(() => {
         const id = (u as unknown as Record<string, unknown>)['id'];
         return id != null && id !== 'null' && id !== '';
       }) as User[];
-      setUsers(validUsers);
+        setUsers(validUsers);
       setTotal(Number((data['total'] as number) || 0));
       return validUsers;
     } catch (error) {
@@ -214,16 +214,16 @@ const AdminDashboard = React.memo(() => {
                     const evt = event as { event_type?: string; user_id?: string | null; created_at?: string };
                     const label = evt.event_type || 'event';
                     return (
-                      <div key={index} className="p-4 flex justify-between items-center">
-                        <div>
-                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                    <div key={index} className="p-4 flex justify-between items-center">
+              <div>
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                             label === 'verification_sent' ? 'bg-blue-100 text-blue-800' :
                             label === 'verification_success' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
+                          'bg-red-100 text-red-800'
+                        }`}>
                             {label.replace('_', ' ')}
-                          </span>
-                          <span className="ml-2 text-sm text-gray-600">
+                        </span>
+                        <span className="ml-2 text-sm text-gray-600">
                             User: {String((evt.user_id || '').toString()).slice(0, 8)}...
                           </span>
                         </div>

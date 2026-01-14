@@ -76,9 +76,9 @@ async function requireVerifiedFromHeader(authOrRequest, env) {
     if (typeof authOrRequest === 'string') {
       // authOrRequest is an Authorization header value
       const authHeader = authOrRequest;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return { errorResponse: new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
-      }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { errorResponse: new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401, headers: makeCorsHeaders(null, env) }) };
+  }
       payload = await getPayloadFromHeader(authHeader, env);
     } else if (authOrRequest && typeof authOrRequest.headers === 'object') {
       // authOrRequest is a Request - use cookie-or-header helper
@@ -712,19 +712,19 @@ export default {
           if (sendResult.sent) {
             emailSent = true;
             logAnalyticsEvent(env.DB, 'verification_sent', userId, {
-              email,
-              provider: sendResult.provider,
-              fallback: sendResult.fallback || false
+                email,
+                provider: sendResult.provider,
+                fallback: sendResult.fallback || false
             }, request).catch(err => console.warn('Failed to log verification_sent event on registration:', err));
           } else {
             emailError = sendResult.error;
             console.error('Verification email not sent on registration:', sendResult);
             // Log email failure for monitoring
             logAnalyticsEvent(env.DB, 'email_send_failed', userId, {
-              email,
-              error: sendResult.error,
-              primaryError: sendResult.primaryError,
-              backupError: sendResult.backupError
+                email,
+                error: sendResult.error,
+                primaryError: sendResult.primaryError,
+                backupError: sendResult.backupError
             }, request).catch(err => console.warn('Failed to log email_send_failed event:', err));
           }
 

@@ -16,7 +16,7 @@ import { tokenStorage } from "@/lib/tokenStorage";
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
 import { useAuth } from "@/contexts/useAuth";
-import { useNavigate } from "react-router-dom";
+import * as RR from "react-router-dom";
 // User type removed (unused)
 import { QualitySettings } from "./QualitySettings";
 
@@ -51,7 +51,7 @@ interface ArtGenerationProps {
 
 export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGenerationProps) => {
   const { user, isAuthenticated, updateUser } = useAuth();
-  const navigate = useNavigate();
+  const navigate = (RR as any).useNavigate() as (to: string) => void;
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedArt, setGeneratedArt] = useState<string>('');
   const [progress, setProgress] = useState(0);
@@ -864,17 +864,31 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       // Clear progress interval if still running
       if (progressInterval) clearInterval(progressInterval);
       
+      // Detect provider quota error (from ApiError.body.raw.error or message)
+      const apiErr = err as any;
+      const providerQuotaError =
+        (apiErr && apiErr.status === 403 && apiErr.body && apiErr.body.raw && apiErr.body.raw.error && apiErr.body.raw.error.code === 'insufficient_user_quota') ||
+        (apiErr && typeof apiErr.message === 'string' && apiErr.message.toLowerCase().includes('quota'));
+
       // Refund credits if they were deducted
       if (creditsDeducted) {
         if (import.meta.env.DEV) console.log('Generation failed, attempting to refund credits...');
         const refundSuccess = await refundCredits();
         if (refundSuccess) {
+          if (providerQuotaError) {
+            setError('AI provider quota exhausted. Credits have been refunded. Please try again later or contact support.');
+          } else {
           setError((err instanceof Error ? err.message : 'Error occurred during generation') + ' (Credits have been refunded)');
+          }
         } else {
           setError((err instanceof Error ? err.message : 'Error occurred during generation') + ' (Failed to refund credits, please contact support)');
         }
       } else {
+        if (providerQuotaError) {
+          setError('AI provider quota exhausted. Please try again later or contact support.');
+      } else {
         setError(err instanceof Error ? err.message : 'Error occurred during generation');
+        }
       }
     } finally {
       setIsGenerating(false);

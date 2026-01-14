@@ -11,8 +11,9 @@ type LocationState = { from?: { pathname?: string } };
 
 const Login = () => {
   const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
-  const navigate = RR.useNavigate as unknown as NavigateFunction;
-  const location = RR.useLocation as unknown as { state?: LocationState; pathname: string };
+  // call the react-router hooks at runtime (keep casts for TypeScript compatibility)
+  const navigate = (RR as any).useNavigate() as NavigateFunction;
+  const location = (RR as any).useLocation() as { state?: LocationState; pathname: string };
 
   const from: string = (location?.state?.from?.pathname as string) || '/';
 
@@ -67,7 +68,15 @@ const Login = () => {
         }
       };
 
-      checkAndRedirect();
+      // Run and catch any unhandled errors to avoid uncaught promise rejections
+      checkAndRedirect().catch((err) => {
+        if (import.meta.env.DEV) console.error('[Login] checkAndRedirect uncaught error:', err);
+        try {
+          if (typeof navigate === 'function') navigate('/verify-required', { replace: true });
+        } catch (e) {
+          if (import.meta.env.DEV) console.error('[Login] navigate failed in catch:', e);
+        }
+      });
     }
     // If loading is stuck for some reason (navigated from verification page), reset it.
     if (ensureIdle) {
@@ -95,17 +104,22 @@ const Login = () => {
       if (import.meta.env.DEV) console.log('[Login] login() completed, result:', { isVerified, isAdmin, isFirstLogin });
 
         if (!isVerified && !isAdmin) {
-        // AuthContext.login is responsible for setting must_verify and token storage.
-          toast('登录成功！请先验证邮箱。');
+          // AuthContext.login is responsible for setting must_verify and token storage.
+          toast.success('登录成功！请先验证邮箱。');
           // Always route unverified users to the centralized verification-required page.
           navigate('/verify-required', { replace: true });
           return;
         }
 
       // Verified users allowed through
-        toast('登录成功！');
+        toast.success('登录成功！');
       if (import.meta.env.DEV) console.log('[Login] User verified, redirecting to:', from);
-        navigate(from, { replace: true });
+        // Force a full navigation to ensure fresh state and avoid race conditions
+        try {
+          window.location.replace(from);
+        } catch (e) {
+          navigate(from, { replace: true });
+        }
     } catch (error) {
       if (import.meta.env.DEV) console.error('[Login] Login process failed:', error);
       // Context handles and surfaces errors via state; also show generic message

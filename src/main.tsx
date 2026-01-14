@@ -23,4 +23,19 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 
+// Global handler to surface unhandled promise rejections during login flows
+window.addEventListener('unhandledrejection', (event) => {
+  // Log to console for immediate debugging
+  // eslint-disable-next-line no-console
+  console.error('Unhandled promise rejection captured:', event.reason, event);
+  // Also send to Sentry if initialized
+  try {
+    if ((Sentry as any).captureException) {
+      (Sentry as any).captureException(event.reason);
+    }
+  } catch (e) {
+    // ignore
+  }
+});
+
 createRoot(document.getElementById("root")!).render(<App />);

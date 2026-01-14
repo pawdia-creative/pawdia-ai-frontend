@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Temporary A/B Samples</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body{font-family:Inter,system-ui,Arial,Helvetica,sans-serif;margin:24px;background:#fff;color:#111}
+      h1{font-size:24px}
+      .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+      .card{border:1px solid #eee;padding:12px;border-radius:8px}
+      img{width:100%;height:auto;display:block;border-radius:4px}
+      .meta{margin-top:8px;font-size:13px;color:#555}
+    </style>
+  </head>
+  <body>
+    <h1>Temporary A/B Samples</h1>
+    <p>This page lists generated A/B samples saved under <code>/temp-samples/</code>.</p>
+    <div class="grid">
+      <div class="card"><strong>Watercolor - Baseline</strong><img src="/temp-samples/watercolor/baseline/1.jpg" alt=""><div class="meta">/temp-samples/watercolor/baseline/1.jpg</div></div>
+      <div class="card"><strong>Watercolor - Enhanced</strong><img src="/temp-samples/watercolor/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/watercolor/enhanced/1.jpg</div></div>
+      <div class="card"><strong>Sketch - Baseline</strong><img src="/temp-samples/sketch/baseline/1.jpg" alt=""><div class="meta">/temp-samples/sketch/baseline/1.jpg</div></div>
+      <div class="card"><strong>Sketch - Enhanced</strong><img src="/temp-samples/sketch/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/sketch/enhanced/1.jpg</div></div>
+      <div class="card"><strong>Oil - Baseline</strong><img src="/temp-samples/oil/baseline/1.jpg" alt=""><div class="meta">/temp-samples/oil/baseline/1.jpg</div></div>
+      <div class="card"><strong>Oil - Enhanced</strong><img src="/temp-samples/oil/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/oil/enhanced/1.jpg</div></div>
+      <div class="card"><strong>Cartoon - Baseline</strong><img src="/temp-samples/cartoon/baseline/1.jpg" alt=""><div class="meta">/temp-samples/cartoon/baseline/1.jpg</div></div>
+      <div class="card"><strong>Cartoon - Enhanced</strong><img src="/temp-samples/cartoon/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/cartoon/enhanced/1.jpg</div></div>
+      <div class="card"><strong>Ink - Baseline</strong><img src="/temp-samples/ink/baseline/1.jpg" alt=""><div class="meta">/temp-samples/ink/baseline/1.jpg</div></div>
+      <div class="card"><strong>Ink - Enhanced</strong><img src="/temp-samples/ink/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/ink/enhanced/1.jpg</div></div>
+      <div class="card"><strong>Crayon - Baseline</strong><img src="/temp-samples/crayon/baseline/1.jpg" alt=""><div class="meta">/temp-samples/crayon/baseline/1.jpg</div></div>
+      <div class="card"><strong>Crayon - Enhanced</strong><img src="/temp-samples/crayon/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/crayon/enhanced/1.jpg</div></div>
+      <div class="card"><strong>Popart - Baseline</strong><img src="/temp-samples/popart/baseline/1.jpg" alt=""><div class="meta">/temp-samples/popart/baseline/1.jpg</div></div>
+      <div class="card"><strong>Popart - Enhanced</strong><img src="/temp-samples/popart/enhanced/1.jpg" alt=""><div class="meta">/temp-samples/popart/enhanced/1.jpg</div></div>
+    </div>
+  </body>
+  <script>
+    // Append a cache-buster query param to each image src to avoid stale 304/cached-empty issues
+    (function() {
+      try {
+        const ts = Date.now();
+        document.querySelectorAll('.grid img').forEach(img => {
+          if (!img.src) return;
+          // Only add once
+          if (img.dataset.cbApplied) return;
+          const url = new URL(img.getAttribute('src'), window.location.href);
+          url.searchParams.set('cb', ts);
+          img.setAttribute('src', url.toString());
+          img.dataset.cbApplied = '1';
+        });
+      } catch (e) {
+        // no-op; don't break the page
+        console.error('cache-buster error', e);
+      }
+    })();
+  </script>
+</html>
+
+
