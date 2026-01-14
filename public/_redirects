@@ -1,10 +1,5 @@
-# SPA fallback - redirect all routes to index.html except API routes and static assets
-/*    /index.html   200
-
-# Exclude API routes (handled by Workers)
-/api/*  /api/:splat  200
-
-# Exclude static assets
+# Ensure sw.js and static assets are served as-is (avoid SPA fallback)
+/sw.js    /sw.js    200
 /assets/*  /assets/:splat  200
 /examples/*  /examples/:splat  200
 /*.js  /*.js  200
@@ -15,3 +10,6 @@
 /*.ico  /*.ico  200
 /*.txt  /*.txt  200
 /*.xml  /*.xml  200
+
+# SPA fallback - redirect all other routes to index.html
+/*    /index.html   200

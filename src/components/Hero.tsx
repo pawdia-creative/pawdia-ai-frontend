@@ -136,6 +136,12 @@ export const Hero = () => {
       className="relative min-h-[90vh] flex items-center justify-center overflow-hidden"
       style={sectionStyle}
     >
+      {/* White translucent overlay to improve text contrast */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{ backgroundColor: 'rgba(255,255,255,0.72)', zIndex: 5 }}
+      />
       {/* Background handled via section inline style (gradient + image) */}
       
       {/* Content */}
