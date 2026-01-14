@@ -157,6 +157,10 @@ All colors MUST be HSL.
   .gradient-hero {
     background: var(--gradient-hero);
   }
+  /* Ensure hero background image stays above gradient overlays but below content */
+  .hero-bg-image {
+    z-index: 0 !important;
+  }
 
   .shadow-soft {
     box-shadow: var(--shadow-soft);

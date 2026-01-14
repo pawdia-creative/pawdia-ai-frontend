@@ -72,9 +72,20 @@ createRoot(document.getElementById("root")!).render(<App />);
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   const registerSW = async () => {
     try {
+      // Fetch the script first to validate content-type and avoid SecurityError when server returns HTML
+      const resp = await fetch('/sw.js', { cache: 'no-store' });
+      const contentType = resp.headers.get('content-type') || '';
+      if (!resp.ok) {
+        console.warn('Service worker script not found (status):', resp.status);
+        return;
+      }
+      if (!contentType.includes('javascript') && !contentType.includes('application/javascript')) {
+        console.warn('Service worker registration skipped due to unexpected Content-Type:', contentType);
+        return;
+      }
       await navigator.serviceWorker.register('/sw.js');
     } catch (e) {
-      // ignore registration failures
+      // ignore registration failures but surface a friendly log
       console.warn('Service worker registration failed', e);
     }
   };
