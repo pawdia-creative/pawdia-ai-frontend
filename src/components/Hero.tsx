@@ -122,8 +122,19 @@ export const Hero = () => {
       clearTimeout(fallbackId);
     };
   }, []);
+  const sectionStyle = bgImageData
+    ? {
+        backgroundImage: `url(${bgImageData.src})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : undefined;
+
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+    <section
+      className="relative min-h-[90vh] flex items-center justify-center overflow-hidden"
+      style={sectionStyle}
+    >
       {/* Background image with responsive loading */}
       {bgImageData && (
         <img
