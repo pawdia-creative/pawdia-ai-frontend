@@ -491,6 +491,13 @@ export default {
         // Clean expired credits before returning user data
         await cleanExpiredCredits(env.DB);
 
+        // Include subscription fields so frontend can determine plan access without extra calls
+        const subscriptionObj = (user.subscription_plan || user.subscription_status || user.subscription_expires_at) ? {
+          plan: user.subscription_plan || null,
+          status: user.subscription_status || null,
+          expiresAt: user.subscription_expires_at || null
+        } : null;
+
         return new Response(JSON.stringify({
           user: {
             id: user.id,
@@ -498,7 +505,8 @@ export default {
             name: user.name,
             credits: user.credits || 0,
             isAdmin: user.is_admin === 1,
-            isVerified: user.is_verified === 1
+            isVerified: user.is_verified === 1,
+            ...(subscriptionObj ? { subscription: subscriptionObj } : {})
           }
         }), {
             headers: corsHeaders
