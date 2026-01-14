@@ -26,12 +26,11 @@ if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
       // Defer session replay initialization to idle
       const initReplay = () => {
         try {
-          if ((Sentry as SentryAPI).replayIntegration) {
-            (Sentry as SentryAPI).replayIntegration({
-              maskAllText: true,
-              blockAllMedia: true,
-            });
-          }
+          // Call replay integration if available
+          (Sentry as SentryAPI).replayIntegration?.({
+            maskAllText: true,
+            blockAllMedia: true,
+          });
         } catch (e) {
           // ignore
         }
@@ -60,9 +59,8 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection captured:', event.reason, event);
   // Also send to Sentry if initialized
   try {
-    if ((Sentry as SentryAPI).captureException) {
-      (Sentry as SentryAPI).captureException(event.reason);
-    }
+    // Call captureException if available
+    (Sentry as SentryAPI).captureException?.(event.reason);
   } catch (e) {
     // ignore
   }
