@@ -28,7 +28,17 @@ export async function getFullAnalyticsStats(db) {
     const totalPageViewsRow = await db.prepare("SELECT COUNT(*) as cnt FROM analytics WHERE event_type = 'page_view'").first();
     const totalPageViews = totalPageViewsRow?.cnt || 0;
 
-    const totalApiCallsRow = await db.prepare('SELECT COUNT(*) as cnt FROM analytics').first();
+    // Only count API calls related to image generation (exclude auth, admin, etc.)
+    const totalApiCallsRow = await db.prepare(`
+      SELECT COUNT(*) as cnt FROM analytics
+      WHERE event_type = 'api_call'
+      AND (
+        json_extract(data, '$.endpoint') LIKE '%/generate%' OR
+        json_extract(data, '$.endpoint') LIKE '%/subscriptions/credits/use%' OR
+        json_extract(data, '$.path') LIKE '%/generate%' OR
+        json_extract(data, '$.path') LIKE '%/subscriptions/credits/use%'
+      )
+    `).first();
     const totalApiCalls = totalApiCallsRow?.cnt || 0;
 
     const uniqueUsersRow = await db.prepare('SELECT COUNT(DISTINCT user_id) as cnt FROM analytics WHERE user_id IS NOT NULL').first();
@@ -44,7 +54,12 @@ export async function getFullAnalyticsStats(db) {
     const topUsersRows = await db.prepare(`
       SELECT a.user_id as user_id, COUNT(*) as total_events,
              SUM(CASE WHEN a.event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
-             SUM(CASE WHEN a.event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls
+             SUM(CASE WHEN a.event_type = 'api_call' AND (
+               json_extract(a.data, '$.endpoint') LIKE '%/generate%' OR
+               json_extract(a.data, '$.endpoint') LIKE '%/subscriptions/credits/use%' OR
+               json_extract(a.data, '$.path') LIKE '%/generate%' OR
+               json_extract(a.data, '$.path') LIKE '%/subscriptions/credits/use%'
+             ) THEN 1 ELSE 0 END) as api_calls
       FROM analytics a
       WHERE a.user_id IS NOT NULL
       GROUP BY a.user_id
@@ -71,7 +86,12 @@ export async function getFullAnalyticsStats(db) {
     const dailyRows = await db.prepare(`
       SELECT DATE(created_at) as period,
              SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
-             SUM(CASE WHEN event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls,
+             SUM(CASE WHEN event_type = 'api_call' AND (
+               json_extract(data, '$.endpoint') LIKE '%/generate%' OR
+               json_extract(data, '$.endpoint') LIKE '%/subscriptions/credits/use%' OR
+               json_extract(data, '$.path') LIKE '%/generate%' OR
+               json_extract(data, '$.path') LIKE '%/subscriptions/credits/use%'
+             ) THEN 1 ELSE 0 END) as api_calls,
              (SELECT COUNT(*) FROM users WHERE DATE(created_at) = DATE(a.created_at)) as total_users,
              (SELECT COUNT(*) FROM images WHERE DATE(created_at) = DATE(a.created_at)) as total_generations,
              (SELECT COALESCE(SUM(credits_used),0) FROM images WHERE DATE(created_at) = DATE(a.created_at)) as total_credits_used
@@ -96,7 +116,12 @@ export async function getFullAnalyticsStats(db) {
     const monthlyRows = await db.prepare(`
       SELECT strftime('%Y-%m', created_at) as period,
              SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
-             SUM(CASE WHEN event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls
+             SUM(CASE WHEN event_type = 'api_call' AND (
+               json_extract(data, '$.endpoint') LIKE '%/generate%' OR
+               json_extract(data, '$.endpoint') LIKE '%/subscriptions/credits/use%' OR
+               json_extract(data, '$.path') LIKE '%/generate%' OR
+               json_extract(data, '$.path') LIKE '%/subscriptions/credits/use%'
+             ) THEN 1 ELSE 0 END) as api_calls
       FROM analytics
       WHERE created_at >= DATE('now', '-11 months')
       GROUP BY strftime('%Y-%m', created_at)
@@ -112,7 +137,12 @@ export async function getFullAnalyticsStats(db) {
     const yearlyRows = await db.prepare(`
       SELECT strftime('%Y', created_at) as period,
              SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
-             SUM(CASE WHEN event_type LIKE 'api_%' THEN 1 ELSE 0 END) as api_calls
+             SUM(CASE WHEN event_type = 'api_call' AND (
+               json_extract(data, '$.endpoint') LIKE '%/generate%' OR
+               json_extract(data, '$.endpoint') LIKE '%/subscriptions/credits/use%' OR
+               json_extract(data, '$.path') LIKE '%/generate%' OR
+               json_extract(data, '$.path') LIKE '%/subscriptions/credits/use%'
+             ) THEN 1 ELSE 0 END) as api_calls
       FROM analytics
       WHERE created_at >= DATE('now', '-5 years')
       GROUP BY strftime('%Y', created_at)
