@@ -1,12 +1,16 @@
 // API Configuration Constants
-// Default to production worker API if VITE_API_URL is not set during build
-const configuredUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev';
+// Determine API base URL. Prefer explicit VITE_API_URL; when not provided in production
+// use a same-origin relative path (`/api`) so authentication cookies are set on the site's domain.
+const rawConfiguredUrl = import.meta.env.VITE_API_URL || '';
 
-// Ensure API_BASE_URL includes /api suffix for direct fetch calls
-export const API_BASE_URL = configuredUrl.startsWith('http') ? `${configuredUrl}/api` : configuredUrl;
+// If a fully-qualified URL is provided (starts with http), use that and append /api.
+// Otherwise default to same-origin path '/api' which ensures cookies are scoped to the site domain.
+export const API_BASE_URL = rawConfiguredUrl
+  ? (rawConfiguredUrl.startsWith('http') ? `${rawConfiguredUrl.replace(/\/+$/, '')}/api` : rawConfiguredUrl)
+  : '/api';
 
-// Default API URL for fallbacks (used only when absolute URL required)
-export const DEFAULT_API_URL = configuredUrl.startsWith('http') ? `${configuredUrl}/api` : configuredUrl;
+// Keep a DEFAULT_API_URL alias for any absolute-url fallbacks (uses VITE_API_URL when set, otherwise /api)
+export const DEFAULT_API_URL = API_BASE_URL;
 
 // Application Constants
 export const APP_NAME = 'Pawdia AI';
