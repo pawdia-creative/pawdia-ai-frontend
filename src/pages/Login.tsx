@@ -1,17 +1,16 @@
-import { useEffect, useLocation, useNavigate } from 'react';
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/lib/toast';
 import AuthForm from '@/components/AuthForm';
 import { isUserVerified } from '@/lib/dataTransformers';
 
-// Type-safe react-router hooks (workaround for type resolution issues)
-type NavigateFunction = (to: string | number, options?: { replace?: boolean; state?: unknown }) => void;
-type LocationState = { from?: { pathname?: string } };
+// Workaround: cast react-router hooks to any to avoid type resolution issues in this environment
 
 const Login = () => {
   const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = (useNavigate as any)() as (to: string | number, options?: { replace?: boolean; state?: unknown }) => void;
+  const location = (useLocation as any)() as any;
 
   const from: string = (location?.state?.from?.pathname as string) || '/';
 
