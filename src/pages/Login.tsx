@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { toast } from '@/lib/toast';
 import AuthForm from '@/components/AuthForm';
@@ -9,10 +8,17 @@ import { isUserVerified } from '@/lib/dataTransformers';
 
 const Login = () => {
   const { login, isLoading, error, clearError, isAuthenticated, ensureIdle, user, syncVerificationStatus } = useAuth();
-  const navigate = (useNavigate as any)() as (to: string | number, options?: { replace?: boolean; state?: unknown }) => void;
-  const location = (useLocation as any)() as any;
 
-  const from: string = (location?.state?.from?.pathname as string) || '/';
+  // Fallback navigation that uses full-page replace to avoid relying on react-router hooks
+  const doNavigateReplace = (to: string) => {
+    try {
+      window.location.replace(to);
+    } catch (e) {
+      window.location.href = to;
+    }
+  };
+
+  const from: string = '/';
 
   // 如果已经登录且邮箱已验证，重定向到首页或来源页面
   useEffect(() => {
@@ -32,13 +38,13 @@ const Login = () => {
           const mustVerify = localStorage.getItem('must_verify') === '1';
           if (mustVerify) {
             if (import.meta.env.DEV) console.log('[Login] must_verify present, redirecting to verification required page');
-            navigate('/verify-required', { replace: true });
+            doNavigateReplace('/verify-required');
             return;
           }
 
           if (isVerifiedLocal) {
             if (import.meta.env.DEV) console.log('[Login] User authenticated and verified, redirecting to:', from);
-            navigate(from, { replace: true });
+            doNavigateReplace(from);
             return;
           }
 
@@ -51,25 +57,25 @@ const Login = () => {
             } else {
               // If sync failed or user still not verified, force verification flow
               if (import.meta.env.DEV) console.log('[Login] Verification sync failed or user unverified, redirecting to verify-required');
-              navigate('/verify-required', { replace: true });
+              doNavigateReplace('/verify-required');
               return;
             }
           } else {
             // No sync function available, default to forcing verification UI
-            navigate('/verify-required', { replace: true });
+            doNavigateReplace('/verify-required');
             return;
           }
-        } catch (e) {
-          if (import.meta.env.DEV) console.warn('[Login] Error while checking verification state before redirect:', e);
-          navigate('/verify-required', { replace: true });
-        }
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('[Login] Error while checking verification state before redirect:', e);
+        doNavigateReplace('/verify-required');
+      }
       };
 
       // Run and catch any unhandled errors to avoid uncaught promise rejections
       checkAndRedirect().catch((err) => {
         if (import.meta.env.DEV) console.error('[Login] checkAndRedirect uncaught error:', err);
         try {
-          if (typeof navigate === 'function') navigate('/verify-required', { replace: true });
+          doNavigateReplace('/verify-required');
         } catch (e) {
           if (import.meta.env.DEV) console.error('[Login] navigate failed in catch:', e);
         }
@@ -79,7 +85,7 @@ const Login = () => {
     if (ensureIdle) {
       ensureIdle();
     }
-  }, [isAuthenticated, navigate, from, ensureIdle, user, syncVerificationStatus]);
+  }, [isAuthenticated, from, ensureIdle, user, syncVerificationStatus]);
 
   useEffect(() => {
     if (error) {
@@ -104,7 +110,7 @@ const Login = () => {
           // AuthContext.login is responsible for setting must_verify and token storage.
           toast.success('登录成功！请先验证邮箱。');
           // Always route unverified users to the centralized verification-required page.
-          navigate('/verify-required', { replace: true });
+          doNavigateReplace('/verify-required');
           return;
         }
 
@@ -115,7 +121,7 @@ const Login = () => {
         try {
           window.location.replace(from);
         } catch (e) {
-          navigate(from, { replace: true });
+          doNavigateReplace(from);
         }
     } catch (error) {
       if (import.meta.env.DEV) console.error('[Login] Login process failed:', error);
