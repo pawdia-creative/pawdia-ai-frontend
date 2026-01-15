@@ -12,7 +12,7 @@ import {
   MoveHorizontal,
   Wand2 as Wand
 } from "lucide-react";
-import { tokenStorage } from "@/lib/tokenStorage";
+import { apiClient } from '@/lib/apiClient';
 import { stylePrompts, generatePrompt, getStyleConfig } from "@/config/prompts";
 import { generateImage, ImageGenerationRequest } from "@/services/aiApi";
 import { useAuth } from "@/contexts/useAuth";
@@ -51,7 +51,7 @@ interface ArtGenerationProps {
 
 export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGenerationProps) => {
   const { user, isAuthenticated, updateUser } = useAuth();
-  const navigate = useNavigate();
+  const navigate = (useNavigate as any)();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedArt, setGeneratedArt] = useState<string>('');
   const [progress, setProgress] = useState(0);
@@ -587,28 +587,15 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   // Deduct credits
   const deductCredits = async () => {
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-      const response = await fetch(`${apiBaseUrl}/subscriptions/credits/use`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokenStorage.getToken() || ''}`
-        },
-        body: JSON.stringify({ amount: 1 })
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to deduct credits' }));
-        throw new Error(errorData.message || 'Failed to deduct credits');
-      }
-  
-      const result = await response.json();
-      
+      // Use shared apiClient so timeouts, headers and error handling are consistent
+      const resp = await apiClient.post<{ success: boolean; credits: number }>('/subscriptions/credits/use', { amount: 1 }, { timeout: 8000 });
+      const result = resp.data as { success: boolean; credits: number };
+
       // Update local user information
       if (updateUser) {
         updateUser({ ...user, credits: result.credits });
       }
-      
+
       return true;
     } catch (error) {
       if (import.meta.env.DEV) console.error('Credit deduction failed:', error);
@@ -619,31 +606,15 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
   // Refund credits (when generation fails)
   const refundCredits = async () => {
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
       if (import.meta.env.DEV) console.log('Refunding credits due to generation failure...');
-      
-      const response = await fetch(`${apiBaseUrl}/subscriptions/credits/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokenStorage.getToken() || ''}`
-        },
-        body: JSON.stringify({ amount: 1 })
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to refund credits' }));
-        if (import.meta.env.DEV) console.error('Credit refund failed:', errorData);
-        return false;
-      }
-  
-      const result = await response.json();
-      
+      const resp = await apiClient.post<{ success: boolean; credits: number }>('/subscriptions/credits/add', { amount: 1 }, { timeout: 8000 });
+      const result = resp.data as { success: boolean; credits: number };
+
       // Update local user information
       if (updateUser) {
         updateUser({ ...user, credits: result.credits });
       }
-      
+
       if (import.meta.env.DEV) console.log('Credits refunded successfully. New balance:', result.credits);
       return true;
     } catch (error) {
@@ -685,6 +656,14 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
     let progressInterval: ReturnType<typeof setInterval> | null = null;
   
     try {
+      // Quick API health check to avoid deducting credits when backend is unreachable
+      try {
+        await apiClient.get('/health', { timeout: 3000 });
+      } catch (healthErr) {
+        if (import.meta.env.DEV) console.error('API health check failed:', healthErr);
+        throw new Error('Backend unreachable. Please try again later.');
+      }
+
       // Deduct credits first
       await deductCredits();
       creditsDeducted = true;
@@ -865,7 +844,7 @@ export const ArtGeneration = ({ image, styleId, onArtGenerated, onBack }: ArtGen
       if (progressInterval) clearInterval(progressInterval);
       
       // Detect provider quota error (from ApiError.body.raw.error or message)
-      const apiErr = err as { body?: { raw?: { error?: string }; message?: string }; message?: string };
+      const apiErr = err as any;
       const providerQuotaError =
         (apiErr && apiErr.status === 403 && apiErr.body && apiErr.body.raw && apiErr.body.raw.error && apiErr.body.raw.error.code === 'insufficient_user_quota') ||
         (apiErr && typeof apiErr.message === 'string' && apiErr.message.toLowerCase().includes('quota'));
