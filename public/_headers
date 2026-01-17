@@ -1,0 +1,27 @@
+/* 
+  Set cache-control headers:
+  - Index (HTML) should be no-cache so browsers fetch updated HTML that references current hashed assets.
+  - Static assets (js/css/images) can be cached long-term.
+*/
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+

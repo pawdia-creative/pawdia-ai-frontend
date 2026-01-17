@@ -124,26 +124,21 @@ export const Hero = () => {
   }, []);
   const sectionStyle = bgImageData
     ? {
-        // Put the image first so it displays above the gradient layer (gradient remains visible via transparency)
-        backgroundImage: `url(${bgImageData.src}), var(--gradient-hero)`,
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.72), rgba(255,255,255,0.72)), url(${bgImageData.src})`,
         backgroundSize: 'cover, cover',
         backgroundPosition: 'center, center',
       }
-    : undefined;
+    : {
+        backgroundImage: 'var(--gradient-hero)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
 
   return (
     <section
       className="relative min-h-[90vh] flex items-center justify-center overflow-hidden"
       style={sectionStyle}
     >
-      {/* White translucent overlay to improve text contrast */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
-        style={{ backgroundColor: 'rgba(255,255,255,0.72)', zIndex: 5 }}
-      />
-      {/* Background handled via section inline style (gradient + image) */}
-      
       {/* Content */}
       <div className="relative z-30 container mx-auto px-4 py-20 text-center">
         {/* User credit display and recharge button */}

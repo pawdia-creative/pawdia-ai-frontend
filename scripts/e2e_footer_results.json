@@ -1,0 +1,227 @@
+[
+  {
+    "type": "naverror",
+    "path": "/about",
+    "error": "footer link not found"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623482163&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AEAAAAQ&_s=2&tag_exp=103116026~103200004~104527906~104528500~104684208~104684211~105391253~115616985~115938466~115938469~116682876~117041587&sid=1768623483&sct=1&seg=0&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&en=scroll&epn.percent_scrolled=90&_et=11&tfd=3764",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/sw.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623482163&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_s=1&tag_exp=103116026~103200004~104527906~104528500~104684208~104684211~105391253~115616985~115938466~115938469~116682876~117041587&sid=1768623483&sct=1&seg=0&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=2829",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/assets/logo-CqB2deED.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai-api.pawdia-creative.workers.dev/api/analytics/page-view",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/api/auth/me",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "naverror",
+    "path": "/examples",
+    "error": "footer link not found"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623484812&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=1&tag_exp=103116026~103200004~104527906~104528501~104684208~104684211~105391252~115495940~115938466~115938469~115985661~116744866~117041588&sid=1768623483&sct=1&seg=1&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&en=page_view&_ee=1&tfd=1180",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/assets/logo-AXqBwR7G.webp",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai-api.pawdia-creative.workers.dev/api/analytics/page-view",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/assets/structuredDataGenerators-8oGikwsN.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/sw.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/assets/Index-DIEjAOml.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "naverror",
+    "path": "/pricing",
+    "error": "footer link not found"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623485306&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&tag_exp=103116026~103200004~104527906~104528501~104684208~104684211~105391252~115616986~115938465~115938469~116682877~117025848~117041587&sid=1768623483&sct=1&seg=1&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&_s=1&tfd=1933",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/assets/structuredDataGenerators-8oGikwsN.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/assets/Index-DIEjAOml.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "naverror",
+    "path": "/blog",
+    "error": "footer link not found"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623486787&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~105391252~115938466~115938468~115985660~117041588&sid=1768623483&sct=1&seg=1&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&_s=1&tfd=3439",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "naverror",
+    "path": "/contact",
+    "error": "footer link not found"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai-api.pawdia-creative.workers.dev/api/analytics/page-view",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/sw.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/cdn-cgi/rum?",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/api/auth/me",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623489303&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=1&tag_exp=103116026~103200004~104527906~104528500~104684208~104684211~105391252~115495939~115938465~115938469~115985661~117041587&sid=1768623483&sct=1&seg=1&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&en=page_view&_ee=1&tfd=2521",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "console",
+    "text": "Service worker registration failed TypeError: Failed to fetch\n    at t (https://pawdia-ai.com/assets/index-CiDW4z5x.js:3:46251)\n    at window.requestIdleCallback.timeout (https://pawdia-ai.com/assets/index-CiDW4z5x.js:3:46726)"
+  },
+  {
+    "type": "naverror",
+    "path": "/privacy",
+    "error": "footer link not found"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai-api.pawdia-creative.workers.dev/api/analytics/page-view",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/sw.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/api/auth/me",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623489345&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=1&tag_exp=103116026~103200004~104527907~104528501~104684208~104684211~105391253~115938466~115938468~115985661~117041587&sid=1768623483&sct=1&seg=1&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&en=page_view&_ee=1&tfd=30",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "console",
+    "text": "Service worker registration failed TypeError: Failed to fetch\n    at t (https://pawdia-ai.com/assets/index-CiDW4z5x.js:3:46251)\n    at window.requestIdleCallback.timeout (https://pawdia-ai.com/assets/index-CiDW4z5x.js:3:46726)"
+  },
+  {
+    "type": "naverror",
+    "path": "/terms",
+    "error": "footer link not found"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/sw.js",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://pawdia-ai.com/api/auth/me",
+    "failure": "net::ERR_ABORTED"
+  },
+  {
+    "type": "requestfailed",
+    "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-BBMLQZNC80&gtm=45je61e1v9238523182za200zd9238523182&_p=1768623489370&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=617681963.1768623484&ul=en-us&sr=1280x800&uaa=x86&uab=64&uafvl=HeadlessChrome%3B143.0.7499.4%7CChromium%3B143.0.7499.4%7CNot%2520A(Brand%3B24.0.0.0&uamb=0&uam=&uap=macOS&uapv=10_15_7&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~105391252~115495940~115938465~115938469~117041588&sid=1768623483&sct=1&seg=1&dl=https%3A%2F%2Fpawdia-ai.com%2F&dt=Pawdia%20AI%20-%20Transform%20Your%20Pet%20Into%20Art&_s=1&tfd=1056",
+    "failure": "net::ERR_ABORTED"
+  }
+]

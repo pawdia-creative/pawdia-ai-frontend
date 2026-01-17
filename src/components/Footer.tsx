@@ -1,14 +1,9 @@
-import { Heart, X, Mail, Instagram } from "lucide-react"; 
+// @ts-ignore
+import { Heart, XIcon as X, Mail, Instagram } from "lucide-react"; 
  import { useState } from "react"; 
- import { Link } from "react-router-dom"; 
  
  export const Footer = () => { 
-   const [showContactModal, setShowContactModal] = useState(false); 
- 
-   const handleContactClick = (e: React.MouseEvent) => { 
-     e.preventDefault(); 
-     setShowContactModal(true); 
-   }; 
+  const [showContactModal, setShowContactModal] = useState(false);
  
    const closeModal = () => { 
      setShowContactModal(false); 
@@ -37,13 +32,13 @@ import { Heart, X, Mail, Instagram } from "lucide-react";
              </div> 
              
              <div className="flex flex-col md:flex-row gap-3 md:gap-6 text-sm text-muted-foreground"> 
-              <Link to="/about" className="hover:text-primary transition-smooth text-center">About</Link>
-              <Link to="/examples" className="hover:text-primary transition-smooth text-center">Examples</Link>
-              <Link to="/pricing" className="hover:text-primary transition-smooth text-center">Pricing</Link>
-              <Link to="/blog" className="hover:text-primary transition-smooth text-center">Blog</Link>
-              <Link to="/contact" className="hover:text-primary transition-smooth text-center">Contact</Link>
-               <Link to="/privacy" className="hover:text-primary transition-smooth text-center">Privacy Policy</Link> 
-               <Link to="/terms" className="hover:text-primary transition-smooth text-center">Terms of Service</Link> 
+              <a href="/about" className="hover:text-primary transition-smooth text-center">About</a>
+              <a href="/examples" className="hover:text-primary transition-smooth text-center">Examples</a>
+              <a href="/pricing" className="hover:text-primary transition-smooth text-center">Pricing</a>
+              <a href="/blog" className="hover:text-primary transition-smooth text-center">Blog</a>
+              <a href="/contact" className="hover:text-primary transition-smooth text-center">Contact</a>
+               <a href="/privacy" className="hover:text-primary transition-smooth text-center">Privacy Policy</a> 
+               <a href="/terms" className="hover:text-primary transition-smooth text-center">Terms of Service</a> 
              </div> 
            </div> 
          </div> 

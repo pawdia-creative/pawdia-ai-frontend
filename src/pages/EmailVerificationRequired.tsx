@@ -57,7 +57,7 @@ const EmailVerificationRequired: React.FC = () => {
 
       if (respMsg.includes('Verification email sent') || apiResp.status === 200) {
         setEmailSent(true);
-        toast('验证邮件已重新发送，请检查您的邮箱');
+        toast.success('Verification email resent — please check your inbox');
       } else {
         if (import.meta.env.DEV) console.warn('[EmailVerificationRequired] resend-verification response:', apiResp);
         throw new Error(respMsg || '发送失败');
@@ -67,7 +67,7 @@ const EmailVerificationRequired: React.FC = () => {
       setTimeout(() => setEmailSent(false), 5000);
     } catch (error: unknown) {
       console.error('Resend email error:', error);
-      const errorMessage = error instanceof Error ? error.message : '重新发送验证邮件失败，请稍后重试';
+        const errorMessage = error instanceof Error ? error.message : 'Failed to resend verification email. Please try again later.';
       toast.error(errorMessage);
     } finally {
       setIsResending(false);
@@ -140,17 +140,17 @@ const EmailVerificationRequired: React.FC = () => {
                   const synced = await syncVerificationStatus();
                   if (synced) {
                     // Server confirmed verification and safeAuthSuccess cleared must_verify
-                    toast('验证成功，跳转到首页');
+                    toast.success('Verification successful — redirecting to home');
                     navigate('/', { replace: true });
                     return;
                   } else {
-                    toast.error('无法同步验证状态，请重新登录');
+                    toast.error('Unable to sync verification status, please log in again');
                     logout();
                     navigate('/login');
                   }
                 } catch (err) {
                   if (import.meta.env.DEV) console.error('Sync verification error:', err);
-                  toast.error('网络错误，请稍后重试');
+                  toast.error('Network error, please try again later');
                 }
               }}
               variant="outline"

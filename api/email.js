@@ -91,6 +91,11 @@ export async function sendViaSendGrid(env, toEmail, toName, subject, html) {
 // Send verification email
 export async function sendVerificationEmail(env, toEmail, toName, verificationToken) {
   const subject = 'Verify your Pawdia AI account';
+  const ttl = (() => {
+    const raw = env.VERIFICATION_TOKEN_TTL_MINUTES || env.VERIFICATION_TTL_MINUTES || '10';
+    const parsed = parseInt(String(raw), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+  })();
   const verificationUrl = `${env.FRONTEND_URL || 'https://pawdia-ai-frontend.pages.dev'}/verify?token=${verificationToken}`;
 
   const html = `
@@ -103,7 +108,7 @@ export async function sendVerificationEmail(env, toEmail, toName, verificationTo
       </div>
       <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
       <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-      <p>This verification link will expire in 24 hours.</p>
+      <p>This verification link will expire in ${ttl} minute${ttl === 1 ? '' : 's'}.</p>
       <p>If you didn't create an account, please ignore this email.</p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
       <p style="color: #666; font-size: 12px;">This email was sent by Pawdia AI. If you have any questions, please contact our support team.</p>

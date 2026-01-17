@@ -108,14 +108,14 @@ const Login = () => {
 
         if (!isVerified && !isAdmin) {
           // AuthContext.login is responsible for setting must_verify and token storage.
-          toast.success('登录成功！请先验证邮箱。');
+          toast.success('Login successful — please verify your email.');
           // Always route unverified users to the centralized verification-required page.
           doNavigateReplace('/verify-required');
           return;
         }
 
       // Verified users allowed through
-        toast.success('登录成功！');
+        toast.success('Login successful!');
       if (import.meta.env.DEV) console.log('[Login] User verified, redirecting to:', from);
         // Force a full navigation to ensure fresh state and avoid race conditions
         try {

@@ -3,12 +3,12 @@ import { StructuredData } from "@/components/SEO/StructuredData";
 import { generateOrganizationSchema } from "@/components/SEO/structuredDataGenerators";
 import { SEO_CONFIG, BASE_URL } from "@/config/seo";
 import { Footer } from "@/components/Footer";
-import { Mail, Instagram, MessageCircle, Clock } from "lucide-react";
-import React, { useState } from "react";
+import { Mail } from "lucide-react";
+// No explicit React imports needed with the new JSX transform; keep file clean.
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const Contact = () => {
   const seo = SEO_CONFIG['/contact'];
@@ -31,8 +31,8 @@ const Contact = () => {
       <MetaTags
         title={seo.title}
         description={seo.description}
-        keywords={seo.keywords}
-        ogImage={seo.ogImage}
+        keywords={seo.keywords || ''}
+        ogImage={seo.ogImage || ''}
       />
       <StructuredData data={orgSchema} type="Organization" />
       <div className="min-h-screen bg-background">
@@ -70,7 +70,8 @@ const Contact = () => {
                       return;
                     }
                     try {
-                      const apiUrl = '/api/contact';
+                      const apiBase = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api-production.pawdia-creative.workers.dev/api';
+                      const apiUrl = `${apiBase.replace(/\/$/, '')}/contact`;
                       const resp = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -101,7 +102,7 @@ const Contact = () => {
               <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-6 border border-pink-200">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-3 rounded-full">
-                    <Instagram className="w-6 h-6 text-white" />
+                    <Mail className="w-6 h-6 text-white" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold">Instagram</h3>
@@ -137,8 +138,8 @@ const Contact = () => {
               </div>
             </div>
             <div className="bg-muted rounded-lg p-6 mb-12">
-              <div className="flex items-center gap-3 mb-4">
-                <Clock className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-3 mb-4">
+                <Mail className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-semibold">Response Time</h3>
               </div>
               <p className="text-muted-foreground">

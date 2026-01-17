@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
@@ -7,8 +7,47 @@ import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
 import { Users, BarChart3, Mail } from 'lucide-react';
 
-// Lazy load AnalyticsDashboard to reduce initial bundle size
-const AnalyticsDashboard = React.lazy(() => import('@/components/admin/AnalyticsDashboard'));
+// Import a synchronous fallback for cases where dynamic import fails (e.g. CDN/module rewrite issues)
+import AnalyticsDashboardSync from '@/components/admin/AnalyticsDashboard';
+
+// Lazy loader with robust fallback: attempt dynamic import, if it fails render synchronous fallback
+const LazyAnalyticsLoader: React.FC<{ activeTab: string }> = ({ activeTab }) => {
+  const [Loaded, setLoaded] = React.useState<React.ComponentType<any> | null>(null);
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    import('@/components/admin/AnalyticsDashboard')
+      .then((m) => {
+        if (!mounted) return;
+        setLoaded(() => m.default);
+      })
+      .catch((err) => {
+        console.warn('Dynamic import of AnalyticsDashboard failed, falling back to synchronous build:', err);
+        setFailed(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (failed) {
+    return <AnalyticsDashboardSync activeTab={activeTab} />;
+  }
+
+  if (Loaded) {
+    const Comp = Loaded;
+    return <Comp activeTab={activeTab} />;
+  }
+
+  // Loading state while dynamic import resolves
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <span className="ml-2">Loading analytics...</span>
+    </div>
+  );
+};
 
 interface User {
   id: string;
@@ -153,14 +192,7 @@ const AdminDashboard = React.memo(() => {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <Suspense fallback={
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2">Loading analytics...</span>
-            </div>
-          }>
-          <AnalyticsDashboard activeTab={activeTab} />
-          </Suspense>
+          <LazyAnalyticsLoader activeTab={activeTab} />
         </TabsContent>
 
         <TabsContent value="emails">

@@ -46,12 +46,12 @@ export const stylePrompts: StylePrompt[] = [
     name: "Watercolor",
     description: "Soft brushstrokes and dreamy gradients",
     promptTemplate:
-      "Transform this pet photo into a highly visible watercolor painting with pronounced wet‑on‑wet blooms and dynamic edge effects, while preserving the original composition and pose. " +
-      "Hard constraints: do NOT rotate or flip; maintain the pet's anatomy, markings, expression and relative placement. " +
-      "Rendering instructions (make watercolor style strong): amplify edge bleeds, pigment granulation, high-flow water diffusion, softened highlights and layered translucent glazes. Add pronounced paper texture, visible water marks and organic color runs. " +
-      "Keep background simplified but with strong watercolor washes that echo the original scene's shapes and light direction.",
+      // User-provided watercolor prompt (preserve original composition / pose)
+      "Transform this {pet_type} photo into a beautiful watercolor style. Important: The original pet's breed, posture, expression, and all characteristics must be completely preserved. The pet's appearance must not be altered; only the style must be changed to watercolor. " +
+      "Strict requirements: A soft watercolor wash effect must be used. Colors must be transparent and layered, edges must be naturally blurred, and the unique fluidity and wetness of watercolor must be retained. The color tone must be fresh and elegant (saturation controlled between 60-80%). " +
+      "The background must use a gradient watercolor effect; heavy brushstrokes are prohibited. The overall style must present an artistic and refreshing watercolor aesthetic. Style references: Impressionist watercolor, Japanese watercolor illustration.",
     negativePrompt:
-      "blurry, low quality, rotated, flipped, different pose, different pet, different animal, different background, cartoon, anime, oil painting, heavy impasto, hard digital edges, photorealistic rendering, distorted anatomy",
+      "blurry, low quality, rotated, flipped, different pose, different pet, different animal, different background, cartoon, anime, oil painting, heavy impasto, heavy brushstrokes, hard digital edges, photorealistic rendering, distorted anatomy, oversaturated, neon colors, gritty texture",
     parameters: {
       steps: 30,
       cfgScale: 8.0,
@@ -65,11 +65,13 @@ export const stylePrompts: StylePrompt[] = [
     name: "Urban Comic",
     description: "Rockstar's cover-art aesthetic with bold outlines",
     promptTemplate:
-      "Convert this pet photo into a bold pop/urban comic poster with very pronounced stylistic features, while keeping the original pose and composition intact. " +
-      "Hard constraints: maintain pet anatomy, markings and pose exactly; do NOT rotate or flip. " +
-      "Rendering instructions (GTA / Rockstar cover art comic style - STRONGER EDGES & PRINT EFFECTS): convert to cel‑shaded poster art with very thick inked outlines, heavy contour inking, and exaggerated rim and rim‑lighting. Use posterized flat color layers with strong local color blocking and selective posterization on midtones. Add pronounced halftone screen printing effects (large halftone dots in shadows, fine halftone in midtones), coarse film/grain texture, and subtle scuffed paper or screen-printed edge artifacts. Emphasize bold contrast, saturated neon accents, and gritty urban grunge overlays (wall stains, spray paint speckles, subtle dust). Introduce stencil‑like shadows, edge posterization, and CMYK‑style separation hints for a printed‑poster look. Add graphic background elements (city skyline silhouettes, street signage, diagonal graphic lines) and controlled noise/grunge overlays so the image unmistakably reads as a gritty, high‑impact GTA cover poster. Prioritize chunky shapes, high edge clarity, visible halftone/print patterns, and strong silhouette contrast while preserving the original pose and anatomy.",
+      "Convert this {pet_type} photo into a GTA-style illustration inspired by Rockstar’s cover-art aesthetic, but WITHOUT any GTA text or typography. " +
+      "Strict requirement: Preserve the pet’s original proportions, eye size, breed features, markings, posture, and expression exactly as in the photo. Do NOT alter the anatomy or enlarge the eyes. " +
+      "Rendering instructions: Use bold black outlines (3–5 px), high-contrast cel shading, graphic color blocks, and sharp, stylized lighting. Colors must be vibrant and saturated, with crisp highlights and dramatic shadow shapes typical of GTA cover art. " +
+      "Background instructions: Feature stylized palm trees, a warm sunset vibe, and simplified blocky shapes or gradient panels — but no logos, no text, no game titles. Keep the background graphic and poster-like, with clean shapes and vivid tropical colors. " +
+      "Overall style should feel like a high-contrast GTA cover illustration blended with a California/Miami palm-tree aesthetic, without any official branding or text.",
     negativePrompt:
-      "blurry, low quality, rotated, flipped, different pose, different animal, watercolor, oil painting, photorealistic rendering, soft gradients, subtle filter, pastel, minimal change, text logos overlay, misaligned features, low contrast, childlike cartoon",
+      "logos, text, game titles, trademarks, blurry, low quality, rotated, flipped, different pose, different animal, watercolor, oil painting, photorealistic rendering, soft gradients, subtle filter, pastel, misaligned features, distorted anatomy, excessive grain, neon artifacts",
     parameters: {
       steps: 38,
       cfgScale: 10.0,

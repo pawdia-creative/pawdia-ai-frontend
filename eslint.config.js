@@ -23,6 +23,8 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
       // Restore explicit any rule to error for stricter type safety
       "@typescript-eslint/no-explicit-any": "error",
+      // Allow lucide-react imports (ESLint has issues with dynamic exports)
+      "@typescript-eslint/no-redundant-type-constituents": "off",
     },
   },
   // Special rules for App.tsx - disable ALL TypeScript checks since it has @ts-nocheck

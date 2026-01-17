@@ -1,5 +1,7 @@
 # Ensure sw.js and static assets are served as-is (avoid SPA fallback)
 /sw.js    /sw.js    200
+/favicon.ico  /favicon.ico  200
+/favicon.svg  /favicon.svg  200
 /assets/*  /assets/:splat  200
 /examples/*  /examples/:splat  200
 /*.js  /*.js  200

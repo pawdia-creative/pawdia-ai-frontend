@@ -70,9 +70,22 @@ export async function getFullAnalyticsStats(db) {
     const topUsers = [];
     for (const r of (topUsersRows.results || [])) {
       const u = await db.prepare('SELECT id, name, email, credits FROM users WHERE id = ?').bind(r.user_id).first();
+      // Fallback: prefer real name; if missing use local-part of email; finally fall back to id
+      let resolvedName = null;
+      if (u?.name) resolvedName = u.name;
+      else if (u?.email) {
+        try {
+          resolvedName = String(u.email).split('@')[0];
+        } catch (e) {
+          resolvedName = u.email;
+        }
+      } else {
+        resolvedName = u?.id || r.user_id;
+      }
+
       topUsers.push({
         id: u?.id || r.user_id,
-        name: u?.name || null,
+        name: resolvedName,
         email: u?.email || null,
         credits: u?.credits || 0,
         user_id: r.user_id,
@@ -263,17 +276,26 @@ export async function setVerificationToken(db, userId, token, expiresAt) {
 // Verify user using token: mark is_verified = true and clear token fields
 export async function verifyUserByToken(db, token) {
   try {
-    const now = new Date().toISOString();
-    // Check token and expiry
-    const row = await db.prepare('SELECT id, verification_expires FROM users WHERE verification_token = ?').bind(token).first();
+    // Check token and expiry and current verification state
+    const row = await db.prepare('SELECT id, verification_expires, is_verified FROM users WHERE verification_token = ?').bind(token).first();
     if (!row) return { success: false, reason: 'not_found' };
+
+    // If already verified, return success (idempotent)
+    if (row.is_verified === 1) {
+      const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(row.id).first();
+      return { success: true, user };
+    }
+
     if (row.verification_expires && new Date(row.verification_expires) < new Date()) {
       return { success: false, reason: 'expired' };
     }
+
+    // Mark user as verified but keep the token/expiry intact so the link remains usable
     const result = await db.prepare(
-      'UPDATE users SET is_verified = 1, verification_token = NULL, verification_expires = NULL, updated_at = CURRENT_TIMESTAMP WHERE verification_token = ?'
+      'UPDATE users SET is_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE verification_token = ?'
     ).bind(token).run();
     if (result.success !== true) return { success: false, reason: 'error' };
+
     // Fetch the updated user
     const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(row.id).first();
     return { success: true, user };

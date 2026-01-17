@@ -382,9 +382,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
               />
             </div>
             <div className="flex items-center gap-4 ml-4">
-              {/* 每页显示数量选择 */}
+              {/* Items per-page selection */}
               <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground">每页显示:</label>
+                <label className="text-sm text-muted-foreground">Items per page:</label>
                 <select
                   value={perPage}
                   onChange={(e) => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
@@ -397,13 +397,13 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 </select>
               </div>
 
-              {/* 分页信息 */}
+              {/* Pagination info */}
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span>
-                  显示 {(page - 1) * perPage + 1}-{Math.min(page * perPage, total)} / 共 {total} 个用户
+                  Showing {(page - 1) * perPage + 1}-{Math.min(page * perPage, total)} of {total} users
                 </span>
                 <span>
-                  第 {page} / {Math.max(1, Math.ceil(total / perPage))} 页
+                  Page {page} of {Math.max(1, Math.ceil(total / perPage))}
                 </span>
               </div>
 
@@ -414,12 +414,12 @@ const UserManagement: React.FC<UserManagementProps> = ({
                   onClick={() => onPageChange(Math.max(1, page - 1))}
                   disabled={page <= 1}
                 >
-                  上一页
+                  Previous
                 </button>
 
                 {/* 页码跳转输入框 */}
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-muted-foreground">跳转到:</span>
+                  <span className="text-sm text-muted-foreground">Go to:</span>
                   <input
                     type="number"
                     min="1"
@@ -443,7 +443,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       }
                     }}
                   />
-                  <span className="text-sm text-muted-foreground">页</span>
+                  <span className="text-sm text-muted-foreground">page</span>
                 </div>
 
                 <button
@@ -451,7 +451,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                   onClick={() => onPageChange(page + 1)}
                   disabled={page >= Math.max(1, Math.ceil(total / perPage))}
                 >
-                  下一页
+                  Next
                 </button>
               </div>
             </div>
@@ -682,7 +682,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="plan">套餐</Label>
+                <Label htmlFor="plan">Plan</Label>
                 <select
                   id="plan"
                   name="plan"

@@ -145,6 +145,12 @@ export default {
       globalThis.__schemaEnsured = true;
     }
     const isDev = ((env.ENVIRONMENT || '').toLowerCase() === 'development' || (env.NODE_ENV || '').toLowerCase() === 'development');
+    // Verification TTL in minutes (default 10). Prefer explicit VERIFICATION_TOKEN_TTL_MINUTES, fall back to VERIFICATION_TTL_MINUTES for compatibility.
+    const verificationTtlMinutes = (function() {
+      const raw = env.VERIFICATION_TOKEN_TTL_MINUTES || env.VERIFICATION_TTL_MINUTES || '10';
+      const parsed = parseInt(String(raw), 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+    })();
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: makeCorsHeaders(request.headers.get('origin'), env), status: 204 });
@@ -626,7 +632,8 @@ export default {
         let verificationToken = null;
         try {
           verificationToken = crypto.randomUUID();
-          const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+          // Token TTL: configurable via VERIFICATION_TOKEN_TTL_MINUTES (minutes)
+          const expiresAt = new Date(Date.now() + verificationTtlMinutes * 60 * 1000).toISOString();
           await env.DB.prepare('UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?').bind(verificationToken, expiresAt, user.id).run();
         } catch (e) {
           console.warn('Failed to set verification token via DB update (continuing):', e);
@@ -701,7 +708,8 @@ export default {
         let emailError = null;
         try {
           const token = crypto.randomUUID();
-          const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+          // Token TTL: configurable via VERIFICATION_TOKEN_TTL_MINUTES (minutes)
+          const expiresAt = new Date(Date.now() + verificationTtlMinutes * 60 * 1000).toISOString();
           try {
             await env.DB.prepare('UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?').bind(token, expiresAt, userId).run();
           } catch (e) {
@@ -773,6 +781,12 @@ export default {
         }
         const result = await verifyUserByToken(env.DB, token);
         if (result.success) {
+          // Log verification success (non-blocking)
+          try {
+            logAnalyticsEvent(env.DB, 'verification_success', result.user.id, { email: result.user.email }, request).catch(err => console.warn('Failed to log verification_success:', err));
+          } catch (e) {
+            console.warn('verification_success logging error:', e);
+          }
           // Return updated user info for frontend to refresh state
           const user = result.user;
           return new Response(JSON.stringify({
@@ -1905,6 +1919,71 @@ export default {
 
 
     // 404 handler
+    // Contact form endpoint - accepts { name, email, phone, message } and forwards to support email
+    if (url.pathname === '/api/contact' && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const name = body.name || '';
+        const emailAddr = body.email || '';
+        const phone = body.phone || '';
+        const messageText = body.message || '';
+
+        if (!emailAddr || !messageText) {
+          return new Response(JSON.stringify({ message: 'Missing required fields' }), { status: 400, headers: corsHeaders });
+        }
+
+        const supportEmail = env.SUPPORT_EMAIL || 'pawdia.creative@gmail.com';
+
+        // Minimal HTML sanitize
+        const sanitize = (s) => String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const subject = `Contact form submission from ${sanitize(name) || sanitize(emailAddr)}`;
+        const html = `
+          <div>
+            <h3>New contact form submission</h3>
+            <p><strong>Name:</strong> ${sanitize(name)}</p>
+            <p><strong>Email:</strong> ${sanitize(emailAddr)}</p>
+            <p><strong>Phone:</strong> ${sanitize(phone)}</p>
+            <p><strong>Message:</strong></p>
+            <p>${sanitize(messageText).replace(/\n/g, '<br/>')}</p>
+          </div>
+        `;
+
+        // Try primary provider (Resend) then fallback to SendGrid
+        let sendResult = { sent: false, error: 'unknown' };
+        try {
+          sendResult = await sendViaResend(env, supportEmail, name || emailAddr, subject, html);
+        } catch (e) {
+          console.warn('sendViaResend failed for contact form:', e);
+          sendResult = { sent: false, error: String(e) };
+        }
+        if (!sendResult.sent) {
+          try {
+            sendResult = await sendViaSendGrid(env, supportEmail, name || emailAddr, subject, html);
+          } catch (e) {
+            console.error('sendViaSendGrid fallback failed for contact form:', e);
+            sendResult = { sent: false, error: String(e) };
+          }
+        }
+
+        if (!sendResult.sent) {
+          return new Response(JSON.stringify({ message: 'Failed to send message', error: sendResult.error }), { status: 500, headers: corsHeaders });
+        }
+
+        // Log analytics event (non-blocking)
+        try {
+          logAnalyticsEvent(env.DB, 'contact_submitted', null, { name, email: emailAddr, phone }, request).catch(() => {});
+        } catch (e) {
+          // ignore
+        }
+
+        return new Response(JSON.stringify({ message: 'Message sent' }), { status: 200, headers: corsHeaders });
+      } catch (err) {
+        console.error('Contact endpoint error:', err);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     return new Response(JSON.stringify({
       error: 'Not Found',
       message: 'The requested endpoint does not exist',

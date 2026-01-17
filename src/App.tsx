@@ -26,7 +26,7 @@ const BaseRoute = React.lazy(() => import("@/components/BaseRoute"));
 const Index = React.lazy(() => import("@/pages/Index"));
 const ArtCreation = React.lazy(() => import("@/pages/ArtCreation").then(module => ({ default: module.ArtCreation })));
 const Login = React.lazy(() => import("@/pages/Login"));
-const Register = React.lazy(() => import("@/pages/Register"));
+import Register from "@/pages/Register"; // register page used synchronously to avoid dynamic import failures
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const Subscription = React.lazy(() => import("@/pages/Subscription"));
 const AdminDashboard = React.lazy(() => import("@/pages/AdminDashboard"));

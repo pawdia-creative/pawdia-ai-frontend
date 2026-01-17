@@ -25,3 +25,6 @@ FRONTEND_URL = "https://pawdia-ai-frontend.pages.dev"
 PAYPAL_MODE = "live"  # Use "sandbox" for testing, "live" for production
 
 # JWT configuration (REQUIRED for authentication) - Set via wrangler secret put JWT_SECRET
+
+# Verification token TTL (minutes). Can be overridden in Cloudflare environment variables.
+VERIFICATION_TOKEN_TTL_MINUTES = "10"

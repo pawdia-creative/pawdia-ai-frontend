@@ -98,6 +98,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Analytics data received:', data.topUsers); // Debug log
         setAnalytics(data);
       } else {
         toast.error('Failed to fetch analytics data');
@@ -129,14 +130,14 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">API Calls</CardTitle>
+            <CardTitle className="text-sm font-medium">AI Generations</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {analyticsLoading ? 'Loading...' : (analytics?.totalApiCalls || 0).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Total API requests</p>
+            <p className="text-xs text-muted-foreground">Image generation requests</p>
           </CardContent>
         </Card>
 
@@ -229,7 +230,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
       <Card>
         <CardHeader>
           <CardTitle>Top Active Users</CardTitle>
-          <CardDescription>Top 20 users by activity</CardDescription>
+          <CardDescription>Top 20 users by total activity (page views + API calls)</CardDescription>
         </CardHeader>
         <CardContent>
           {analyticsLoading ? (
@@ -238,21 +239,30 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User ID</TableHead>
+                  <TableHead>User</TableHead>
                   <TableHead>Total Activity</TableHead>
                   <TableHead>Page Views</TableHead>
-                  <TableHead>AI Calls</TableHead>
+                  <TableHead>AI Generations</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {analytics.topUsers.map((user: TopUserStat, index: number) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-mono text-sm">{user.user_id}</TableCell>
-                    <TableCell>{user.total_events}</TableCell>
-                    <TableCell>{user.page_views}</TableCell>
-                    <TableCell>{user.api_calls}</TableCell>
-                  </TableRow>
-                ))}
+                {analytics.topUsers.map((user: TopUserStat, index: number) => {
+                  const displayName = user.name || user.email || user.user_id || user.id || 'Unknown User';
+                  const secondary = (user.email && user.email !== displayName) ? user.email : (user.user_id && user.user_id !== displayName ? user.user_id : '');
+                  return (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{displayName}</span>
+                          {secondary ? <span className="text-xs text-muted-foreground font-mono">{secondary}</span> : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.total_events}</TableCell>
+                      <TableCell>{user.page_views}</TableCell>
+                      <TableCell>{user.api_calls}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (
@@ -266,7 +276,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
         <Card>
           <CardHeader>
             <CardTitle>Daily Stats (last 30 days)</CardTitle>
-            <CardDescription>Daily page views and AI generation calls</CardDescription>
+            <CardDescription>Daily page views and AI image generations</CardDescription>
           </CardHeader>
           <CardContent>
             {analyticsLoading ? (
@@ -277,7 +287,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Page Views</TableHead>
-                    <TableHead>AI Calls</TableHead>
+                    <TableHead>AI Generations</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -299,7 +309,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
         <Card>
           <CardHeader>
             <CardTitle>Monthly Stats (last 12 months)</CardTitle>
-            <CardDescription>Monthly page views and AI generation calls</CardDescription>
+            <CardDescription>Monthly page views and AI image generations</CardDescription>
           </CardHeader>
           <CardContent>
             {analyticsLoading ? (
@@ -310,7 +320,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   <TableRow>
                     <TableHead>Month</TableHead>
                     <TableHead>Page Views</TableHead>
-                    <TableHead>AI Calls</TableHead>
+                    <TableHead>AI Generations</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -332,7 +342,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
         <Card>
           <CardHeader>
             <CardTitle>Yearly Stats (last 5 years)</CardTitle>
-            <CardDescription>Yearly page views and AI generation calls</CardDescription>
+            <CardDescription>Yearly page views and AI image generations</CardDescription>
           </CardHeader>
           <CardContent>
             {analyticsLoading ? (
@@ -343,7 +353,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   <TableRow>
                     <TableHead>Year</TableHead>
                     <TableHead>Page Views</TableHead>
-                    <TableHead>AI Calls</TableHead>
+                    <TableHead>AI Generations</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -366,7 +376,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
       {/* Daily / Monthly / Yearly Statistics - Line Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Trends: Page Views & AI Calls</CardTitle>
+          <CardTitle>Trends: Page Views & AI Generations</CardTitle>
           <CardDescription>View trends over daily / monthly / yearly timeframes</CardDescription>
         </CardHeader>
         <CardContent>
@@ -381,18 +391,18 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   <ChartContainer
                     config={{
                       page_views: { label: 'Page Views', color: 'hsl(25 95% 53%)' },
-                      api_calls: { label: 'AI Calls', color: 'hsl(270 60% 35%)' },
+                      api_calls: { label: 'AI Generations', color: 'hsl(270 60% 35%)' },
                     }}
                     className="h-64"
                   >
-                    {React.createElement(LineChartTyped, { data: analytics.dailyStats },
-                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" }),
-                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } }),
-                      React.createElement(YAxisTyped, {}),
-                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) }),
-                      React.createElement(LegendTyped, {}),
-                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false }),
-                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })
+                    {React.createElement(LineChartTyped, { data: analytics.dailyStats } as any,
+                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" } as any),
+                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } } as any),
+                      React.createElement(YAxisTyped, {} as any),
+                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) } as any),
+                      React.createElement(LegendTyped, {} as any),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false } as any),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false } as any)
                     )}
                   </ChartContainer>
                 ) : (
@@ -407,18 +417,18 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   <ChartContainer
                     config={{
                       page_views: { label: 'Page Views', color: 'hsl(25 95% 53%)' },
-                      api_calls: { label: 'AI Calls', color: 'hsl(270 60% 35%)' },
+                      api_calls: { label: 'AI Generations', color: 'hsl(270 60% 35%)' },
                     }}
                     className="h-64"
                   >
-                    {React.createElement(LineChartTyped, { data: analytics.monthlyStats },
-                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" }),
-                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } }),
-                      React.createElement(YAxisTyped, {}),
-                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) }),
-                      React.createElement(LegendTyped, {}),
-                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false }),
-                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })
+                    {React.createElement(LineChartTyped, { data: analytics.monthlyStats } as any,
+                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" } as any),
+                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } } as any),
+                      React.createElement(YAxisTyped, {} as any),
+                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) } as any),
+                      React.createElement(LegendTyped, {} as any),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false } as any),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false } as any)
                     )}
                   </ChartContainer>
                 ) : (
@@ -433,18 +443,18 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
                   <ChartContainer
                     config={{
                       page_views: { label: 'Page Views', color: 'hsl(25 95% 53%)' },
-                      api_calls: { label: 'AI Calls', color: 'hsl(270 60% 35%)' },
+                      api_calls: { label: 'AI Generations', color: 'hsl(270 60% 35%)' },
                     }}
                     className="h-64"
                   >
-                    {React.createElement(LineChartTyped, { data: analytics.yearlyStats },
-                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" }),
-                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } }),
-                      React.createElement(YAxisTyped, {}),
-                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) }),
-                      React.createElement(LegendTyped, {}),
-                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false }),
-                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false })
+                    {React.createElement(LineChartTyped, { data: analytics.yearlyStats } as any,
+                      React.createElement(CartesianGridTyped, { strokeDasharray: "3 3" } as any),
+                      React.createElement(XAxisTyped, { dataKey: "period", tick: { fontSize: 10 } } as any),
+                      React.createElement(YAxisTyped, {} as any),
+                      React.createElement(TooltipTyped, { content: React.createElement(ChartTooltipContent) } as any),
+                      React.createElement(LegendTyped, {} as any),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "page_views", stroke: "hsl(var(--primary))", dot: false } as any),
+                      React.createElement(LineTyped, { type: "monotone", dataKey: "api_calls", stroke: "hsl(var(--secondary))", dot: false } as any)
                     )}
                   </ChartContainer>
                 ) : (
