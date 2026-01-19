@@ -35,7 +35,6 @@ import { Heart, XIcon as X, Mail, Instagram } from "lucide-react";
               <a href="/about" className="hover:text-primary transition-smooth text-center">About</a>
               <a href="/examples" className="hover:text-primary transition-smooth text-center">Examples</a>
               <a href="/pricing" className="hover:text-primary transition-smooth text-center">Pricing</a>
-              <a href="/blog" className="hover:text-primary transition-smooth text-center">Blog</a>
               <a href="/contact" className="hover:text-primary transition-smooth text-center">Contact</a>
                <a href="/privacy" className="hover:text-primary transition-smooth text-center">Privacy Policy</a> 
                <a href="/terms" className="hover:text-primary transition-smooth text-center">Terms of Service</a> 
