@@ -113,7 +113,7 @@ const About = () => {
               <h2 className="text-3xl font-bold mt-12 mb-6">Get Started</h2>
               <p className="text-muted-foreground mb-6">
                 Ready to create your pet's portrait? Start with our free preview - no credit card required. 
-                Choose from 5+ artistic styles and download print-ready high-resolution artwork.
+                Choose from many artistic styles such as Watercolor, Oil Painting, Pencil Sketch, Crayon, Chinese Ink, Urban Comic, Pop Art, Cartoon, Photorealistic, Impressionist, Gouache, Pastel and more — then download print-ready high-resolution artwork.
               </p>
               <div className="flex gap-4">
                 <a

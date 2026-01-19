@@ -851,6 +851,17 @@ export default {
         // For 'free' plan: set subscription active and grant 3 credits
         if (plan === 'free') {
           try {
+            // Prevent multiple free claims: check if this account already has free subscription active
+            try {
+              const existing = await env.DB.prepare('SELECT subscription_plan, subscription_status FROM users WHERE id = ?').bind(userId).first();
+              if (existing && String(existing.subscription_plan) === 'free') {
+                return new Response(JSON.stringify({ message: 'Free subscription already claimed.' }), { status: 400, headers: corsHeaders });
+              }
+            } catch (checkErr) {
+              // If the check fails, log and continue to attempt (fail-open)
+              console.warn('Free subscription check failed, continuing:', checkErr);
+            }
+
             // Activate subscription and add 3 credits atomically
             await env.DB.prepare(
               'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + 3, updated_at = CURRENT_TIMESTAMP WHERE id = ?'

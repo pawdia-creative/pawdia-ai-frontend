@@ -200,8 +200,10 @@ export const Hero = () => {
             <div className="text-sm text-muted-foreground">Happy Pet Parents</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl md:text-4xl font-bold text-primary mb-2">5+</div>
-            <div className="text-sm text-muted-foreground">Art Styles</div>
+            <div className="text-lg font-semibold text-primary mb-2">Art Styles (examples)</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Watercolor, Oil Painting, Pencil Sketch, Crayon, Chinese Ink, Urban Comic, Pop Art, Cartoon, Photorealistic, Impressionist, Gouache, Pastel, Minimalist, Surreal, Cubist, Expressionist, Pointillism, Line Art, Digital Painting, Vector Art
+            </div>
           </div>
           <div className="text-center">
             <div className="text-3xl md:text-4xl font-bold text-primary mb-2">100+</div>
