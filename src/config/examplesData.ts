@@ -5,7 +5,7 @@ export const examplesStyles = [
     description: 'Soft, flowing watercolor art perfect for elegant home decor',
     original: '/examples/watercolor/original.jpg',
     generated: '/examples/watercolor/generated.jpg',
-    link: '/watercolor-pet-portrait-ai',
+    link: '/ai-pet-portrait-generator',
   },
   {
     id: 'sketch',
@@ -13,7 +13,7 @@ export const examplesStyles = [
     description: 'Detailed pencil sketch with beautiful shading and texture',
     original: '/examples/sketch/original.jpg',
     generated: '/examples/sketch/generated.jpg',
-    link: '/sketch-pet-portrait-ai',
+    link: '/ai-pet-portrait-generator',
   },
   {
     id: 'oil',
@@ -21,7 +21,7 @@ export const examplesStyles = [
     description: 'Classic oil painting style with rich colors and depth',
     original: '/examples/oil/original.jpg',
     generated: '/examples/oil/generated.jpg',
-    link: '/oil-painting-pet-portrait-ai',
+    link: '/ai-pet-portrait-generator',
   },
   // Cartoon style removed from Examples (kept Crayon as requested)
   {
