@@ -15,7 +15,8 @@ type NavigateFunction = (to: string | number, options?: { replace?: boolean; sta
 
 const EmailVerificationRequired: React.FC = () => {
   const { user, logout, syncVerificationStatus } = useAuth();
-  const navigate = RR.useNavigate as unknown as NavigateFunction;
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const navigate = RR.useNavigate() as unknown as NavigateFunction;
   const [isResending, setIsResending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [redirectAttempts] = useState(0);

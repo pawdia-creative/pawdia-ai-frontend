@@ -9,7 +9,8 @@ type NavigateFunction = (to: string | number, options?: { replace?: boolean; sta
 
 const Register: React.FC = () => {
   const { register, isLoading, error, clearError } = useAuth();
-  const navigate = RR.useNavigate as unknown as NavigateFunction;
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const navigate = RR.useNavigate() as unknown as NavigateFunction;
 
   useEffect(() => {
     if (error) {
@@ -29,9 +30,9 @@ const Register: React.FC = () => {
 
       if (result && !result.emailSent) {
         // Email sending failed, show warning but still allow user to proceed
-        toast('Registration successful, but verification email could not be sent. Please try logging in and resending the verification email.');
+        toast.success('Registration successful, but verification email could not be sent. Please try logging in and resending the verification email.');
       } else {
-        toast('Registration successful! Please check your email to verify your account.');
+        toast.success('Registration successful! Please check your email to verify your account.');
       }
 
       // Always redirect to verification-required page to simplify flow

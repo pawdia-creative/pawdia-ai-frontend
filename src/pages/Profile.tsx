@@ -12,7 +12,8 @@ type NavigateFunction = (to: string | number, options?: { replace?: boolean; sta
 
 const Profile: React.FC = () => {
   const { user, logout, updateProfile } = useAuth();
-  const navigate = RR.useNavigate as unknown as NavigateFunction;
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const navigate = RR.useNavigate() as unknown as NavigateFunction;
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [isLoading, setIsLoading] = useState(false);

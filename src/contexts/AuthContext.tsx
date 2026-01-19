@@ -149,6 +149,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => clearInterval(intervalId);
   }, []);
 
+  // One-time migration: if a legacy `must_verify` flag exists in localStorage,
+  // re-check server session and clear it when the server reports the user is verified.
+  useEffect(() => {
+    const attemptClearMustVerify = async () => {
+      try {
+        const must = localStorage.getItem('must_verify');
+        if (must !== '1') return;
+
+        if (import.meta.env.DEV) console.log('[AUTH] must_verify detected on startup, attempting migration check');
+
+        // Try a quick /auth/me check to confirm server-side verification state.
+        const resp = await apiClient.get<{ user?: User }>('/auth/me', { timeout: 5000 }).catch(() => null);
+        const serverUser = resp?.data?.user;
+        if (!serverUser) {
+          if (import.meta.env.DEV) console.log('[AUTH] Migration: /auth/me returned no user');
+          return;
+        }
+
+        const normalizedUser = normalizeUser(serverUser) || { ...serverUser, isVerified: isUserVerified(serverUser), isAdmin: isUserAdmin(serverUser) };
+        const serverVerified = isUserVerified(serverUser);
+
+        if (serverVerified) {
+          try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
+          localStorage.setItem('user', JSON.stringify(normalizedUser));
+          safeAuthSuccess(normalizedUser);
+          if (import.meta.env.DEV) console.log('[AUTH] Migration cleared must_verify and restored authenticated state for user', normalizedUser?.email || normalizedUser?.id);
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[AUTH] Migration to clear must_verify failed:', err);
+      }
+    };
+
+    // Run migration once on mount.
+    attemptClearMustVerify();
+  }, []); 
+
   useEffect(() => {
     const checkAuthStatus = async () => {
       // Attempt to validate session using cookie-based auth via apiClient
