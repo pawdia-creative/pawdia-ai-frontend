@@ -3,8 +3,6 @@ import { StructuredData } from "@/components/SEO/StructuredData";
 import { generateOrganizationSchema } from "@/components/SEO/structuredDataGenerators";
 import { SEO_CONFIG, BASE_URL } from "@/config/seo";
 import { Footer } from "@/components/Footer";
-import { Link } from "react-router-dom";
-import { Heart, Sparkles, Users, Award } from "lucide-react";
 
 const About = () => {
   const seo = SEO_CONFIG['/about'];
@@ -27,8 +25,8 @@ const About = () => {
       <MetaTags
         title={seo.title}
         description={seo.description}
-        keywords={seo.keywords}
-        ogImage={seo.ogImage}
+        keywords={seo.keywords ?? ''}
+        ogImage={seo.ogImage ?? ''}
       />
       <StructuredData data={orgSchema} type="Organization" />
       <div className="min-h-screen bg-background">
@@ -46,9 +44,9 @@ const About = () => {
               </p>
 
               <div className="grid md:grid-cols-2 gap-8 my-12">
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Heart className="w-6 h-6 text-primary" />
+              <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-lg text-primary">
+                    <span className="text-2xl">❤️</span>
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold mb-2">Made with Love</h3>
@@ -61,7 +59,7 @@ const About = () => {
 
                 <div className="flex items-start gap-4">
                   <div className="bg-accent/10 p-3 rounded-lg">
-                    <Sparkles className="w-6 h-6 text-accent" />
+                    <span className="text-2xl">✨</span>
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold mb-2">AI-Powered Art</h3>
@@ -73,8 +71,8 @@ const About = () => {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="bg-secondary/10 p-3 rounded-lg">
-                    <Users className="w-6 h-6 text-secondary" />
+                  <div className="bg-secondary/10 p-3 rounded-lg text-secondary">
+                    <span className="text-2xl">👥</span>
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold mb-2">For Pet Lovers</h3>
@@ -87,7 +85,7 @@ const About = () => {
 
                 <div className="flex items-start gap-4">
                   <div className="bg-primary/10 p-3 rounded-lg">
-                    <Award className="w-6 h-6 text-primary" />
+                    <span className="text-2xl">🏆</span>
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold mb-2">Quality Guaranteed</h3>
@@ -115,21 +113,21 @@ const About = () => {
               <h2 className="text-3xl font-bold mt-12 mb-6">Get Started</h2>
               <p className="text-muted-foreground mb-6">
                 Ready to create your pet's portrait? Start with our free preview - no credit card required. 
-                Choose from 50+ artistic styles and download print-ready high-resolution artwork.
+                Choose from many artistic styles such as Watercolor, Oil Painting, Pencil Sketch, Crayon, Chinese Ink, Urban Comic, Pop Art, Cartoon, Photorealistic, Impressionist, Gouache, Pastel and more — then download print-ready high-resolution artwork.
               </p>
               <div className="flex gap-4">
-                <Link
-                  to="/create"
+                <a
+                  href="/create"
                   className="bg-gradient-to-r from-primary to-accent text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
                 >
                   Create Your Pet Portrait
-                </Link>
-                <Link
-                  to="/examples"
+                </a>
+                <a
+                  href="/examples"
                   className="border-2 border-primary text-primary px-6 py-3 rounded-lg font-semibold hover:bg-primary/10 transition-colors"
                 >
                   View Examples
-                </Link>
+                </a>
               </div>
             </div>
           </div>
