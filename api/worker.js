@@ -293,6 +293,32 @@ export default {
       }
     }
 
+    // Debug endpoint: reset free_granted for a user by email (protected by DEBUG_TOKEN)
+    if (url.pathname === '/api/debug/reset-free-grant' && request.method === 'POST') {
+      try {
+        const debugToken = request.headers.get('x-debug-token') || '';
+        if (!env.DEBUG_TOKEN || debugToken !== env.DEBUG_TOKEN) {
+          return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+        }
+        const body = await request.json().catch(() => ({}));
+        const email = String(body.email || '').trim().toLowerCase();
+        if (!email) return new Response(JSON.stringify({ message: 'email required' }), { status: 400, headers: corsHeaders });
+
+        // Find user by email
+        const user = await getUserByEmail(env.DB, email);
+        if (!user) {
+          return new Response(JSON.stringify({ message: 'user not found' }), { status: 404, headers: corsHeaders });
+        }
+
+        // Reset free_granted and subscription_plan so user can re-claim for testing
+        await env.DB.prepare('UPDATE users SET free_granted = 0, subscription_plan = NULL, subscription_status = NULL WHERE id = ?').bind(user.id).run();
+        return new Response(JSON.stringify({ success: true, message: 'free_grant reset' }), { headers: corsHeaders });
+      } catch (err) {
+        console.error('reset-free-grant debug error:', err);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // Debug endpoint for testing
     if (url.pathname === '/api/debug' && request.method === 'GET') {
       try {
@@ -851,29 +877,52 @@ export default {
         // For 'free' plan: set subscription active and grant 3 credits
         if (plan === 'free') {
           try {
-            // Prevent multiple free claims: check if this account already has free subscription active
+            // Prefer explicit free_granted column if available (added via migration)
             try {
-              const existing = await env.DB.prepare('SELECT subscription_plan, subscription_status FROM users WHERE id = ?').bind(userId).first();
-              if (existing && String(existing.subscription_plan) === 'free') {
+              const grantRow = await env.DB.prepare('SELECT free_granted FROM users WHERE id = ?').bind(userId).first();
+              if (grantRow && Number(grantRow.free_granted) === 1) {
                 return new Response(JSON.stringify({ message: 'Free subscription already claimed.' }), { status: 400, headers: corsHeaders });
               }
             } catch (checkErr) {
-              // If the check fails, log and continue to attempt (fail-open)
-              console.warn('Free subscription check failed, continuing:', checkErr);
+              // If the check fails, fall back to previous subscription_plan-based detection
+              console.warn('Free subscription grant check failed (falling back):', checkErr);
+              try {
+                const existing = await env.DB.prepare('SELECT subscription_plan FROM users WHERE id = ?').bind(userId).first();
+                if (existing && String(existing.subscription_plan) === 'free') {
+                  return new Response(JSON.stringify({ message: 'Free subscription already claimed.' }), { status: 400, headers: corsHeaders });
+                }
+              } catch (fallbackErr) {
+                console.warn('Fallback free check also failed (continuing):', fallbackErr);
+              }
             }
 
-            // Activate subscription and add 3 credits atomically
-            await env.DB.prepare(
-              'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + 3, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-            ).bind('free', 'active', userId).run();
+            // Activate subscription and add 3 credits atomically, and set free_granted = 1 when possible
+            try {
+              await env.DB.prepare(
+                'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + 3, free_granted = COALESCE(free_granted, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+              ).bind('free', 'active', userId).run();
+            } catch (atomicErr) {
+              // If free_granted column doesn't exist or update fails, perform safer fallback update
+              console.warn('Atomic update with free_granted failed, performing fallback update:', atomicErr);
+              await env.DB.prepare(
+                'UPDATE users SET subscription_plan = ?, subscription_status = ?, credits = credits + 3, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+              ).bind('free', 'active', userId).run();
+              try {
+                await env.DB.prepare('UPDATE users SET free_granted = 1 WHERE id = ?').bind(userId).run();
+              } catch (_) {
+                // ignore
+              }
+            }
+
             // Return new credits
-            const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status FROM users WHERE id = ?').bind(userId).first();
+            const row = await env.DB.prepare('SELECT credits, subscription_plan, subscription_status, free_granted FROM users WHERE id = ?').bind(userId).first();
             return new Response(JSON.stringify({
               success: true,
               message: 'Free subscription activated. 3 credits granted.',
               credits: row.credits,
               subscription_plan: row.subscription_plan,
-              subscription_status: row.subscription_status
+              subscription_status: row.subscription_status,
+              free_granted: row.free_granted || 0
             }), { headers: corsHeaders });
           } catch (err) {
             console.error('Subscribe free error:', err);

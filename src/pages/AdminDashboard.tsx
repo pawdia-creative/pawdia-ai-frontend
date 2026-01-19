@@ -254,7 +254,7 @@ const AdminDashboard = React.memo(() => {
                   <h3 className="text-lg font-semibold">Recent Email Events</h3>
                 </div>
                 <div className="divide-y">
-                {emailStats.recentEvents.slice(0, 20).map((event, index: number) => {
+                  {emailStats.recentEvents.slice(0, 20).map((event, index: number) => {
                     const evt = event as { event_type?: string; user_id?: string | null; created_at?: string; metadata?: any; data?: any };
                     const label = evt.event_type || 'event';
 

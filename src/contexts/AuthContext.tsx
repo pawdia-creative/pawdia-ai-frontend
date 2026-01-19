@@ -183,7 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Run migration once on mount.
     attemptClearMustVerify();
-  }, []); 
+  }, []);
 
   useEffect(() => {
     const checkAuthStatus = async () => {

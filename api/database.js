@@ -659,6 +659,11 @@ export async function ensureSchema(db) {
       await db.prepare("ALTER TABLE users ADD COLUMN last_verification_sent DATETIME").run();
       console.log('Added users.last_verification_sent');
     }
+    if (!usersCols.includes('free_granted')) {
+      // track whether free subscription credits have been granted to this user (0/1)
+      await db.prepare("ALTER TABLE users ADD COLUMN free_granted INTEGER DEFAULT 0").run();
+      console.log('Added users.free_granted');
+    }
 
     const analyticsInfo = await db.prepare("PRAGMA table_info(analytics)").all();
     const analyticsRows = analyticsInfo && analyticsInfo.results ? analyticsInfo.results : analyticsInfo;
