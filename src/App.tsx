@@ -45,6 +45,7 @@ const Diagnostics = React.lazy(() => import("@/pages/Diagnostics"));
 const About = React.lazy(() => import("@/pages/About"));
 const Contact = React.lazy(() => import("@/pages/Contact"));
 const Examples = React.lazy(() => import("@/pages/Examples"));
+const Blog = React.lazy(() => import("@/pages/Blog"));
 
 const WatercolorPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.WatercolorPetPortrait })));
 const SketchPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.SketchPetPortrait })));
@@ -113,7 +114,7 @@ const VerificationEnforcer = () => {
     if (!checkedAuth) return; // wait until auth state is known
     if (!user) return; // not logged in
 
-      const unguardedPaths = new Set([
+    const unguardedPaths = new Set([
       '/verify-email',
       '/verify-required',
       '/verify',
@@ -124,7 +125,8 @@ const VerificationEnforcer = () => {
       '/terms',
       '/about',
       '/contact',
-      '/examples'
+      '/examples',
+      '/blog'
     ]);
 
     // Also honor a persistent must_verify flag in localStorage so clients that
@@ -222,7 +224,11 @@ const AppContent = () => (
                     <Examples />
                   </BaseRoute>
                 } />
-                {/* Blog removed - functionality deprecated */}
+                <Route path="/blog" element={
+                  <BaseRoute publicForGuests={true}>
+                    <Blog />
+                  </BaseRoute>
+                } />
         {/* Style pages */}
         <Route path="/watercolor-pet-portrait-ai" element={<Navigate to="/ai-pet-portrait-generator" replace />} />
         <Route path="/sketch-pet-portrait-ai" element={<Navigate to="/ai-pet-portrait-generator" replace />} />
