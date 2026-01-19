@@ -46,7 +46,7 @@ export const examplesStyles = [
     description: "Rockstar's cover-art aesthetic with bold outlines",
     original: '/examples/popart/original.jpg',
     generated: '/examples/popart/generated.jpg',
-    link: '/popart-pet-portrait-ai',
+    link: '/ai-pet-portrait-generator',
   },
 ];
 
