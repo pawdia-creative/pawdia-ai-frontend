@@ -191,7 +191,7 @@ const EmailVerification = () => {
 
           {status === 'error' && (
             <div className="text-center text-sm text-gray-600">
-              <p>If the problem persists, please contact support: support@pawdia-ai.com</p>
+              <p>If the problem persists, please contact support: pawdia.creative@gmail.com</p>
             </div>
           )}
         </CardContent>

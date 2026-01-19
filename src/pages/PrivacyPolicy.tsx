@@ -1,18 +1,17 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Link } from 'react-router-dom';
 
 const PrivacyPolicy: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <Link to="/">
+          <a href="/">
             <Button variant="ghost" className="mb-4">
               ← Back to Home
             </Button>
-          </Link>
+          </a>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Privacy Policy</h1>
           <p className="text-lg text-gray-600">Last Updated: December 2025</p>
         </div>
@@ -148,7 +147,7 @@ const PrivacyPolicy: React.FC = () => {
               <h2 className="text-xl font-semibold mb-3 text-gray-900">13. Contact Us</h2>
               <p>If you have any questions about this Privacy Policy or your personal information, please contact us:</p>
               <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Email: support@pawdia-ai.com</li>
+                <li>Email: pawdia.creative@gmail.com</li>
                 <li>Customer Service Hours: Monday-Friday 9:00 AM - 6:00 PM PST</li>
                 <li>Response Time: We will respond within 2 business days</li>
               </ul>
@@ -157,16 +156,16 @@ const PrivacyPolicy: React.FC = () => {
         </Card>
 
         <div className="text-center mt-8">
-          <Link to="/terms">
+          <a href="/terms">
             <Button variant="outline" className="mr-4">
               View Terms of Service
             </Button>
-          </Link>
-          <Link to="/">
+          </a>
+          <a href="/">
             <Button>
               Back to Home
             </Button>
-          </Link>
+          </a>
         </div>
       </div>
     </div>
