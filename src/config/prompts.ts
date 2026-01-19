@@ -85,9 +85,12 @@ export const stylePrompts: StylePrompt[] = [
     name: "Chinese Ink Painting",
     description: "Traditional East Asian brushwork and elegance",
     promptTemplate:
-      "Convert this pet photo into a commanding Chinese ink‑wash (Shuimo) painting with bold, expressive brushwork while preserving the original subject and composition. " +
-      "Hard constraints: keep pet silhouette, posture and placement identical; do NOT rotate or flip. " +
-      "Rendering instructions (accentuate style): use strong calligraphic strokes, deliberate ink bleed, rich tonal gradations from dense black to pale grey, and intentional negative space. Emphasize bold, confident brush marks and high-contrast ink values so the style reads strongly as classical ink painting.",
+      "Convert this pet photo into a traditional Chinese ink-wash painting (Shuimo / Guohua) style. " +
+      "Strict requirement: Use authentic ink-wash brush techniques with rich variations of ink density, dryness, and moisture (at least five distinct tonal layers). " +
+      "The painting must preserve the pet’s recognizable characteristics, but focus on spirit and expression rather than strict realism. Brushstrokes must be lively, flowing, and expressive, following the aesthetics of Chinese xieyi (freehand) painting. " +
+      "Retain traditional Chinese artistic features: large areas of intentional blank space (over 30% of the composition), atmospheric simplicity, poetic mood and subtle spatial suggestion instead of Western perspective, and emphasis on spirit and charm (shen yun) over detailed form. " +
+      "The background must remain simple and mostly blank, following classical ink-wash composition. Add traditional inscription (Chinese calligraphy) and red seal stamps as authentic elements of Guohua. " +
+      "Overall style should evoke the aesthetics of classical masters such as Qi Baishi, Xu Beihong, and Bada Shanren. Do NOT change the pet's pose, anatomy, or placement — preserve identification and composition.",
     negativePrompt:
       "blurry, low quality, rotated, flipped, different pose, different pet, photorealistic color, oil painting, watercolor, pop art, heavy digital effects, distorted anatomy",
     parameters: {
@@ -103,9 +106,10 @@ export const stylePrompts: StylePrompt[] = [
     name: "Crayon",
     description: "Playful and colorful hand-drawn charm",
     promptTemplate:
-      "Convert the pet from the original photo into a vivid, unmistakable crayon/colored‑wax illustration while preserving the pet's exact pose and proportions. " +
-      "Hard constraints: do NOT change anatomy, posture, or placement. " +
-      "Rendering instructions (make style bold): apply chunky waxy strokes, heavy pigment buildup, visible paper tooth, uneven childlike outlines, and saturated primary colors. Emphasize texture, grain, and tactile wax reflections so the final image reads strongly as a crayon artwork rather than a subtle filter.",
+      "Convert the pet from the original photo into a childlike crayon drawing. Remove the original background completely. Keep the pet’s breed, posture, proportions, markings, and expression exactly the same — absolutely no alteration to the pet’s appearance. " +
+      "Use rough, thick crayon strokes with strong waxy texture, heavy grain, visible pigment buildup, uneven childlike outlines, and highly saturated vivid colors (85%+). " +
+      "Replace the background with a simple crayon-filled background made in the same color palette and same hue family as the pet’s dominant fur colors. No details, only rough crayon strokes and wax texture. " +
+      "The whole image must feel innocent, playful, naïve, and warm — like a children’s drawing.",
     negativePrompt:
       "blurry, low quality, rotated, flipped, different pose, different pet, photorealistic rendering, watercolor, oil painting, subtle color shifts, minimal changes",
     parameters: {

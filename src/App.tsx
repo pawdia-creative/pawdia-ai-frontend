@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // @ts-nocheck - TypeScript compiler passes but ESLint has issues with react-router-dom types
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import React, { useEffect } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/useAuth";
 import { tokenStorage } from '@/lib/tokenStorage';
@@ -31,7 +32,9 @@ const Login = React.lazy(() => import("@/pages/Login"));
 import Register from "@/pages/Register"; // register page used synchronously to avoid dynamic import failures
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const Subscription = React.lazy(() => import("@/pages/Subscription"));
-const AdminDashboard = React.lazy(() => import("@/pages/AdminDashboard"));
+// Use lazy import with retry for the admin dashboard to reduce blank-page incidents caused by
+// transient chunk/network failures.
+const AdminDashboard = lazyWithRetry(() => import("@/pages/AdminDashboard"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
 const PrivacyPolicy = React.lazy(() => import("@/pages/PrivacyPolicy"));
 const TermsOfService = React.lazy(() => import("@/pages/TermsOfService"));
