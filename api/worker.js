@@ -318,6 +318,41 @@ export default {
         return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
       }
     }
+    // Debug endpoint: fetch user record by email (protected by DEBUG_TOKEN)
+    if (url.pathname === '/api/debug/get-user' && request.method === 'GET') {
+      try {
+        const debugToken = request.headers.get('x-debug-token') || '';
+        if (!env.DEBUG_TOKEN || debugToken !== env.DEBUG_TOKEN) {
+          return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+        }
+        const q = new URL(request.url).searchParams;
+        const email = String(q.get('email') || '').trim().toLowerCase();
+        if (!email) return new Response(JSON.stringify({ message: 'email required' }), { status: 400, headers: corsHeaders });
+
+        // Find user by email
+        const user = await getUserByEmail(env.DB, email);
+        if (!user) {
+          return new Response(JSON.stringify({ message: 'user not found' }), { status: 404, headers: corsHeaders });
+        }
+
+        // Return selected user fields (omit password)
+        const out = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          credits: user.credits,
+          subscription_plan: user.subscription_plan,
+          subscription_status: user.subscription_status,
+          free_granted: user.free_granted,
+          created_at: user.created_at,
+          is_verified: user.is_verified
+        };
+        return new Response(JSON.stringify({ success: true, user: out }), { headers: corsHeaders });
+      } catch (err) {
+        console.error('get-user debug error:', err);
+        return new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: corsHeaders });
+      }
+    }
 
     // Debug endpoint for testing
     if (url.pathname === '/api/debug' && request.method === 'GET') {
