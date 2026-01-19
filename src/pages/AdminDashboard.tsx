@@ -69,10 +69,13 @@ interface EmailStats {
     email_send_failed?: number;
     email_send_failed_today?: number;
   };
+  // recentEvents rows may include metadata (stored as `data` or `metadata` in DB)
   recentEvents?: Array<{
     event_type?: string;
     user_id?: string | null;
     created_at?: string;
+    metadata?: Record<string, unknown> | null;
+    data?: Record<string, unknown> | null;
   }>;
 }
 
@@ -251,9 +254,31 @@ const AdminDashboard = React.memo(() => {
                   <h3 className="text-lg font-semibold">Recent Email Events</h3>
                 </div>
                 <div className="divide-y">
-                  {emailStats.recentEvents.slice(0, 20).map((event, index: number) => {
-                    const evt = event as { event_type?: string; user_id?: string | null; created_at?: string };
+                {emailStats.recentEvents.slice(0, 20).map((event, index: number) => {
+                    const evt = event as { event_type?: string; user_id?: string | null; created_at?: string; metadata?: any; data?: any };
                     const label = evt.event_type || 'event';
+
+                    // Try to resolve a friendly user label: prefer user list, then metadata, then fallback to short id
+                    let userLabel = '';
+                    // Attempt to find in currently loaded users
+                    const matchedUser = users.find(u => String(u.id) === String(evt.user_id));
+                    if (matchedUser) {
+                      userLabel = `${matchedUser.name} <${matchedUser.email}>`;
+                    } else {
+                      // Try metadata fields returned from analytics (may contain email/name)
+                      const meta = (evt as any).metadata || (evt as any).data || null;
+                      const metaName = meta && (meta.name || meta.username || meta.user_name);
+                      const metaEmail = meta && (meta.email || meta.user_email);
+                      if (metaName || metaEmail) {
+                        if (metaName && metaEmail) userLabel = `${String(metaName)} <${String(metaEmail)}>`;
+                        else if (metaEmail) userLabel = `<${String(metaEmail)}>`;
+                        else userLabel = String(metaName);
+                      } else {
+                        // Fallback: short user id
+                        userLabel = evt.user_id ? `${String(evt.user_id).slice(0, 8)}...` : 'Unknown';
+                      }
+                    }
+
                     return (
                     <div key={index} className="p-4 flex justify-between items-center">
               <div>
@@ -265,7 +290,7 @@ const AdminDashboard = React.memo(() => {
                             {label.replace('_', ' ')}
                         </span>
                         <span className="ml-2 text-sm text-gray-600">
-                            User: {String((evt.user_id || '').toString()).slice(0, 8)}...
+                            {userLabel}
                           </span>
                         </div>
                         <span className="text-xs text-gray-500">
