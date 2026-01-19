@@ -22,8 +22,10 @@ const BaseRoute = ({
   publicForGuests = false,
 }: BaseRouteProps) => {
   const { isAuthenticated, isLoading, user, checkedAuth } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const location = useLocation() as any;
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const navigate = useNavigate() as any;
 
   // 添加调试日志 - 只在开发模式下且关键状态变化时输出
   useEffect(() => {
@@ -68,8 +70,9 @@ const BaseRoute = ({
     );
   }
 
-  // Handle email verification requirement for authenticated users
-  if (checkedAuth && isAuthenticated && requireEmailVerification && user) {
+  // Handle email verification requirement for authenticated users.
+  // Do not block pages that explicitly opt-in as publicForGuests (e.g. homepage).
+  if (checkedAuth && isAuthenticated && requireEmailVerification && user && !publicForGuests) {
     // User is authenticated but may not be verified
     const isVerified = user.isVerified === true;
     const isAdmin = user.isAdmin === true;

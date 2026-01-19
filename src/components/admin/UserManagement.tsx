@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,7 +125,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
   const handleCreditOperationSubmit = async () => {
     try {
       const token = tokenStorage.getToken();
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      const apiBaseUrl = API_BASE_URL;
       let endpoint = '';
 
       switch (creditOperation.type) {
@@ -203,7 +204,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
     if (!selectedUser) return;
     try {
       const token = tokenStorage.getToken();
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      const apiBaseUrl = API_BASE_URL;
       const payload: Record<string, unknown> = {};
       if (subscriptionForm.plan) payload.plan = subscriptionForm.plan;
       if (subscriptionForm.status) payload.status = subscriptionForm.status;
@@ -267,7 +268,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
     }
     try {
       const token = tokenStorage.getToken();
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      const apiBaseUrl = API_BASE_URL;
       const response = await fetch(`${apiBaseUrl}/admin/users/${selectedUser.id}/reset-password`, {
         method: 'POST',
         headers: {
@@ -326,7 +327,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       // Debug: check token presence before calling API
       const token = tokenStorage.getToken();
       if (import.meta.env.DEV) console.log('[ADMIN-DEBUG] delete token present?', !!token);
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      const apiBaseUrl = API_BASE_URL;
       if (import.meta.env.DEV) console.log('[ADMIN-DEBUG] delete request url:', `${apiBaseUrl}/admin/users/${userToDelete.id}`);
       const response = await fetch(`${apiBaseUrl}/admin/users/${userToDelete.id}`, {
         method: 'DELETE',

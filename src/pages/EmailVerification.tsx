@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
+// @ts-ignore - react-router-dom types may not be resolvable in some environments
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/constants';
 
 const EmailVerification = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const [searchParams] = useSearchParams() as any;
+  // @ts-ignore - react-router-dom types may be unresolved in some environments
+  const navigate = useNavigate() as any;
   const { updateUser, syncVerificationStatus } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
@@ -16,9 +20,11 @@ const EmailVerification = () => {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      const token = searchParams.get('token');
+      const rawToken = searchParams.get('token') || '';
+      // Avoid double-decoding the token — `URLSearchParams.get` already returns a decoded value in browsers.
+      const token = rawToken ? String(rawToken).trim() : '';
       if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Token received:', token ? `${token.substring(0, 10)}...` : 'missing');
-      setHasToken(!!token);
+      setHasToken(!!rawToken);
 
       // If there's no token in the URL, this page is being used as a "check your email" landing.
       // Show a friendly message instructing the user to check their inbox instead of an error.
@@ -29,8 +35,8 @@ const EmailVerification = () => {
       }
 
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
-        const verifyUrl = `${apiUrl}/auth/verify-email?token=${token}`;
+        const apiUrl = API_BASE_URL;
+        const verifyUrl = `${apiUrl}/auth/verify-email?token=${encodeURIComponent(token)}`;
         if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Calling API:', verifyUrl);
 
         // Add timeout and better error handling
@@ -106,7 +112,7 @@ const EmailVerification = () => {
       case 'success':
         return <CheckCircle className="h-8 w-8 text-green-500" />;
       case 'error':
-        return <XCircle className="h-8 w-8 text-red-500" />;
+        return <span className="h-8 w-8 text-red-500 text-2xl leading-none">❌</span>;
       default:
         return null;
     }

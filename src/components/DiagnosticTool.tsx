@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -7,7 +8,7 @@ interface DiagnosticResult {
   test: string;
   status: 'pending' | 'success' | 'error';
   message: string;
-  details?: unknown;
+  details?: React.ReactNode;
 }
 
 const DiagnosticTool: React.FC = () => {
@@ -41,7 +42,7 @@ const DiagnosticTool: React.FC = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch('https://pawdia-ai-api.pawdia-creative.workers.dev/api/health', {
+      const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
         signal: controller.signal
       });
@@ -67,7 +68,7 @@ const DiagnosticTool: React.FC = () => {
     // Test 2: CORS preflight
     addResult({ test: 'CORS Preflight', status: 'pending', message: 'Testing CORS preflight...' });
     try {
-      const response = await fetch('https://pawdia-ai-api.pawdia-creative.workers.dev/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'OPTIONS',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +88,7 @@ const DiagnosticTool: React.FC = () => {
     // Test 3: Login attempt
     addResult({ test: 'Admin Login', status: 'pending', message: 'Testing admin login...' });
     try {
-      const response = await fetch('https://pawdia-ai-api.pawdia-creative.workers.dev/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +115,7 @@ const DiagnosticTool: React.FC = () => {
     // Test 4: Auth check
     addResult({ test: 'Auth Check', status: 'pending', message: 'Testing auth check...' });
     try {
-      const response = await fetch('https://pawdia-ai-api.pawdia-creative.workers.dev/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         credentials: 'include'
       });

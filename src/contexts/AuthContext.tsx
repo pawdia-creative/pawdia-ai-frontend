@@ -93,10 +93,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try { localStorage.removeItem('must_verify'); } catch (e) { /* ignore */ }
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
     } else {
-      // Ensure we keep token for verification flows but do not mark as authenticated.
+      // Keep the user in the client state so UI can remember the logged-in identity,
+      // but mark that verification is required so protected flows remain blocked.
       try { localStorage.setItem('must_verify', '1'); } catch (e) { /* Ignore localStorage errors */ }
-      if (import.meta.env.DEV) console.warn('[AUTH] safeAuthSuccess blocked non-verified user', { userId: user?.id, email: user?.email });
-      dispatch({ type: 'AUTH_LOGOUT' });
+      if (import.meta.env.DEV) console.warn('[AUTH] Non-verified user retained in client state (must_verify set)', { userId: user?.id, email: user?.email });
+      // Store the user but do not grant verified access; components can inspect user.isVerified.
+      dispatch({ type: 'AUTH_SUCCESS', payload: user });
     }
   };
 

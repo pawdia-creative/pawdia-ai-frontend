@@ -1,13 +1,24 @@
 // API Configuration Constants
 // Determine API base URL. Prefer explicit VITE_API_URL; when not provided in production
 // use a same-origin relative path (`/api`) so authentication cookies are set on the site's domain.
-const rawConfiguredUrl = import.meta.env.VITE_API_URL || '';
+const rawConfiguredUrl = (import.meta.env.VITE_API_URL || '').trim();
 
-// If a fully-qualified URL is provided (starts with http), use that and append /api.
-// Otherwise default to same-origin path '/api' which ensures cookies are scoped to the site domain.
-export const API_BASE_URL = rawConfiguredUrl
-  ? (rawConfiguredUrl.startsWith('http') ? `${rawConfiguredUrl.replace(/\/+$/, '')}/api` : rawConfiguredUrl)
-  : '/api';
+// Normalize configured URL:
+// - If empty -> default to same-origin '/api'
+// - If starts with http(s) and already ends with '/api', use as-is (no double '/api')
+// - If starts with http(s) and DOES NOT end with '/api', append '/api'
+// - If provided as a relative path (doesn't start with http), use it as-is
+function computeApiBase(raw: string) {
+  if (!raw) return '/api';
+  const cleaned = raw.replace(/\/+$/, ''); // remove trailing slashes
+  if (/^https?:\/\//i.test(cleaned)) {
+    return cleaned.endsWith('/api') ? cleaned : `${cleaned}/api`;
+  }
+  // relative path (e.g. '/api' or '/worker')
+  return cleaned;
+}
+
+export const API_BASE_URL = computeApiBase(rawConfiguredUrl);
 
 // Keep a DEFAULT_API_URL alias for any absolute-url fallbacks (uses VITE_API_URL when set, otherwise /api)
 export const DEFAULT_API_URL = API_BASE_URL;

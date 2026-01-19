@@ -96,7 +96,8 @@ export async function sendVerificationEmail(env, toEmail, toName, verificationTo
     const parsed = parseInt(String(raw), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
   })();
-  const verificationUrl = `${env.FRONTEND_URL || 'https://pawdia-ai-frontend.pages.dev'}/verify?token=${verificationToken}`;
+  const frontend = (env.FRONTEND_URL || 'https://pawdia-ai-frontend.pages.dev').replace(/\/$/, '');
+  const verificationUrl = `${frontend}/verify?token=${encodeURIComponent(verificationToken)}`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

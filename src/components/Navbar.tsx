@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { API_BASE_URL } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,7 +12,6 @@ import {
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { NavLink } from './NavLink';
-import { useEffect, useState } from 'react';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -27,7 +27,7 @@ const Navbar: React.FC = () => {
   // if not verified trigger resend and navigate to verify page. If no token, go to login.
   const handleSignInClick = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    const apiBase = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+    const apiBase = API_BASE_URL;
     const token = tokenStorage.getToken();
     if (token) {
       try {
@@ -80,8 +80,8 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     // Defer loading the large logo until browser is idle to reduce first-paint/network contention
     const doLoad = () => {
-      import('@/assets/logo.webp')
-        .then((m) => setLogoSrc(m.default || m))
+    import('@/assets/logo.webp')
+        .then((m) => setLogoSrc((m && (m as any).default) ? (m as any).default : String(m)))
         .catch(() => {
           // fallback to known path
           setLogoSrc('/logo.webp');

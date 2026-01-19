@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/lib/toast";
+import { API_BASE_URL } from '@/lib/constants';
 
 const Contact = () => {
   const seo = SEO_CONFIG['/contact'];
@@ -70,7 +71,7 @@ const Contact = () => {
                       return;
                     }
                     try {
-                      const apiBase = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api-production.pawdia-creative.workers.dev/api';
+                      const apiBase = API_BASE_URL;
                       const apiUrl = `${apiBase.replace(/\/$/, '')}/contact`;
                       const resp = await fetch(apiUrl, {
                         method: 'POST',

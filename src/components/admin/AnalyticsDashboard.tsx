@@ -16,6 +16,7 @@ const LineTyped = Line as React.ComponentType<React.ComponentProps<typeof Line>>
 import { toast } from '@/lib/toast';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { Globe, Activity, Users, TrendingUp } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/constants';
 
 // Analytics data interfaces
 interface ApiEndpointStat {
@@ -89,7 +90,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
     setAnalyticsLoading(true);
     try {
       const token = tokenStorage.getToken();
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev/api';
+      const apiBaseUrl = API_BASE_URL;
       const response = await fetch(`${apiBaseUrl}/admin/analytics/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
