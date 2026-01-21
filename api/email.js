@@ -97,7 +97,10 @@ export async function sendVerificationEmail(env, toEmail, toName, verificationTo
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
   })();
   const frontend = (env.FRONTEND_URL || 'https://pawdia-ai-frontend.pages.dev').replace(/\/$/, '');
-  const verificationUrl = `${frontend}/verify?token=${encodeURIComponent(verificationToken)}`;
+  // Prefer a backend-level verification redirect link so clicking the email can verify server-side
+  const apiHost = (env.PUBLIC_API_URL || env.API_URL || 'https://pawdia-ai-api.pawdia-creative.workers.dev').replace(/\/$/, '');
+  const backendVerifyUrl = `${apiHost}/api/auth/verify-redirect?token=${encodeURIComponent(verificationToken)}`;
+  const frontendVerifyUrl = `${frontend}/verify?token=${encodeURIComponent(verificationToken)}`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -105,10 +108,12 @@ export async function sendVerificationEmail(env, toEmail, toName, verificationTo
       <p>Hi ${toName || 'there'},</p>
       <p>Thank you for signing up for Pawdia AI. To complete your registration, please verify your email address by clicking the button below:</p>
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email Address</a>
+        <!-- Primary: backend redirect verifies on the server and then forwards to frontend -->
+        <a href="${backendVerifyUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Verify Email Address</a>
       </div>
-      <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
-      <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
+      <p>If the button doesn't work (some clients rewrite links), you can try the server-side verify link or the frontend verify link below:</p>
+      <p style="word-break: break-all; color: #666;">Server verify (recommended): ${backendVerifyUrl}</p>
+      <p style="word-break: break-all; color: #666;">Frontend verify: ${frontendVerifyUrl}</p>
       <p>This verification link will expire in ${ttl} minute${ttl === 1 ? '' : 's'}.</p>
       <p>If you didn't create an account, please ignore this email.</p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">

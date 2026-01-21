@@ -249,9 +249,11 @@ export async function createUser(db, userData) {
   try {
     const { id, email, name, password_hash } = userData;
     // Note: D1 users table uses `password` column for stored password hash
+    // New users should receive 3 free credits by default and mark free_granted = 1
+    // ensureSchema should have already added `free_granted` column; set to 1 to prevent double-grant later
     const result = await db.prepare(
-      'INSERT INTO users (id, email, name, password, credits) VALUES (?, ?, ?, ?, ?)'
-    ).bind(id, email, name, password_hash, 0).run(); // New users start with 0 credits
+      'INSERT INTO users (id, email, name, password, credits, free_granted) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, email, name, password_hash, 3, 1).run(); // New users start with 3 credits and free_granted=1
 
     return result.success;
   } catch (error) {

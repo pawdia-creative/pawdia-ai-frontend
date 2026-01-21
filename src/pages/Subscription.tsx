@@ -80,7 +80,7 @@ const Subscription: React.FC = () => {
       price: 0,
       credits: 3,
       features: [
-        '3 AI art generations (permanent credits)',
+        '3 AI art generations (permanent credits — granted at registration)',
         'Basic art styles',
         'Standard quality',
         'Community support'
@@ -424,8 +424,9 @@ const Subscription: React.FC = () => {
                     updateUser(meData.user);
                   }
                   // Show success message if credits were restored
-                  if (errorData.debug && errorData.debug.currentCredits >= 3) {
-                    PaymentService.handlePaymentSuccess(`You already have ${errorData.debug.currentCredits} credits!`);
+                  if (errorData.debug && typeof errorData.debug.currentCredits !== 'undefined' && Number(errorData.debug.currentCredits) >= 3) {
+                    // Inform the user that free credits were already granted at registration
+                    PaymentService.handlePaymentSuccess('Free credits were already granted at registration.');
                     setSelectedPlan('');
                     return; // Exit early, don't throw error
                   }
@@ -463,7 +464,7 @@ const Subscription: React.FC = () => {
           }
         }
 
-        PaymentService.handlePaymentSuccess('Free subscription activated successfully! You received 3 free credits!');
+        PaymentService.handlePaymentSuccess('Free subscription activated successfully! You received 3 free credits.');
         setSelectedPlan('');
       } catch (error) {
         if (import.meta.env.DEV) console.error('Subscription error:', error);
@@ -618,7 +619,10 @@ const Subscription: React.FC = () => {
                     <span className="text-3xl font-bold">${plan.price}</span>
                     <span className="text-muted-foreground">/month</span>
                   </div>
-                  <CardDescription>{plan.credits} credits included</CardDescription>
+                  <CardDescription>
+                    {plan.credits} credits included
+                    {plan.id === 'free' ? ' — granted at registration' : ''}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 mb-6">

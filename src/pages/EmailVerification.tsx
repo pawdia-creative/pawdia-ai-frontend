@@ -17,6 +17,9 @@ const EmailVerification = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [hasToken, setHasToken] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const [resendResult, setResendResult] = useState<string | null>(null);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -192,6 +195,47 @@ const EmailVerification = () => {
           {status === 'error' && (
             <div className="text-center text-sm text-gray-600">
               <p>If the problem persists, please contact support: pawdia.creative@gmail.com</p>
+            </div>
+          )}
+          {status === 'error' && (
+            <div className="mt-4 space-y-2">
+              <p className="text-center text-sm text-gray-600">Didn't receive a working link? Resend a verification email:</p>
+              <div className="flex gap-2 items-center">
+                <input
+                  aria-label="Email to resend verification"
+                  value={resendEmail}
+                  onChange={(e) => setResendEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="flex-1 border rounded px-3 py-2"
+                />
+                <Button
+                  disabled={isResending || !resendEmail}
+                  onClick={async () => {
+                    try {
+                      setIsResending(true);
+                      setResendResult(null);
+                      const resp = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: resendEmail })
+                      });
+                      const d = await resp.json().catch(() => ({}));
+                      if (resp.ok) {
+                        setResendResult(d.message || 'Verification email sent. Please check your inbox.');
+                      } else {
+                        setResendResult(d.message || 'Failed to resend verification email. Please try again later.');
+                      }
+                    } catch (err) {
+                      setResendResult('Network error while resending. Please try again.');
+                    } finally {
+                      setIsResending(false);
+                    }
+                  }}
+                >
+                  {isResending ? 'Sending...' : 'Resend'}
+                </Button>
+              </div>
+              {resendResult && <p className="text-center text-sm text-gray-700">{resendResult}</p>}
             </div>
           )}
         </CardContent>
