@@ -3,6 +3,9 @@
   - Index (HTML) should be no-cache so browsers fetch updated HTML that references current hashed assets.
   - Static assets (js/css/images) can be cached long-term.
 */
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
