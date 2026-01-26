@@ -34,6 +34,18 @@ jobs:
           mkdir -p scripts/e2e_outputs
           node scripts/e2e_check_production.mjs
 
+      - name: Create temporary E2E test user
+        run: |
+          set -e
+          API_BASE="https://pawdia-ai.com"
+          EMAIL="e2e-$(date +%s)@example.com"
+          PASSWORD="P@ssw0rd-$(date +%s)"
+          BODY=$(printf '{"name":"E2E Test","email":"%s","password":"%s","confirmPassword":"%s"}' "$EMAIL" "$PASSWORD" "$PASSWORD")
+          # Try to register user; write response to outputs for cleanup step
+          curl -s -X POST "${API_BASE}/api/auth/register" -H "Content-Type: application/json" -d "$BODY" -o scripts/e2e_outputs/logged_in_results.json || true
+          printf "%s %s\n" "$EMAIL" "$PASSWORD" > /tmp/e2e_creds.txt
+          echo "Wrote /tmp/e2e_creds.txt for E2E login"
+
       - name: Run login + subscription checks
         env:
           # no secrets required; test user will be created programmatically by the script
@@ -52,7 +64,16 @@ jobs:
             EMAIL=$(node -e "console.log(require('./scripts/e2e_outputs/logged_in_results.json').email || '')")
             if [ -n \"$EMAIL\" ]; then
               echo \"Cleaning up test user: $EMAIL\"
-              npx wrangler d1 execute pawdia-ai-db --remote --command \"DELETE FROM analytics WHERE user_id IN (SELECT id FROM users WHERE email = '$EMAIL'); DELETE FROM payments WHERE user_id IN (SELECT id FROM users WHERE email = '$EMAIL'); DELETE FROM images WHERE user_id IN (SELECT id FROM users WHERE email = '$EMAIL'); DELETE FROM users WHERE email = '$EMAIL';\"
+              # Build SQL commands safely using a here-doc to avoid shell parsing issues
+              SQL=$(cat <<'SQL'
+DELETE FROM analytics WHERE user_id IN (SELECT id FROM users WHERE email = '%s');
+DELETE FROM payments WHERE user_id IN (SELECT id FROM users WHERE email = '%s');
+DELETE FROM images WHERE user_id IN (SELECT id FROM users WHERE email = '%s');
+DELETE FROM users WHERE email = '%s';
+SQL
+)
+              SQL=$(printf "$SQL" "$EMAIL" "$EMAIL" "$EMAIL" "$EMAIL")
+              npx wrangler d1 execute pawdia-ai-db --remote --command "$SQL"
             else
               echo \"No email found in results file; skipping cleanup\"
             fi
