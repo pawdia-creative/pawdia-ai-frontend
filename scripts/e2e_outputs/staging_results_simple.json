@@ -1,0 +1,30 @@
+[
+  {
+    "name": "8a5d5f5f.pawdia-ai-frontend.pages.dev",
+    "url": "https://8a5d5f5f.pawdia-ai-frontend.pages.dev/",
+    "status": "ok",
+    "http": "200",
+    "sampleText": "<!doctype html> "
+  },
+  {
+    "name": "subscription",
+    "url": "https://8a5d5f5f.pawdia-ai-frontend.pages.dev/subscription",
+    "status": "ok",
+    "http": "200",
+    "sampleText": "<!doctype html> "
+  },
+  {
+    "name": "contact",
+    "url": "https://8a5d5f5f.pawdia-ai-frontend.pages.dev/contact",
+    "status": "ok",
+    "http": "200",
+    "sampleText": "<!doctype html> "
+  },
+  {
+    "name": "verify",
+    "url": "https://8a5d5f5f.pawdia-ai-frontend.pages.dev/verify",
+    "status": "ok",
+    "http": "200",
+    "sampleText": "<!doctype html> "
+  }
+]

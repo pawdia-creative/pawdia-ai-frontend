@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/constants';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 
 const EmailVerification = () => {
   // @ts-ignore - react-router-dom types may be unresolved in some environments
@@ -54,7 +55,8 @@ const EmailVerification = () => {
         });
         clearTimeout(timeoutId);
 
-        const data = await response.json();
+        const parsed = await safeParseJsonResponse(response);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
         if (import.meta.env.DEV) console.log('[VERIFY FRONTEND] Response status:', response.status, 'data:', data);
 
         if (response.ok) {
@@ -219,11 +221,12 @@ const EmailVerification = () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email: resendEmail })
                       });
-                      const d = await resp.json().catch(() => ({}));
+                      const parsed = await safeParseJsonResponse(resp);
+                      const d = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
                       if (resp.ok) {
-                        setResendResult(d.message || 'Verification email sent. Please check your inbox.');
+                        setResendResult(d?.message || 'Verification email sent. Please check your inbox.');
                       } else {
-                        setResendResult(d.message || 'Failed to resend verification email. Please try again later.');
+                        setResendResult(d?.message || 'Failed to resend verification email. Please try again later.');
                       }
                     } catch (err) {
                       setResendResult('Network error while resending. Please try again.');

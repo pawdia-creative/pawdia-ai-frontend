@@ -1,0 +1,58 @@
+[
+  {
+    "name": "home",
+    "url": "https://pawdia-ai.com/",
+    "status": "ok",
+    "checks": {
+      "Already granted": false,
+      "granted at registration": false,
+      "$0": false,
+      "3 credits included": false
+    },
+    "screenshot": "/Users/tangmaosheng/Desktop/pawdia-ai.com/scripts/e2e_outputs/home.png",
+    "sampleText": "Pawdia AI\nSign In\nSign Up\n✨ AI-Powered Pet Art\nTransform Your Pet Into Art\n\nTurn your beloved pet's photo into stunning artistic portraits with AI.\nChoose a style, generate art, download high-quality ",
+    "htmlSnippet": "<!DOCTYPE html><html lang=\"en-US\"><head>\n    <!-- Google tag (gtag.js) -->\n    <script async=\"\" src=\"https://www.googletagmanager.com/gtag/js?id=G-BBMLQZNC80\"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag('js', new Date());\n\n      gtag('config', 'G-BBMLQZNC80');\n    </script>\n    <meta charset=\"UTF-8\">\n    <meta"
+  },
+  {
+    "name": "subscription",
+    "url": "https://pawdia-ai.com/subscription",
+    "status": "ok",
+    "checks": {
+      "Already granted": false,
+      "granted at registration": false,
+      "$0": false,
+      "3 credits included": false
+    },
+    "screenshot": "/Users/tangmaosheng/Desktop/pawdia-ai.com/scripts/e2e_outputs/subscription.png",
+    "sampleText": "Pawdia AI\nSign In\nSign Up\nSign In\n\nEnter your credentials to access your account\n\nEmail\nPassword\nSign In\nDon't have an account? Sign up",
+    "htmlSnippet": "<!DOCTYPE html><html lang=\"en-US\"><head>\n    <!-- Google tag (gtag.js) -->\n    <script async=\"\" src=\"https://www.googletagmanager.com/gtag/js?id=G-BBMLQZNC80\"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag('js', new Date());\n\n      gtag('config', 'G-BBMLQZNC80');\n    </script>\n    <meta charset=\"UTF-8\">\n    <meta"
+  },
+  {
+    "name": "contact",
+    "url": "https://pawdia-ai.com/contact",
+    "status": "ok",
+    "checks": {
+      "Already granted": false,
+      "granted at registration": false,
+      "$0": false,
+      "3 credits included": false
+    },
+    "screenshot": "/Users/tangmaosheng/Desktop/pawdia-ai.com/scripts/e2e_outputs/contact.png",
+    "sampleText": "Pawdia AI\nSign In\nSign Up\nContact Us\n\nHave a question, feedback, or need support? We're here to help! Reach out to us through any of the channels below.\n\nSend us a message\nSend\nInstagram\n\nFollow us fo",
+    "htmlSnippet": "<!DOCTYPE html><html lang=\"en-US\"><head>\n    <!-- Google tag (gtag.js) -->\n    <script async=\"\" src=\"https://www.googletagmanager.com/gtag/js?id=G-BBMLQZNC80\"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag('js', new Date());\n\n      gtag('config', 'G-BBMLQZNC80');\n    </script>\n    <meta charset=\"UTF-8\">\n    <meta"
+  },
+  {
+    "name": "email_verify_placeholder",
+    "url": "https://pawdia-ai.com/verify",
+    "status": "ok",
+    "checks": {
+      "Already granted": false,
+      "granted at registration": false,
+      "$0": false,
+      "3 credits included": false
+    },
+    "screenshot": "/Users/tangmaosheng/Desktop/pawdia-ai.com/scripts/e2e_outputs/email_verify_placeholder.png",
+    "sampleText": "Pawdia AI\nSign In\nSign Up\nEmail Verification\nVerification email sent. Please check your inbox and follow the link to verify your email.\nBack to Home\nLog in",
+    "htmlSnippet": "<!DOCTYPE html><html lang=\"en-US\"><head>\n    <!-- Google tag (gtag.js) -->\n    <script async=\"\" src=\"https://www.googletagmanager.com/gtag/js?id=G-BBMLQZNC80\"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag('js', new Date());\n\n      gtag('config', 'G-BBMLQZNC80');\n    </script>\n    <meta charset=\"UTF-8\">\n    <meta"
+  }
+]

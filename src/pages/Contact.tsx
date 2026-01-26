@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/lib/toast";
 import { API_BASE_URL } from '@/lib/constants';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 
 const Contact = () => {
   const seo = SEO_CONFIG['/contact'];
@@ -78,7 +79,8 @@ const Contact = () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name, email, phone, message })
                       });
-                      const data = await resp.json();
+                      const parsed = await safeParseJsonResponse(resp);
+                      const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
                       if (resp.ok) {
                         toast.success('Message sent. We will contact you shortly.');
                         (document.getElementById('contact-name') as HTMLInputElement).value = '';
@@ -86,7 +88,7 @@ const Contact = () => {
                         (document.getElementById('contact-phone') as HTMLInputElement).value = '';
                         (document.getElementById('contact-message') as HTMLTextAreaElement).value = '';
                       } else {
-                        toast.error(data.message || 'Failed to send message');
+                        toast.error(data?.message || 'Failed to send message');
                       }
                     } catch (err) {
                       if (import.meta.env.DEV) console.error('Contact send error', err);

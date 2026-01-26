@@ -17,6 +17,7 @@ import { toast } from '@/lib/toast';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { Globe, Activity, Users, TrendingUp } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/constants';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 
 // Analytics data interfaces
 interface ApiEndpointStat {
@@ -98,9 +99,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ activeTab }) =>
       });
 
       if (response.ok) {
-        const data = await response.json();
-        console.log('Analytics data received:', data.topUsers); // Debug log
-        setAnalytics(data);
+        const parsed = await safeParseJsonResponse(response);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
+        console.log('Analytics data received:', (data as any)?.topUsers); // Debug log
+        setAnalytics(data as any);
       } else {
         toast.error('Failed to fetch analytics data');
       }

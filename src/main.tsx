@@ -99,3 +99,29 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     setTimeout(registerSW, 5000);
   }
 }
+
+// Listen for service worker controller change and messages to prompt reload on new SW
+if ('serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    console.log('[SW] controllerchange detected, reloading page to activate new SW');
+    window.location.reload();
+  });
+
+  // Listen for activation messages from the SW and trigger skipWaiting if desired
+  navigator.serviceWorker.addEventListener('message', (evt) => {
+    try {
+      const data = evt.data;
+      if (!data) return;
+      if (data.type === 'SW_ACTIVATED') {
+        // The SW informed us it activated; reload to ensure clients use the latest assets.
+        console.log('[SW] received SW_ACTIVATED message, reloading to use updated assets');
+        window.location.reload();
+      }
+    } catch (e) {
+      // ignore
+    }
+  });
+}

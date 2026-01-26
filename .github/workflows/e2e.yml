@@ -1,0 +1,69 @@
+name: E2E production checks
+
+on:
+  # Run on pushed tags (e.g. v1.2.3) and when a release is published
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Run headless E2E checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run unauthenticated page checks
+        run: |
+          mkdir -p scripts/e2e_outputs
+          node scripts/e2e_check_production.mjs
+
+      - name: Run login + subscription checks
+        env:
+          # no secrets required; test user will be created programmatically by the script
+          CI: true
+        run: |
+          node scripts/e2e_login_and_check.mjs
+      
+      - name: Cleanup temporary test user (always run)
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -e
+          OUT="./scripts/e2e_outputs/logged_in_results.json"
+          if [ -f "$OUT" ]; then
+            EMAIL=$(node -e "console.log(require('./scripts/e2e_outputs/logged_in_results.json').email || '')")
+            if [ -n \"$EMAIL\" ]; then
+              echo \"Cleaning up test user: $EMAIL\"
+              npx wrangler d1 execute pawdia-ai-db --remote --command \"DELETE FROM analytics WHERE user_id IN (SELECT id FROM users WHERE email = '$EMAIL'); DELETE FROM payments WHERE user_id IN (SELECT id FROM users WHERE email = '$EMAIL'); DELETE FROM images WHERE user_id IN (SELECT id FROM users WHERE email = '$EMAIL'); DELETE FROM users WHERE email = '$EMAIL';\"
+            else
+              echo \"No email found in results file; skipping cleanup\"
+            fi
+          else
+            echo \"No results file found; skipping cleanup\"
+          fi
+
+      - name: Upload E2E artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: scripts/e2e_outputs
+
+

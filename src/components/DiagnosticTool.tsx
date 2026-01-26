@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { API_BASE_URL } from '@/lib/constants';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -100,12 +101,13 @@ const DiagnosticTool: React.FC = () => {
         credentials: 'include'
       });
 
-      const data = await response.json();
+      const parsed = await safeParseJsonResponse(response);
+      const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
 
-      if (response.ok && data.token) {
-        addResult({ test: 'Admin Login', status: 'success', message: 'Admin login successful', details: `User: ${data.user.email}` });
+      if (response.ok && data && (data as any).token) {
+        addResult({ test: 'Admin Login', status: 'success', message: 'Admin login successful', details: `User: ${(data as any).user?.email || 'unknown'}` });
       } else {
-        addResult({ test: 'Admin Login', status: 'error', message: `Login failed: ${data.message || 'Unknown error'}`, details: `Status: ${response.status}` });
+        addResult({ test: 'Admin Login', status: 'error', message: `Login failed: ${data?.message || 'Unknown error'}`, details: `Status: ${response.status}` });
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -121,8 +123,9 @@ const DiagnosticTool: React.FC = () => {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        addResult({ test: 'Auth Check', status: 'success', message: 'Auth check successful', details: `User: ${data.user?.email || 'Unknown'}` });
+        const parsed = await safeParseJsonResponse(response);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
+        addResult({ test: 'Auth Check', status: 'success', message: 'Auth check successful', details: `User: ${data?.user?.email || 'Unknown'}` });
       } else if (response.status === 401) {
         addResult({ test: 'Auth Check', status: 'error', message: 'Not authenticated (expected if no login)', details: `Status: ${response.status}` });
       } else {

@@ -14,7 +14,20 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+      // Notify clients that a new service worker has taken control.
+      try {
+        const allClients = await self.clients.matchAll({ includeUncontrolled: true });
+        for (const client of allClients) {
+          client.postMessage({ type: 'SW_ACTIVATED' });
+        }
+      } catch (e) {
+        // ignore
+      }
+    })()
+  );
 });
 
 // Simple runtime caching: serve from cache, fetch and cache otherwise.
@@ -46,6 +59,14 @@ self.addEventListener('fetch', (event) => {
         });
     })
   );
+});
+
+// Allow pages to trigger skipWaiting via postMessage (safe update flow)
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+  if (event.data === 'SKIP_WAITING' || (event.data && event.data.type === 'SKIP_WAITING')) {
+    self.skipWaiting();
+  }
 });
 
 

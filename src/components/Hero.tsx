@@ -200,7 +200,7 @@ export const Hero = () => {
             <div className="text-sm text-muted-foreground">Happy Pet Parents</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl md:text-4xl font-bold text-primary mb-2">5+</div>
+              <div className="text-3xl md:text-4xl font-bold text-primary mb-2">5+</div>
             <div className="text-sm text-muted-foreground">Art Styles</div>
           </div>
           <div className="text-center">

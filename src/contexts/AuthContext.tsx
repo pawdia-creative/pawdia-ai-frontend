@@ -5,6 +5,7 @@ import { API_BASE_URL, USE_MOCK_AUTH } from '@/lib/constants';
 import { normalizeUser, isUserVerified, isUserAdmin } from '@/lib/dataTransformers';
 import { apiClient } from '@/lib/apiClient';
 import { tokenStorage } from '@/lib/tokenStorage';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 
 // Debug information (development only)
 if (import.meta.env.DEV) {
@@ -282,8 +283,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         credentials: 'include',
         body: JSON.stringify(credentials),
       });
-
-      const data = await response.json();
+      const parsed = await safeParseJsonResponse(response);
+      const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
 
       if (!response.ok) {
         dispatch({ type: 'AUTH_FAILURE', payload: data?.message || 'Login failed' });
@@ -426,8 +427,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           confirmPassword: credentials.confirmPassword
         }),
       });
-
-      const data = await response.json();
+      const parsed = await safeParseJsonResponse(response);
+      const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
 
       if (!response.ok) {
         throw new Error(data.message || 'Registration failed');

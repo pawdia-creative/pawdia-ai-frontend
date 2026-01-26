@@ -393,7 +393,7 @@ export default {
 
     // Minimal test endpoint
     if (url.pathname === '/api/minimal' && request.method === 'GET') {
-      return new Response('OK', { status: 200 });
+      return new Response(JSON.stringify({ message: 'OK' }), { status: 200, headers: corsHeaders });
     }
 
     // Auth endpoints

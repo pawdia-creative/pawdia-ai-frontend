@@ -1,0 +1,13 @@
+{
+  "email": "e2e-test-1769394404@example.com",
+  "subscription": {
+    "textSnippet": "Pawdia AI\n👤\nE2E Test 1769394404\nEmail verification required\n\nPlease verify your email to continue using Pawdia AI\n\nWe have sent a verification email to e2e-test-1769394404@example.com.\n\nPlease check your inbox (including spam folder) and click the verification link in the email to complete verification.\n\nResend verification emailI have verified — refresh pageLog out\n\nDidn't receive the email?\n\nCh",
+    "checks": {
+      "Already granted": false,
+      "granted at registration": false,
+      "$0": false,
+      "3 credits included": false
+    },
+    "screenshot": "/Users/tangmaosheng/Desktop/pawdia-ai.com/scripts/e2e_outputs/subscription_logged_in.png"
+  }
+}

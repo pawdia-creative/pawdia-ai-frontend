@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 import { Search, CreditCard, Eye, Save, ShieldCheck, KeyRound, Trash2 } from 'lucide-react';
 
 interface User {
@@ -167,8 +168,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
           // ignore
         }
       } else {
-        const data = await response.json();
-        toast.error(data.message || 'Credit operation failed');
+        const parsed = await safeParseJsonResponse(response);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
+        toast.error(data?.message || 'Credit operation failed');
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error performing credit operation:', error);
@@ -245,8 +247,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
           // ignore refresh errors
         }
       } else {
-        const data = await response.json();
-        toast.error(data.message || 'Subscription update failed');
+        const parsed = await safeParseJsonResponse(response);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
+        toast.error(data?.message || 'Subscription update failed');
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error updating subscription:', error);
@@ -281,8 +284,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
         toast.success('Password reset successful');
         setPasswordDialogOpen(false);
       } else {
-        const data = await response.json();
-        toast.error(data.message || 'Password reset failed');
+        const parsed = await safeParseJsonResponse(response);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
+        toast.error(data?.message || 'Password reset failed');
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error resetting password:', error);
@@ -348,9 +352,10 @@ const UserManagement: React.FC<UserManagementProps> = ({
           // ignore
         }
       } else {
-        let data = null;
+        let data: any = null;
         try {
-          data = await response.json();
+          const parsed = await safeParseJsonResponse(response);
+          data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
         } catch (e) {
           if (import.meta.env.DEV) console.warn('[ADMIN-DEBUG] failed to parse delete response JSON', e);
         }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/useAuth';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { API_BASE_URL } from '@/lib/constants';
+import { safeParseJsonResponse } from '@/lib/fetchHelpers';
 import Coins from 'lucide-react/dist/esm/icons/coins';
 import Crown from 'lucide-react/dist/esm/icons/crown';
 import Zap from 'lucide-react/dist/esm/icons/zap';
@@ -170,15 +171,17 @@ const Subscription: React.FC = () => {
     }
 
     const apiBase = API_BASE_URL;
-    const tryFetchConfig = (base: string) =>
-      fetch(`${base.replace(/\/api$/, '')}/api/config`)
-        .then((res) => (res.ok ? res.json() : Promise.reject('no config')))
-        .then((data) => {
-          if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
-        })
-        .catch(() => {
-          // ignore - we'll try fallback or set done below
-        });
+    const tryFetchConfig = (base: string) => (async () => {
+      try {
+        const res = await fetch(`${base.replace(/\/api$/, '')}/api/config`);
+        if (!res.ok) throw new Error('no config');
+        const parsed = await safeParseJsonResponse(res);
+        const data = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
+        if (!cancelled && data?.paypalClientId) setRuntimePayPalClientId(data.paypalClientId);
+      } catch (e) {
+        // ignore - we'll try fallback or set done below
+      }
+    })();
 
     if (apiBase) {
       tryFetchConfig(apiBase)
@@ -293,7 +296,8 @@ const Subscription: React.FC = () => {
           throw new Error('Failed to process credit purchase');
         }
         
-        const processResult = await processResponse.json();
+        const parsedProcess = await safeParseJsonResponse(processResponse);
+        const processResult = parsedProcess.data ?? (parsedProcess.text ? { message: parsedProcess.text } : null);
         
         // Update local user information
         const storedUser = localStorage.getItem('user');
@@ -415,9 +419,10 @@ const Subscription: React.FC = () => {
                 }
               });
               if (meResponse.ok) {
-                const meData = await meResponse.json();
+                const parsed = await safeParseJsonResponse(meResponse);
+                const meData = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
                 if (import.meta.env.DEV) console.log('[SUBSCRIPTION FRONTEND] Refreshed user data:', meData);
-                if (meData.user) {
+                if (meData?.user) {
                   localStorage.setItem('user', JSON.stringify(meData.user));
                   setUserCredits(meData.user.credits || 0);
                   if (updateUser) {
@@ -443,7 +448,8 @@ const Subscription: React.FC = () => {
           throw new Error(errorData.message || 'Subscription failed');
         }
 
-        const result = await response.json();
+        const parsed = await safeParseJsonResponse(response);
+        const result = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
         if (import.meta.env.DEV) console.log('[SUBSCRIPTION FRONTEND] Free subscription result:', result);
         
         // Update local user information
@@ -541,7 +547,8 @@ const Subscription: React.FC = () => {
         throw new Error('Subscription failed');
       }
 
-      const result = await response.json();
+      const parsed = await safeParseJsonResponse(response);
+      const result = parsed.data ?? (parsed.text ? { message: parsed.text } : null);
       
       // Update local user information
       const storedUser = localStorage.getItem('user');
@@ -616,8 +623,8 @@ const Subscription: React.FC = () => {
                     {plan.icon}
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">${plan.price}</span>
-                    <span className="text-muted-foreground">/month</span>
+                    <span className="text-3xl font-bold">{plan.price === 0 ? '$0' : `$${plan.price}`}</span>
+                    {plan.price !== 0 && <span className="text-muted-foreground">/month</span>}
                   </div>
                   <CardDescription>
                     {plan.credits} credits included
@@ -644,7 +651,7 @@ const Subscription: React.FC = () => {
                     disabled={isProcessing}
                     type="button"
                   >
-                    {plan.price === 0 ? 'Get Started' : 'Select Plan'}
+                    {plan.price === 0 ? 'Already granted' : 'Select Plan'}
                   </Button>
                 </CardContent>
               </Card>
