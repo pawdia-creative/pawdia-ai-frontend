@@ -64,6 +64,11 @@ async function waitForServerReady(timeoutMs = 30000) {
 }
 
 async function main() {
+  if (process.env.CF_PAGES === '1') {
+    console.log('[prerender] Detected Cloudflare Pages build environment (CF_PAGES=1), skipping prerender to avoid CI timeout.');
+    return;
+  }
+
   ensurePlaywrightBrowserInstalled();
 
   const preview = spawn(
