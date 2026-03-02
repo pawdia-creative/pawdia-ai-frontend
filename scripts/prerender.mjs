@@ -1,12 +1,12 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
 const DIST_DIR = path.resolve('dist');
-const HOST = '127.0.0.1';
-const PORT = 4173;
-const BASE_URL = `http://${HOST}:${PORT}`;
+const HOST = process.env.PRERENDER_HOST || '127.0.0.1';
+const PORT = Number(process.env.PRERENDER_PORT || 4173);
+const BASE_URL = process.env.PRERENDER_BASE_URL || `http://${HOST}:${PORT}`;
 
 const routes = [
   '/',
@@ -30,7 +30,25 @@ function routeToOutputPath(route) {
   return path.join(DIST_DIR, normalized, 'index.html');
 }
 
-async function waitForServerReady(timeoutMs = 20000) {
+function ensurePlaywrightBrowserInstalled() {
+  const check = spawnSync(
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    ['playwright', 'install', 'chromium', '--with-deps'],
+    {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || '0',
+      },
+    }
+  );
+
+  if (check.status !== 0) {
+    throw new Error('Playwright chromium install failed.');
+  }
+}
+
+async function waitForServerReady(timeoutMs = 30000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -45,6 +63,8 @@ async function waitForServerReady(timeoutMs = 20000) {
 }
 
 async function main() {
+  ensurePlaywrightBrowserInstalled();
+
   const preview = spawn(
     process.platform === 'win32' ? 'npm.cmd' : 'npm',
     ['run', 'preview', '--', '--host', HOST, '--port', String(PORT), '--strictPort'],
@@ -90,4 +110,3 @@ main().catch((err) => {
   console.error('[prerender] Failed:', err);
   process.exit(1);
 });
-
