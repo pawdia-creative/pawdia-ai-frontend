@@ -1,7 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { chromium } from 'playwright';
+
+// Keep install path and runtime lookup consistent in CI.
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+}
 
 const DIST_DIR = path.resolve('dist');
 const HOST = process.env.PRERENDER_HOST || '127.0.0.1';
@@ -36,10 +40,7 @@ function ensurePlaywrightBrowserInstalled() {
     ['playwright', 'install', 'chromium'],
     {
       stdio: 'inherit',
-      env: {
-        ...process.env,
-        PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || '0',
-      },
+      env: process.env,
     }
   );
 
@@ -84,6 +85,7 @@ async function main() {
   try {
     await waitForServerReady();
 
+    const { chromium } = await import('playwright');
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
 
