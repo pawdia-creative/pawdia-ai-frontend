@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prerender.mjs",
-    "build:spa": "vite build",
+    "build": "vite build",
+    "build:prerender": "vite build && node scripts/prerender.mjs",
     "build:dev": "vite build --mode development",
     "test": "vitest",
     "test:ci": "vitest --run --reporter=dot",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build && npx wrangler pages deploy ./dist --project-name=pawdia-ai-frontend",
+    "deploy": "npm run build:prerender && npx wrangler pages deploy ./dist --project-name=pawdia-ai-frontend --branch=main --commit-dirty=true",
     "generate:sitemap": "node scripts/generate-sitemap.js",
     "db:init": "node scripts/init-db.js"
   },
