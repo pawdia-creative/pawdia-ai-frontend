@@ -33,7 +33,7 @@ function routeToOutputPath(route) {
 function ensurePlaywrightBrowserInstalled() {
   const check = spawnSync(
     process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['playwright', 'install', 'chromium', '--with-deps'],
+    ['playwright', 'install', 'chromium'],
     {
       stdio: 'inherit',
       env: {
