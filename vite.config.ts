@@ -5,7 +5,10 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const plugins = [react()];
+  const plugins = [
+    react(),
+
+  ];
 
   // Add Sentry plugin for production builds
   if (mode === 'production' && process.env.VITE_SENTRY_DSN) {

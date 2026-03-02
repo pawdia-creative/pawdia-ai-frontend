@@ -8,6 +8,7 @@
     },
     "types": ["vitest"],
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

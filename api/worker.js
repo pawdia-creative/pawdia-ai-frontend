@@ -486,6 +486,12 @@ export default {
         const maxAge = 7 * 24 * 3600; // 7 days
         // Use SameSite=None for cross-origin frontend <-> API fetches so the HttpOnly cookie is included.
         const cookie = `auth_token=${signed}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
+        // Log the Set-Cookie for debugging (temporary). This helps identify whether a proxy/worker/edge is stripping cookies.
+        try {
+          console.log('[login] setting Set-Cookie:', cookie);
+        } catch (e) {
+          // ignore logging failures
+        }
         respHeaders.append('Set-Cookie', cookie);
         // Allow credentials for cross-origin requests from frontend
         respHeaders.set('Access-Control-Allow-Credentials', 'true');

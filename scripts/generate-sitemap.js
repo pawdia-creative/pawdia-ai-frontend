@@ -10,19 +10,32 @@ const SEO_CONFIG_PATH = path.join(projectRoot, 'src', 'config', 'seo.ts');
 const SITEMAP_OUTPUT = path.join(projectRoot, 'public', 'sitemap.xml');
 const BASE_URL = 'https://pawdia-ai.com';
 
+const INDEXABLE_ROUTES = new Set([
+  '/',
+  '/about',
+  '/contact',
+  '/examples',
+  '/privacy',
+  '/terms',
+  '/cartoon-pet-portrait-ai',
+  '/watercolor-pet-portrait-ai',
+  '/sketch-pet-portrait-ai',
+  '/oil-painting-pet-portrait-ai',
+  '/ai-pet-portrait-generator',
+  '/free-ai-pet-portrait-generator',
+  '/ai-pet-portrait',
+]);
+
 const changefreqMap = {
   '/': 'weekly',
-  '/create': 'weekly',
+  '/examples': 'weekly',
   '/ai-pet-portrait-generator': 'weekly',
   '/free-ai-pet-portrait-generator': 'weekly',
   '/ai-pet-portrait': 'weekly',
-  '/examples': 'weekly',
-  '/blog': 'weekly',
 };
 
 const priorityMap = {
   '/': '1.0',
-  '/create': '0.9',
   '/ai-pet-portrait-generator': '0.9',
   '/free-ai-pet-portrait-generator': '0.9',
   '/ai-pet-portrait': '0.9',
@@ -31,9 +44,6 @@ const priorityMap = {
   '/oil-painting-pet-portrait-ai': '0.8',
   '/cartoon-pet-portrait-ai': '0.8',
   '/examples': '0.8',
-  '/pricing': '0.7',
-  '/subscription': '0.7',
-  '/blog': '0.7',
   '/about': '0.6',
   '/contact': '0.6',
   '/privacy': '0.5',
@@ -88,9 +98,10 @@ function main() {
     process.exit(1);
   }
 
-  const sitemap = buildSitemap(paths);
+  const indexablePaths = paths.filter((p) => INDEXABLE_ROUTES.has(p));
+  const sitemap = buildSitemap(indexablePaths);
   fs.writeFileSync(SITEMAP_OUTPUT, sitemap, 'utf-8');
-  console.log(`✅ Sitemap generated with ${paths.length} URLs at ${SITEMAP_OUTPUT}`);
+  console.log(`✅ Sitemap generated with ${indexablePaths.length} URLs at ${SITEMAP_OUTPUT}`);
 }
 
 main();

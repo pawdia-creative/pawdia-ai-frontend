@@ -76,6 +76,11 @@ self.addEventListener('fetch', (event) => {
       const cached = await caches.match(request);
       if (cached) return cached;
 
+      // Debug: log outgoing fetch to help diagnose network failures
+      try {
+        console.log('[SW] fetching', request.url);
+      } catch (e) { /* ignore logging failures */ }
+
       const response = await fetch(request);
       // put a copy in cache for future visits (ignore opaque responses)
       try {
@@ -89,7 +94,12 @@ self.addEventListener('fetch', (event) => {
       }
       return response;
     } catch (err) {
-      // fallback to index.html for navigations when offline
+      // Log detailed failure for debugging
+      try {
+        console.warn('[SW] fetch failed for', request.url, err);
+        notifyClients({ type: 'SW_FETCH_FAILED', url: String(request.url), error: String(err) });
+      } catch (e) { /* ignore */ }
+      // For navigations, fallback to the cached index.html so SPA can still load.
       if (request.mode === 'navigate') {
         try {
           return await caches.match('/index.html');
@@ -97,7 +107,17 @@ self.addEventListener('fetch', (event) => {
           // ignore
         }
       }
-      throw err;
+      // For non-navigation requests, return a safe 502-style response instead of throwing
+      try {
+        return new Response('Network error', {
+          status: 502,
+          statusText: 'Bad Gateway',
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      } catch (e) {
+        // If constructing the response fails, rethrow original error
+        throw err;
+      }
     }
   })());
 });

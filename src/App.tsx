@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // @ts-nocheck - TypeScript compiler passes but ESLint has issues with react-router-dom types
-import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import React, { useEffect } from "react";
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -224,25 +224,25 @@ const AppContent = () => (
                 } />
                 {/* Blog feature temporarily removed */}
         {/* Style pages */}
-        <Route path="/watercolor-pet-portrait-ai" element={<Navigate to="/ai-pet-portrait-generator" replace />} />
-        <Route path="/sketch-pet-portrait-ai" element={<Navigate to="/ai-pet-portrait-generator" replace />} />
-        <Route path="/oil-painting-pet-portrait-ai" element={<Navigate to="/ai-pet-portrait-generator" replace />} />
+        <Route path="/watercolor-pet-portrait-ai" element={<WatercolorPetPortrait />} />
+        <Route path="/sketch-pet-portrait-ai" element={<SketchPetPortrait />} />
+        <Route path="/oil-painting-pet-portrait-ai" element={<OilPaintingPetPortrait />} />
         <Route path="/cartoon-pet-portrait-ai" element={<CartoonPetPortrait />} />
-        {/* SEO redirects - these pages can redirect to main generator or show content */}
+        {/* Public SEO landing routes */}
         <Route path="/ai-pet-portrait-generator" element={
-          <ProtectedRoute>
+          <BaseRoute publicForGuests={true}>
             <ArtCreation />
-          </ProtectedRoute>
+          </BaseRoute>
         } />
         <Route path="/free-ai-pet-portrait-generator" element={
-          <ProtectedRoute>
+          <BaseRoute publicForGuests={true}>
             <ArtCreation />
-          </ProtectedRoute>
+          </BaseRoute>
         } />
         <Route path="/ai-pet-portrait" element={
-          <ProtectedRoute>
+          <BaseRoute publicForGuests={true}>
             <ArtCreation />
-          </ProtectedRoute>
+          </BaseRoute>
         } />
         <Route path="/pricing" element={
           <ProtectedRoute>

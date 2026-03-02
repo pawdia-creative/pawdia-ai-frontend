@@ -68,6 +68,28 @@ window.addEventListener('unhandledrejection', (event) => {
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Signal prerender plugin after initial paint and route/component lazy-load settle.
+// vite-plugin-prerender is configured with `renderAfterDocumentEvent`, so we must
+// dispatch on `document` (not only `window`).
+if (typeof document !== 'undefined') {
+  const dispatchPrerenderReady = () => {
+    const evt = new Event('prerender-ready');
+    document.dispatchEvent(evt);
+    // Keep window event for compatibility with other tools.
+    window.dispatchEvent(evt);
+  };
+
+  if ('requestAnimationFrame' in window) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(dispatchPrerenderReady, 300);
+      });
+    });
+  } else {
+    setTimeout(dispatchPrerenderReady, 500);
+  }
+}
+
 // Register service worker during idle to enable precaching of key assets
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   const registerSW = async () => {

@@ -13,5 +13,31 @@
 /*.txt  /*.txt  200
 /*.xml  /*.xml  200
 
+# Serve pre-rendered SEO routes directly
+/about    /about/index.html    200
+/about/*  /about/index.html    200
+/contact    /contact/index.html    200
+/contact/*  /contact/index.html    200
+/examples    /examples/index.html    200
+/examples/*  /examples/index.html    200
+/privacy    /privacy/index.html    200
+/privacy/*  /privacy/index.html    200
+/terms    /terms/index.html    200
+/terms/*  /terms/index.html    200
+/cartoon-pet-portrait-ai    /cartoon-pet-portrait-ai/index.html    200
+/cartoon-pet-portrait-ai/*  /cartoon-pet-portrait-ai/index.html    200
+/watercolor-pet-portrait-ai    /watercolor-pet-portrait-ai/index.html    200
+/watercolor-pet-portrait-ai/*  /watercolor-pet-portrait-ai/index.html    200
+/sketch-pet-portrait-ai    /sketch-pet-portrait-ai/index.html    200
+/sketch-pet-portrait-ai/*  /sketch-pet-portrait-ai/index.html    200
+/oil-painting-pet-portrait-ai    /oil-painting-pet-portrait-ai/index.html    200
+/oil-painting-pet-portrait-ai/*  /oil-painting-pet-portrait-ai/index.html    200
+/ai-pet-portrait-generator    /ai-pet-portrait-generator/index.html    200
+/ai-pet-portrait-generator/*  /ai-pet-portrait-generator/index.html    200
+/free-ai-pet-portrait-generator    /free-ai-pet-portrait-generator/index.html    200
+/free-ai-pet-portrait-generator/*  /free-ai-pet-portrait-generator/index.html    200
+/ai-pet-portrait    /ai-pet-portrait/index.html    200
+/ai-pet-portrait/*  /ai-pet-portrait/index.html    200
+
 # SPA fallback - redirect all other routes to index.html
 /*    /index.html   200
