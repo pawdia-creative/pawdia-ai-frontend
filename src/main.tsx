@@ -106,7 +106,23 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         return;
       }
 
-      await navigator.serviceWorker.register('/sw.js');
+      const versionResp = await fetch('/index.html', { cache: 'no-store' });
+      const versionHtml = await versionResp.text();
+      const versionMatch = versionHtml.match(/<meta\s+name="pawdia-build-version"\s+content="([^"]+)"\s*\/?>/i);
+      const buildVersion = versionMatch?.[1] || 'v3';
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+
+      await navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(buildVersion)}`);
+
+      for (const registration of existingRegistrations) {
+        try {
+          if (registration.active?.scriptURL && !registration.active.scriptURL.includes(`v=${buildVersion}`)) {
+            await registration.update();
+          }
+        } catch (e) {
+          // ignore individual update failures
+        }
+      }
     } catch (e) {
       // ignore registration failures but surface in console
       console.warn('Service worker registration failed', e);
