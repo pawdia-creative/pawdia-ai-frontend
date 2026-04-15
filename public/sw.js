@@ -74,10 +74,17 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     try {
       const url = new URL(request.url);
+      const pathname = url.pathname;
       const bypassCachePaths = new Set(['/sitemap.xml', '/image-sitemap.xml', '/robots.txt']);
-      const shouldBypassCache = bypassCachePaths.has(url.pathname) || url.pathname.endsWith('.xml');
+      const isAssetRequest = pathname.startsWith('/assets/') || /\.(js|mjs|css|png|jpg|jpeg|webp|svg|ico|txt|xml)$/i.test(pathname);
+      const shouldBypassCache = bypassCachePaths.has(pathname) || pathname.endsWith('.xml');
 
-      if (shouldBypassCache) {
+      if (request.mode === 'navigate') {
+        const networkResponse = await fetch(request);
+        return networkResponse;
+      }
+
+      if (shouldBypassCache || isAssetRequest) {
         return fetch(request, { cache: 'no-store' });
       }
 
@@ -92,7 +99,9 @@ self.addEventListener('fetch', (event) => {
       const response = await fetch(request);
       // put a copy in cache for future visits (ignore opaque responses)
       try {
-        if (response && response.status === 200 && response.type !== 'opaque') {
+        const contentType = response.headers.get('content-type') || '';
+        const isHtml = contentType.includes('text/html');
+        if (response && response.status === 200 && response.type !== 'opaque' && !isHtml) {
           const respClone = response.clone();
           const cache = await caches.open(CACHE_NAME);
           cache.put(request, respClone).catch(() => {});

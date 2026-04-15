@@ -21,35 +21,35 @@ const LoadingSpinner = () => (
 );
 
 // Lazy load components
-const Navbar = React.lazy(() => import("@/components/Navbar"));
-const ProtectedRoute = React.lazy(() => import("@/components/ProtectedRoute"));
-const AdminRoute = React.lazy(() => import("@/components/AdminRoute"));
-const BaseRoute = React.lazy(() => import("@/components/BaseRoute"));
+const Navbar = lazyWithRetry(() => import("@/components/Navbar"));
+const ProtectedRoute = lazyWithRetry(() => import("@/components/ProtectedRoute"));
+const AdminRoute = lazyWithRetry(() => import("@/components/AdminRoute"));
+const BaseRoute = lazyWithRetry(() => import("@/components/BaseRoute"));
 
-const Index = React.lazy(() => import("@/pages/Index"));
-const ArtCreation = React.lazy(() => import("@/pages/ArtCreation").then(module => ({ default: module.ArtCreation })));
-const Login = React.lazy(() => import("@/pages/Login"));
+const Index = lazyWithRetry(() => import("@/pages/Index"));
+const ArtCreation = lazyWithRetry(() => import("@/pages/ArtCreation").then(module => ({ default: module.ArtCreation })));
+const Login = lazyWithRetry(() => import("@/pages/Login"));
 import Register from "@/pages/Register"; // register page used synchronously to avoid dynamic import failures
-const Profile = React.lazy(() => import("@/pages/Profile"));
-const Subscription = React.lazy(() => import("@/pages/Subscription"));
+const Profile = lazyWithRetry(() => import("@/pages/Profile"));
+const Subscription = lazyWithRetry(() => import("@/pages/Subscription"));
 // Use lazy import with retry for the admin dashboard to reduce blank-page incidents caused by
 // transient chunk/network failures.
 const AdminDashboard = lazyWithRetry(() => import("@/pages/AdminDashboard"));
-const NotFound = React.lazy(() => import("@/pages/NotFound"));
-const PrivacyPolicy = React.lazy(() => import("@/pages/PrivacyPolicy"));
-const TermsOfService = React.lazy(() => import("@/pages/TermsOfService"));
-const EmailVerification = React.lazy(() => import("@/pages/EmailVerification"));
-const EmailVerificationRequired = React.lazy(() => import("@/pages/EmailVerificationRequired"));
-const VerifySuccess = React.lazy(() => import("@/pages/VerifySuccess"));
-const Diagnostics = React.lazy(() => import("@/pages/Diagnostics"));
-const About = React.lazy(() => import("@/pages/About"));
-const Contact = React.lazy(() => import("@/pages/Contact"));
-const Examples = React.lazy(() => import("@/pages/Examples"));
+const NotFound = lazyWithRetry(() => import("@/pages/NotFound"));
+const PrivacyPolicy = lazyWithRetry(() => import("@/pages/PrivacyPolicy"));
+const TermsOfService = lazyWithRetry(() => import("@/pages/TermsOfService"));
+const EmailVerification = lazyWithRetry(() => import("@/pages/EmailVerification"));
+const EmailVerificationRequired = lazyWithRetry(() => import("@/pages/EmailVerificationRequired"));
+const VerifySuccess = lazyWithRetry(() => import("@/pages/VerifySuccess"));
+const Diagnostics = lazyWithRetry(() => import("@/pages/Diagnostics"));
+const About = lazyWithRetry(() => import("@/pages/About"));
+const Contact = lazyWithRetry(() => import("@/pages/Contact"));
+const Examples = lazyWithRetry(() => import("@/pages/Examples"));
 
-const WatercolorPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.WatercolorPetPortrait })));
-const SketchPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.SketchPetPortrait })));
-const OilPaintingPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.OilPaintingPetPortrait })));
-const CartoonPetPortrait = React.lazy(() => import("@/pages/StylePage").then(module => ({ default: module.CartoonPetPortrait })));
+const WatercolorPetPortrait = lazyWithRetry(() => import("@/pages/StylePage").then(module => ({ default: module.WatercolorPetPortrait })));
+const SketchPetPortrait = lazyWithRetry(() => import("@/pages/StylePage").then(module => ({ default: module.SketchPetPortrait })));
+const OilPaintingPetPortrait = lazyWithRetry(() => import("@/pages/StylePage").then(module => ({ default: module.OilPaintingPetPortrait })));
+const CartoonPetPortrait = lazyWithRetry(() => import("@/pages/StylePage").then(module => ({ default: module.CartoonPetPortrait })));
 
 
 const queryClient = new QueryClient();
@@ -279,9 +279,9 @@ if (typeof window !== 'undefined') {
   const doPrefetch = () => {
     // Prefetch examples and creation page after idle
     try {
-      import('@/pages/Examples');
-      import('@/pages/ArtCreation');
-      import('@/components/Navbar');
+      import('@/pages/Examples').catch(() => {});
+      import('@/pages/ArtCreation').catch(() => {});
+      import('@/components/Navbar').catch(() => {});
     } catch {
       // ignore
     }

@@ -12,7 +12,7 @@ const LazyAnalyticsLoader: React.FC<{ activeTab: string }> = ({ activeTab }) => 
 
   React.useEffect(() => {
     let mounted = true;
-    import('@/components/admin/AnalyticsDashboard')
+    import('@/components/admin/AnalyticsDashboard').catch(() => {})
       .then((m) => {
         if (!mounted) return;
         setLoaded(() => m.default);
