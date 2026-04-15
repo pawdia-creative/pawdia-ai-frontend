@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { useEffect, useState } from "react";
-import fallbackStatic from "@/assets/hero-pets-compressed.jpg";
 
 // Type for dynamic import modules
 type DynamicImportModule = { default: string };
@@ -112,15 +111,6 @@ export const Hero = () => {
       }, 1500);
       return () => clearTimeout(id);
     }
-    // Fallback: if lazy loading failed for any reason, ensure we show a compressed background after a short delay
-    const fallbackId = setTimeout(() => {
-      if (!bgImageData) {
-        setBgImageData({ src: fallbackStatic, srcSet: fallbackStatic });
-      }
-    }, 2500);
-    return () => {
-      clearTimeout(fallbackId);
-    };
   }, []);
   const sectionStyle = bgImageData
     ? {

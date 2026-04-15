@@ -35,14 +35,13 @@ function routeToOutputPath(route) {
 }
 
 function ensurePlaywrightBrowserInstalled() {
-  const check = spawnSync(
-    process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['playwright', 'install', 'chromium'],
-    {
-      stdio: 'inherit',
-      env: process.env,
-    }
-  );
+  // Avoid `npx playwright ...` here because some environments have broken global npm permissions.
+  // Call Playwright's local CLI directly through Node.
+  const cliPath = path.resolve('node_modules', 'playwright', 'cli.js');
+  const check = spawnSync(process.execPath, [cliPath, 'install', 'chromium'], {
+    stdio: 'inherit',
+    env: process.env,
+  });
 
   if (check.status !== 0) {
     throw new Error('Playwright chromium install failed.');
@@ -93,11 +92,20 @@ async function main() {
     const { chromium } = await import('playwright');
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    page.setDefaultNavigationTimeout(45000);
 
     for (const route of routes) {
       const url = `${BASE_URL}${route}`;
       console.log(`[prerender] Rendering ${url}`);
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+
+      // `networkidle` can hang on pages with long-polling/analytics requests.
+      // Use domcontentloaded as the primary readiness signal, then best-effort wait for network idle.
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      try {
+        await page.waitForLoadState('networkidle', { timeout: 5000 });
+      } catch {
+        // ignore: some pages never reach strict network idle
+      }
       await page.waitForTimeout(600);
 
       const html = await page.content();
@@ -114,6 +122,13 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('[prerender] Failed:', err);
-  process.exit(1);
+  const strict = process.env.PRERENDER_STRICT === '1';
+  if (strict) {
+    console.error('[prerender] Failed (strict mode):', err);
+    process.exit(1);
+  }
+
+  console.warn('[prerender] Failed, but continuing because PRERENDER_STRICT is not enabled.');
+  console.warn('[prerender] Error detail:', err);
+  process.exit(0);
 });

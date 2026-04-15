@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pawdia-precache-v1';
+const CACHE_NAME = 'pawdia-precache-v2';
 const CACHE_PREFIX = 'pawdia-precache-';
 const FALLBACK_URLS = [
   '/',
@@ -73,6 +73,14 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     try {
+      const url = new URL(request.url);
+      const bypassCachePaths = new Set(['/sitemap.xml', '/image-sitemap.xml', '/robots.txt']);
+      const shouldBypassCache = bypassCachePaths.has(url.pathname) || url.pathname.endsWith('.xml');
+
+      if (shouldBypassCache) {
+        return fetch(request, { cache: 'no-store' });
+      }
+
       const cached = await caches.match(request);
       if (cached) return cached;
 

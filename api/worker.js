@@ -417,6 +417,10 @@ export default {
         // Verify password hash - support PBKDF2, legacy SHA-256, and bcrypt formats
         const storedHash = user.password || user.password_hash || '';
         if (!storedHash) {
+          console.warn('Login failed: user record has no password hash field populated', { userId: user.id, email: user.email });
+          return new Response(JSON.stringify({ message: 'Invalid credentials' }), { status: 401, headers: corsHeaders });
+        }
+        if (!storedHash) {
           return new Response(JSON.stringify({ message: 'Invalid credentials' }), { status: 401, headers: corsHeaders });
         }
 
@@ -453,8 +457,14 @@ export default {
         if (needsRehash) {
           try {
             const newHash = await hashPassword(password);
-            await env.DB.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-              .bind(newHash, user.id).run();
+            try {
+              await env.DB.prepare('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                .bind(newHash, user.id).run();
+            } catch (updateErr) {
+              console.warn('Password rehash update to password column failed, falling back to password_hash:', updateErr);
+              await env.DB.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                .bind(newHash, user.id).run();
+            }
             console.log('Password hash upgraded for user:', user.id);
           } catch (rehashError) {
             console.warn('Failed to upgrade password hash for user:', user.id, rehashError);

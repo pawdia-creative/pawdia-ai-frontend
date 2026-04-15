@@ -248,14 +248,20 @@ export async function getUserById(db, id) {
 export async function createUser(db, userData) {
   try {
     const { id, email, name, password_hash } = userData;
-    // Note: D1 users table uses `password` column for stored password hash
-    // New users should receive 3 free credits by default and mark free_granted = 1
-    // ensureSchema should have already added `free_granted` column; set to 1 to prevent double-grant later
-    const result = await db.prepare(
-      'INSERT INTO users (id, email, name, password, credits, free_granted) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(id, email, name, password_hash, 3, 1).run(); // New users start with 3 credits and free_granted=1
-
-    return result.success;
+    // Prefer the runtime password column (used by the Worker), but keep a fallback
+    // to password_hash for databases that still use the older schema.
+    try {
+      const result = await db.prepare(
+        'INSERT INTO users (id, email, name, password, credits, free_granted) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(id, email, name, password_hash, 3, 1).run();
+      return result.success;
+    } catch (insertErr) {
+      console.warn('Insert with password/free_granted failed, falling back to legacy schema:', insertErr);
+      const fallback = await db.prepare(
+        'INSERT INTO users (id, email, name, password_hash, credits) VALUES (?, ?, ?, ?, ?)'
+      ).bind(id, email, name, password_hash, 3).run();
+      return fallback.success;
+    }
   } catch (error) {
     console.error('Error creating user:', error);
     return false;
@@ -657,14 +663,46 @@ export async function ensureSchema(db) {
     const usersInfo = await db.prepare("PRAGMA table_info(users)").all();
     const usersRows = usersInfo && usersInfo.results ? usersInfo.results : usersInfo;
     const usersCols = Array.isArray(usersRows) ? usersRows.map(r => r.name) : [];
+    if (!usersCols.includes('password') && usersCols.includes('password_hash')) {
+      try {
+        await db.prepare('ALTER TABLE users ADD COLUMN password TEXT').run();
+        console.log('Added users.password');
+      } catch (e) {
+        console.warn('Failed to add users.password (continuing):', e);
+      }
+    }
+    if (!usersCols.includes('last_login')) {
+      try {
+        await db.prepare('ALTER TABLE users ADD COLUMN last_login DATETIME').run();
+        console.log('Added users.last_login');
+      } catch (e) {
+        console.warn('Failed to add users.last_login (continuing):', e);
+      }
+    }
     if (!usersCols.includes('last_verification_sent')) {
-      await db.prepare("ALTER TABLE users ADD COLUMN last_verification_sent DATETIME").run();
-      console.log('Added users.last_verification_sent');
+      try {
+        await db.prepare("ALTER TABLE users ADD COLUMN last_verification_sent DATETIME").run();
+        console.log('Added users.last_verification_sent');
+      } catch (e) {
+        console.warn('Failed to add users.last_verification_sent (continuing):', e);
+      }
     }
     if (!usersCols.includes('free_granted')) {
       // track whether free subscription credits have been granted to this user (0/1)
-      await db.prepare("ALTER TABLE users ADD COLUMN free_granted INTEGER DEFAULT 0").run();
-      console.log('Added users.free_granted');
+      try {
+        await db.prepare("ALTER TABLE users ADD COLUMN free_granted INTEGER DEFAULT 0").run();
+        console.log('Added users.free_granted');
+      } catch (e) {
+        console.warn('Failed to add users.free_granted (continuing):', e);
+      }
+    }
+    if (!usersCols.includes('subscription_expires_at')) {
+      try {
+        await db.prepare("ALTER TABLE users ADD COLUMN subscription_expires_at DATETIME").run();
+        console.log('Added users.subscription_expires_at');
+      } catch (e) {
+        console.warn('Failed to add users.subscription_expires_at (continuing):', e);
+      }
     }
 
     const analyticsInfo = await db.prepare("PRAGMA table_info(analytics)").all();

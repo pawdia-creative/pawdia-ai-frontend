@@ -7,13 +7,8 @@ import { apiClient } from '@/lib/apiClient';
 import UserManagement from '@/components/admin/UserManagement';
 import { Users, BarChart3, Mail } from 'lucide-react';
 
-// Import a synchronous fallback for cases where dynamic import fails (e.g. CDN/module rewrite issues)
-import AnalyticsDashboardSync from '@/components/admin/AnalyticsDashboard';
-
-// Lazy loader with robust fallback: attempt dynamic import, if it fails render synchronous fallback
 const LazyAnalyticsLoader: React.FC<{ activeTab: string }> = ({ activeTab }) => {
   const [Loaded, setLoaded] = React.useState<React.ComponentType<any> | null>(null);
-  const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
     let mounted = true;
@@ -23,17 +18,12 @@ const LazyAnalyticsLoader: React.FC<{ activeTab: string }> = ({ activeTab }) => 
         setLoaded(() => m.default);
       })
       .catch((err) => {
-        console.warn('Dynamic import of AnalyticsDashboard failed, falling back to synchronous build:', err);
-        setFailed(true);
+        console.warn('Dynamic import of AnalyticsDashboard failed:', err);
       });
     return () => {
       mounted = false;
     };
   }, []);
-
-  if (failed) {
-    return <AnalyticsDashboardSync activeTab={activeTab} />;
-  }
 
   if (Loaded) {
     const Comp = Loaded;

@@ -11,6 +11,9 @@
 /*.svg  /*.svg  200
 /*.ico  /*.ico  200
 /*.txt  /*.txt  200
+/sitemap.xml  /sitemap.xml  200
+/image-sitemap.xml  /image-sitemap.xml  200
+/robots.txt  /robots.txt  200
 /*.xml  /*.xml  200
 
 # Serve pre-rendered SEO routes directly

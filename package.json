@@ -12,7 +12,7 @@
     "test:ci": "vitest --run --reporter=dot",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build:prerender && npx wrangler pages deploy ./dist --project-name=pawdia-ai-frontend --branch=main --commit-dirty=true",
+    "deploy": "npm run build:prerender && wrangler pages deploy ./dist --project-name=pawdia-ai-frontend --branch=main --commit-dirty=true",
     "generate:sitemap": "node scripts/generate-sitemap.js",
     "db:init": "node scripts/init-db.js"
   },
