@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pawdia-precache-v2';
+const CACHE_NAME = 'pawdia-precache-v3';
 const CACHE_PREFIX = 'pawdia-precache-';
 const FALLBACK_URLS = [
   '/',
@@ -38,17 +38,17 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     try {
-      // Remove old caches that match our prefix but are not current
+      // Remove every cache not matching the current version so old chunks cannot survive upgrades.
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => {
-        if (k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME) {
-          console.log('[SW] activate: deleting old cache', k);
+        if (k !== CACHE_NAME) {
+          console.log('[SW] activate: deleting cache', k);
           return caches.delete(k);
         }
         return Promise.resolve(false);
       }));
 
-      // Claim clients after cleanup so they fetch the latest assets
+      // Claim clients after cleanup so they fetch the latest assets immediately.
       await self.clients.claim();
       await notifyClients({ type: 'SW_ACTIVATED', cacheName: CACHE_NAME });
       console.log('[SW] activate: completed, claimed clients');
@@ -80,7 +80,7 @@ self.addEventListener('fetch', (event) => {
       const shouldBypassCache = bypassCachePaths.has(pathname) || pathname.endsWith('.xml');
 
       if (request.mode === 'navigate') {
-        const networkResponse = await fetch(request);
+        const networkResponse = await fetch(request, { cache: 'no-store' });
         return networkResponse;
       }
 
