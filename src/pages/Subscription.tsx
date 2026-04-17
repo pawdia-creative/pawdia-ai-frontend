@@ -36,6 +36,8 @@ interface CreditPackage {
   bonus: number;
 }
 
+const PAYMENTS_PAUSED = true;
+
 const Subscription: React.FC = () => {
   // @ts-expect-error: TypeScript cannot resolve react-router-dom types due to npm issues
   const navigate = useNavigate();
@@ -387,6 +389,10 @@ const Subscription: React.FC = () => {
   }, [selectedPlan, selectedCreditPackage]);
 
   const handleSubscribe = async (planId: string) => {
+    if (PAYMENTS_PAUSED) {
+      PaymentService.handlePaymentError('收款功能已临时暂停维护，请稍后再试。');
+      return;
+    }
     const plan = subscriptionPlans.find(p => p.id === planId);
     if (!plan) return;
     
@@ -491,6 +497,10 @@ const Subscription: React.FC = () => {
 
 
   const handlePlanSelect = (planId: string) => {
+    if (PAYMENTS_PAUSED) {
+      PaymentService.handlePaymentError('收款功能已临时暂停维护，请稍后再试。');
+      return;
+    }
     if (import.meta.env.DEV) console.log('[SUBSCRIPTION] handlePlanSelect called with planId:', planId);
     const plan = subscriptionPlans.find(p => p.id === planId);
     if (!plan) {
@@ -519,6 +529,10 @@ const Subscription: React.FC = () => {
   };
 
   const handleCreditPackageSelect = (packageId: string) => {
+    if (PAYMENTS_PAUSED) {
+      PaymentService.handlePaymentError('收款功能已临时暂停维护，请稍后再试。');
+      return;
+    }
     const creditPackage = creditPackages.find(p => p.id === packageId);
     if (!creditPackage) return;
     
@@ -645,13 +659,17 @@ const Subscription: React.FC = () => {
                     onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (PAYMENTS_PAUSED) {
+                        PaymentService.handlePaymentError('收款功能已临时暂停维护，请稍后再试。');
+                        return;
+                      }
                       if (import.meta.env.DEV) console.log('[SUBSCRIPTION] Select Plan button clicked for:', plan.id);
                       handlePlanSelect(plan.id);
                     }}
                     disabled={isProcessing}
                     type="button"
                   >
-                    {plan.price === 0 ? 'Already granted' : 'Select Plan'}
+                    {PAYMENTS_PAUSED ? 'Temporarily Paused' : (plan.price === 0 ? 'Already granted' : 'Select Plan')}
                   </Button>
                 </CardContent>
               </Card>
@@ -705,7 +723,7 @@ const Subscription: React.FC = () => {
             }
             return shouldShow;
           })() && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
               <Card className="w-full max-w-md mx-4">
                 <CardHeader>
                   <CardTitle>Complete Payment</CardTitle>
